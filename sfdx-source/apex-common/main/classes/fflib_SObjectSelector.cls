@@ -116,6 +116,7 @@ public abstract with sharing class fflib_SObjectSelector implements fflib_ISObje
   private static String SF_ID_FIELD = 'Id';
   private static final Map<Schema.SObjectField, String> FIELD_NAME_CACHE = new Map<Schema.SObjectField, String>();
   private static final Map<Schema.SObjectType, Schema.DescribeSObjectResult> SOBJECT_DESCRIBE_CACHE = new Map<Schema.SObjectType, Schema.DescribeSObjectResult>();
+  private static final Map<Schema.SObjectType, String> DEFAULT_ORDER_BY_CACHE = new Map<Schema.SObjectType, String>();
 
   /**
    * Implement this method to inform the base class of the SObject (custom or standard) to be queried
@@ -221,19 +222,7 @@ public abstract with sharing class fflib_SObjectSelector implements fflib_ISObje
   @NamespaceAccessible
   public virtual String getOrderBy() {
     if (m_orderBy == null) {
-      Schema.SObjectField nameField = fflib_SObjectDescribe.getNameField(
-        getSObjectType()
-      );
-      Schema.DescribeFieldResult nameFieldDescribe = nameField != null
-        ? nameField.getDescribe()
-        : null;
-      if (nameFieldDescribe != null && !nameFieldDescribe.isEncrypted()) {
-        m_orderBy = nameFieldDescribe.getName();
-      } else {
-        m_orderBy = sObjectFieldsMap.containsKey(DEFAULT_SORT_FIELD)
-          ? DEFAULT_SORT_FIELD
-          : SF_ID_FIELD;
-      }
+      m_orderBy = defaultOrderBy(getSObjectType());
     }
     return m_orderBy;
   }
@@ -723,6 +712,32 @@ public abstract with sharing class fflib_SObjectSelector implements fflib_ISObje
       SOBJECT_DESCRIBE_CACHE.put(sObjectType, result);
     }
     return result;
+  }
+
+  private static String defaultOrderBy(Schema.SObjectType sObjectType) {
+    String orderBy = DEFAULT_ORDER_BY_CACHE.get(sObjectType);
+    if (orderBy == null) {
+      orderBy = resolveDefaultOrderBy(sObjectType);
+      DEFAULT_ORDER_BY_CACHE.put(sObjectType, orderBy);
+    }
+    return orderBy;
+  }
+
+  private static String resolveDefaultOrderBy(Schema.SObjectType sObjectType) {
+    Schema.SObjectField nameField = fflib_SObjectDescribe.getNameField(
+      sObjectType
+    );
+    Schema.DescribeFieldResult nameFieldDescribe = nameField != null
+      ? nameField.getDescribe()
+      : null;
+    if (nameFieldDescribe != null && !nameFieldDescribe.isEncrypted()) {
+      return nameFieldDescribe.getName();
+    }
+    return describeSObject(sObjectType)
+        .fields.getMap()
+        .containsKey(DEFAULT_SORT_FIELD)
+      ? DEFAULT_SORT_FIELD
+      : SF_ID_FIELD;
   }
 
   /**
