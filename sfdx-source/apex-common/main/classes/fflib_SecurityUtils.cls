@@ -65,18 +65,19 @@ public inherited sharing class fflib_SecurityUtils {
     ) {
       this.m_operation = operation;
       this.m_objectType = objectType;
-      if (operation == OperationType.CREATE)
+      if (operation == OperationType.CREATE) {
         this.setMessage(
           System.Label.fflib_security_error_object_not_insertable
         );
-      else if (operation == OperationType.READ)
+      } else if (operation == OperationType.READ) {
         this.setMessage(System.Label.fflib_security_error_object_not_readable);
-      else if (operation == OperationType.MODIFY)
+      } else if (operation == OperationType.MODIFY) {
         this.setMessage(
           System.Label.fflib_security_error_object_not_updateable
         );
-      else if (operation == OperationType.DEL)
+      } else if (operation == OperationType.DEL) {
         this.setMessage(System.Label.fflib_security_error_object_not_deletable);
+      }
 
       this.setMessage(
         String.format(
@@ -102,12 +103,13 @@ public inherited sharing class fflib_SecurityUtils {
       this.m_operation = operation;
       this.m_objectType = objectType;
       this.m_fieldToken = fieldToken;
-      if (operation == OperationType.CREATE)
+      if (operation == OperationType.CREATE) {
         this.setMessage(System.Label.fflib_security_error_field_not_insertable);
-      else if (operation == OperationType.READ)
+      } else if (operation == OperationType.READ) {
         this.setMessage(System.Label.fflib_security_error_field_not_readable);
-      else if (operation == OperationType.MODIFY)
+      } else if (operation == OperationType.MODIFY) {
         this.setMessage(System.Label.fflib_security_error_field_not_updateable);
+      }
 
       this.setMessage(
         String.format(
@@ -261,14 +263,16 @@ public inherited sharing class fflib_SecurityUtils {
     SObjectType objType,
     DescribeFieldResult fieldDescribe
   ) {
-    if (BYPASS_INTERNAL_FLS_AND_CRUD)
+    if (BYPASS_INTERNAL_FLS_AND_CRUD) {
       return;
-    if (!fieldDescribe.isCreateable())
+    }
+    if (!fieldDescribe.isCreateable()) {
       throw new FlsException(
         OperationType.CREATE,
         objType,
         fieldDescribe.getSObjectField()
       );
+    }
   }
 
   /**
@@ -307,14 +311,16 @@ public inherited sharing class fflib_SecurityUtils {
     SObjectType objType,
     DescribeFieldResult fieldDescribe
   ) {
-    if (BYPASS_INTERNAL_FLS_AND_CRUD)
+    if (BYPASS_INTERNAL_FLS_AND_CRUD) {
       return;
-    if (!fieldDescribe.isAccessible())
+    }
+    if (!fieldDescribe.isAccessible()) {
       throw new FlsException(
         OperationType.READ,
         objType,
         fieldDescribe.getSObjectField()
       );
+    }
   }
 
   /**
@@ -353,14 +359,16 @@ public inherited sharing class fflib_SecurityUtils {
     SObjectType objType,
     DescribeFieldResult fieldDescribe
   ) {
-    if (BYPASS_INTERNAL_FLS_AND_CRUD)
+    if (BYPASS_INTERNAL_FLS_AND_CRUD) {
       return;
-    if (!fieldDescribe.isUpdateable())
+    }
+    if (!fieldDescribe.isUpdateable()) {
       throw new FlsException(
         OperationType.MODIFY,
         objType,
         fieldDescribe.getSObjectField()
       );
+    }
   }
 
   /**
@@ -373,8 +381,9 @@ public inherited sharing class fflib_SecurityUtils {
    **/
   @NamespaceAccessible
   public static void checkObjectIsInsertable(SObjectType objType) {
-    if (BYPASS_INTERNAL_FLS_AND_CRUD)
+    if (BYPASS_INTERNAL_FLS_AND_CRUD) {
       return;
+    }
     if (!objType.getDescribe().isCreateable()) {
       throw new CrudException(OperationType.CREATE, objType);
     }
@@ -386,10 +395,12 @@ public inherited sharing class fflib_SecurityUtils {
    **/
   @NamespaceAccessible
   public static void checkObjectIsReadable(SObjectType objType) {
-    if (BYPASS_INTERNAL_FLS_AND_CRUD)
+    if (BYPASS_INTERNAL_FLS_AND_CRUD) {
       return;
-    if (!objType.getDescribe().isAccessible())
+    }
+    if (!objType.getDescribe().isAccessible()) {
       throw new CrudException(OperationType.READ, objType);
+    }
   }
 
   /**
@@ -398,10 +409,12 @@ public inherited sharing class fflib_SecurityUtils {
    **/
   @NamespaceAccessible
   public static void checkObjectIsUpdateable(SObjectType objType) {
-    if (BYPASS_INTERNAL_FLS_AND_CRUD)
+    if (BYPASS_INTERNAL_FLS_AND_CRUD) {
       return;
-    if (!objType.getDescribe().isUpdateable())
+    }
+    if (!objType.getDescribe().isUpdateable()) {
       throw new CrudException(OperationType.MODIFY, objType);
+    }
   }
 
   /**
@@ -410,9 +423,11 @@ public inherited sharing class fflib_SecurityUtils {
    **/
   @NamespaceAccessible
   public static void checkObjectIsDeletable(SObjectType objType) {
-    if (BYPASS_INTERNAL_FLS_AND_CRUD)
+    if (BYPASS_INTERNAL_FLS_AND_CRUD) {
       return;
-    if (!objType.getDescribe().isDeletable())
+    }
+    if (!objType.getDescribe().isDeletable()) {
       throw new CrudException(OperationType.DEL, objType);
+    }
   }
 }
