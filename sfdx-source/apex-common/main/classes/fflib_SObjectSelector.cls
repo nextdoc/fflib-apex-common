@@ -718,7 +718,7 @@ public abstract with sharing class fflib_SObjectSelector implements fflib_ISObje
       sObjectType
     );
     if (result == null) {
-      result = sObjectType.getDescribe();
+      result = sObjectType.getDescribe(SObjectDescribeOptions.DEFERRED);
       SOBJECT_DESCRIBE_CACHE.put(sObjectType, result);
     }
     return result;
