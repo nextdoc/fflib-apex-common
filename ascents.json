@@ -1,0 +1,40 @@
+[
+  {
+    "name": "security-utils-2",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_SecurityUtils.cls"
+    ],
+    "startedAt": "2026-11-12T06:05:35.364Z",
+    "iterations": 24,
+    "kept": 10,
+    "baseline": {
+      "overall": 73,
+      "scores": {
+        "PMD": 23.8,
+        "Graph Engine": 67.6,
+        "Tests passing": 100,
+        "Code coverage": 95.8,
+        "Test run time": 73.1,
+        "Limit headroom": 51.6,
+        "Resource efficiency": 98.8
+      }
+    },
+    "best": {
+      "overall": 97.5,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 99.5,
+        "Test run time": 84.1,
+        "Limit headroom": 100,
+        "Resource efficiency": 98.8
+      },
+      "iteration": 19,
+      "commit": "0cbeb5c703a54dc2b1ca96cf28b20b6b034fb4fe"
+    },
+    "branch": "ascent/security-utils-2",
+    "report": "ascents/security-utils-2/report.html?refresh=off",
+    "retro": "ascents/security-utils-2/retro.json"
+  }
+]
