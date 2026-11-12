@@ -455,14 +455,7 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
   ) {
     // NOTE: Due to the lack of ExternalID references on Standard Objects, this method can not be provided a standardized Unit Test. - Rick Parker
     String sObjectType = record.getSObjectType().getDescribe().getName();
-    if (!m_newListByType.containsKey(sObjectType)) {
-      throw new UnitOfWorkException(
-        String.format(
-          'SObject type {0} is not supported by this unit of work',
-          new List<String>{ sObjectType }
-        )
-      );
-    }
+    assertForSupportedSObjectType(m_newListByType, sObjectType);
     m_relationships.get(sObjectType)
       .add(record, relatedToField, externalIdField, externalId);
   }
@@ -757,6 +750,16 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
     this.registerDeleted(record);
   }
 
+  private void registerPublish(
+    Map<String, List<SObject>> listByType,
+    SObject record
+  ) {
+    String sObjectType = record.getSObjectType().getDescribe().getName();
+    assertForEventSObjectType(sObjectType);
+    assertForSupportedSObjectType(listByType, sObjectType);
+    listByType.get(sObjectType).add(record);
+  }
+
   /**
    * Register a newly created SObject (Platform Event) instance to be published when commitWork is called
    *
@@ -764,12 +767,7 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
    **/
   @NamespaceAccessible
   public void registerPublishBeforeTransaction(SObject record) {
-    String sObjectType = record.getSObjectType().getDescribe().getName();
-
-    assertForEventSObjectType(sObjectType);
-    assertForSupportedSObjectType(m_publishBeforeListByType, sObjectType);
-
-    m_publishBeforeListByType.get(sObjectType).add(record);
+    registerPublish(m_publishBeforeListByType, record);
   }
 
   /**
@@ -791,12 +789,7 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
    **/
   @NamespaceAccessible
   public void registerPublishAfterSuccessTransaction(SObject record) {
-    String sObjectType = record.getSObjectType().getDescribe().getName();
-
-    assertForEventSObjectType(sObjectType);
-    assertForSupportedSObjectType(m_publishAfterSuccessListByType, sObjectType);
-
-    m_publishAfterSuccessListByType.get(sObjectType).add(record);
+    registerPublish(m_publishAfterSuccessListByType, record);
   }
 
   /**
@@ -817,12 +810,7 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
    **/
   @NamespaceAccessible
   public void registerPublishAfterFailureTransaction(SObject record) {
-    String sObjectType = record.getSObjectType().getDescribe().getName();
-
-    assertForEventSObjectType(sObjectType);
-    assertForSupportedSObjectType(m_publishAfterFailureListByType, sObjectType);
-
-    m_publishAfterFailureListByType.get(sObjectType).add(record);
+    registerPublish(m_publishAfterFailureListByType, record);
   }
 
   /**
@@ -1071,21 +1059,17 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
         );
       }
 
-      List<Schema.SObjectType> relatedObjects = relatedToFieldDescribe.getReferenceTo();
-      Schema.SObjectType relatedObject = relatedObjects[0];
+      Schema.SObjectType relatedObject = relatedToFieldDescribe.getReferenceTo()[0];
 
       Schema.DescribeFieldResult externalIdFieldDescribe = externalIdField.getDescribe();
-      Boolean relatedHasExternalIdField =
-        externalIdFieldDescribe.getSObjectType() == relatedObject;
-      Boolean externalIdFieldIsValid = externalIdFieldDescribe.isExternalId();
 
-      if (!relatedHasExternalIdField) {
+      if (externalIdFieldDescribe.getSObjectType() != relatedObject) {
         throw new UnitOfWorkException(
           'Invalid argument: externalIdField. Field supplied is not a known field on the target sObject.'
         );
       }
 
-      if (!externalIdFieldIsValid) {
+      if (!externalIdFieldDescribe.isExternalId()) {
         throw new UnitOfWorkException(
           'Invalid argument: externalIdField. Field supplied is not a marked as an External Identifier.'
         );
