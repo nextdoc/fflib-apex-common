@@ -172,14 +172,37 @@ public inherited sharing class fflib_SecurityUtils {
   private static Id fieldDescribeCacheUserId;
   private static Map<SObjectType, Map<String, DescribeFieldResult>> fieldDescribeCache = new Map<SObjectType, Map<String, DescribeFieldResult>>();
 
-  private static Map<String, DescribeFieldResult> fieldDescribesFor(
-    SObjectType objType
-  ) {
+  private static Map<SObjectType, Set<List<String>>> verifiedReadLists = new Map<SObjectType, Set<List<String>>>();
+  private static Map<SObjectType, Set<List<String>>> verifiedInsertLists = new Map<SObjectType, Set<List<String>>>();
+  private static Map<SObjectType, Set<List<String>>> verifiedUpdateLists = new Map<SObjectType, Set<List<String>>>();
+
+  private static void resetCachesIfUserChanged() {
     Id userId = UserInfo.getUserId();
     if (userId != fieldDescribeCacheUserId) {
       fieldDescribeCache.clear();
+      verifiedReadLists.clear();
+      verifiedInsertLists.clear();
+      verifiedUpdateLists.clear();
       fieldDescribeCacheUserId = userId;
     }
+  }
+
+  private static Set<List<String>> verifiedListsFor(
+    Map<SObjectType, Set<List<String>>> byType,
+    SObjectType objType
+  ) {
+    resetCachesIfUserChanged();
+    Set<List<String>> verified = byType.get(objType);
+    if (verified == null) {
+      verified = new Set<List<String>>();
+      byType.put(objType, verified);
+    }
+    return verified;
+  }
+
+  private static Map<String, DescribeFieldResult> fieldDescribesFor(
+    SObjectType objType
+  ) {
     Map<String, DescribeFieldResult> describes = fieldDescribeCache.get(
       objType
     );
@@ -215,12 +238,19 @@ public inherited sharing class fflib_SecurityUtils {
   @NamespaceAccessible
   public static void checkInsert(SObjectType objType, List<String> fieldNames) {
     checkObjectIsInsertable(objType);
+    Set<List<String>> verified = verifiedListsFor(verifiedInsertLists, objType);
+    if (verified.contains(fieldNames)) {
+      return;
+    }
     Map<String, DescribeFieldResult> describes = fieldDescribesFor(objType);
     for (String fieldName : fieldNames) {
       checkFieldIsInsertable(
         objType,
         fieldDescribeFor(objType, describes, fieldName)
       );
+    }
+    if (!BYPASS_INTERNAL_FLS_AND_CRUD) {
+      verified.add(fieldNames.clone());
     }
   }
 
@@ -248,12 +278,19 @@ public inherited sharing class fflib_SecurityUtils {
   @NamespaceAccessible
   public static void checkRead(SObjectType objType, List<String> fieldNames) {
     checkObjectIsReadable(objType);
+    Set<List<String>> verified = verifiedListsFor(verifiedReadLists, objType);
+    if (verified.contains(fieldNames)) {
+      return;
+    }
     Map<String, DescribeFieldResult> describes = fieldDescribesFor(objType);
     for (String fieldName : fieldNames) {
       checkFieldIsReadable(
         objType,
         fieldDescribeFor(objType, describes, fieldName)
       );
+    }
+    if (!BYPASS_INTERNAL_FLS_AND_CRUD) {
+      verified.add(fieldNames.clone());
     }
   }
 
@@ -281,12 +318,19 @@ public inherited sharing class fflib_SecurityUtils {
   @NamespaceAccessible
   public static void checkUpdate(SObjectType objType, List<String> fieldNames) {
     checkObjectIsUpdateable(objType);
+    Set<List<String>> verified = verifiedListsFor(verifiedUpdateLists, objType);
+    if (verified.contains(fieldNames)) {
+      return;
+    }
     Map<String, DescribeFieldResult> describes = fieldDescribesFor(objType);
     for (String fieldName : fieldNames) {
       checkFieldIsUpdateable(
         objType,
         fieldDescribeFor(objType, describes, fieldName)
       );
+    }
+    if (!BYPASS_INTERNAL_FLS_AND_CRUD) {
+      verified.add(fieldNames.clone());
     }
   }
 
