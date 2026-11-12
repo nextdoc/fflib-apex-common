@@ -924,6 +924,78 @@ private with sharing class fflib_SObjectUnitOfWorkTest
         System.assertEquals(AccessLevel.SYSTEM_MODE,dml.m_accessLevel);
     }
 
+    @IsTest
+    private static void headroomBulkCommitWork()
+    {
+        Integer accounts = 2000;
+        List<String> industries = new List<String>{ 'Agriculture', 'Banking', 'Energy', 'Retail', 'Utilities' };
+        List<String> stages = new List<String>{ 'Prospecting', 'Qualification', 'Negotiation/Review', 'Closed Won' };
+        List<Schema.SObjectType> types = new List<Schema.SObjectType>{
+            Account.SObjectType, Contact.SObjectType, Opportunity.SObjectType, Task.SObjectType };
+        MockDML mockDML = new MockDML();
+        Integer expectedNew = 0;
+        Integer expectedDirty = 0;
+        Integer expectedDeleted = 0;
+
+        Test.startTest();
+        fflib_SObjectUnitOfWork uow = new fflib_SObjectUnitOfWork(types, mockDML);
+        for (Integer i = 0; i < accounts; i++)
+        {
+            Account acc = new Account(
+                Name = 'Headroom Account ' + i,
+                Industry = industries[Math.mod(i, industries.size())],
+                NumberOfEmployees = 10 + i * 7);
+            uow.registerNew(acc);
+            expectedNew++;
+            for (Integer c = 0; c < 1 + Math.mod(i, 4); c++)
+            {
+                Contact con = new Contact(
+                    LastName = 'Contact ' + i + '-' + c,
+                    Email = 'c' + i + '.' + c + '@example.com');
+                uow.registerNew(con, Contact.AccountId, acc);
+                Task t = new Task(Subject = 'Call ' + con.LastName, Priority = Math.mod(c, 2) == 0 ? 'High' : 'Normal');
+                uow.registerRelationship(t, Task.WhoId, con);
+                uow.registerNew(t, Task.WhatId, acc);
+                expectedNew += 2;
+            }
+            for (Integer o = 0; o < Math.mod(i, 3); o++)
+            {
+                Opportunity opp = new Opportunity(
+                    Name = acc.Name + ' Deal ' + o,
+                    StageName = stages[Math.mod(i + o, stages.size())],
+                    Amount = 1000 + i * 13 + o,
+                    CloseDate = Date.today().addDays(Math.mod(i, 90)));
+                uow.registerNew(opp, Opportunity.AccountId, acc);
+                expectedNew++;
+            }
+            Opportunity existing = new Opportunity(
+                Id = fflib_SObjectsTest.generateTestRecordId(Opportunity.SObjectType),
+                Name = 'Existing ' + i,
+                StageName = stages[Math.mod(i, stages.size())],
+                Amount = 500 + i);
+            if (Math.mod(i, 2) == 0)
+            {
+                uow.registerDirty(existing, new List<SObjectField>{ Opportunity.StageName, Opportunity.Amount });
+            }
+            else
+            {
+                uow.registerDirty(existing, Opportunity.AccountId, acc);
+            }
+            expectedDirty++;
+            if (Math.mod(i, 5) == 0)
+            {
+                uow.registerDeleted(new Contact(Id = fflib_SObjectsTest.generateTestRecordId(Contact.SObjectType)));
+                expectedDeleted++;
+            }
+        }
+        uow.commitWork();
+        Test.stopTest();
+
+        System.assertEquals(expectedNew, mockDML.recordsForInsert.size(), 'Every new record should be inserted');
+        System.assertEquals(expectedDirty, mockDML.recordsForUpdate.size(), 'Every dirty record should be updated once');
+        System.assertEquals(expectedDeleted, mockDML.recordsForDelete.size(), 'Every deleted record should be deleted');
+    }
+
     /**
      * Assert that actual events exactly match expected events (size, order and name)
      * and types match expected types
