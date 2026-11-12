@@ -132,6 +132,17 @@ public inherited sharing class fflib_SecurityUtils {
   @NamespaceAccessible
   public static Boolean BYPASS_INTERNAL_FLS_AND_CRUD = false;
 
+  private static SObjectType cachedDescribeType;
+  private static fflib_SObjectDescribe cachedDescribe;
+
+  private static fflib_SObjectDescribe describeFor(SObjectType objType) {
+    if (objType != cachedDescribeType) {
+      cachedDescribe = fflib_SObjectDescribe.getDescribe(objType);
+      cachedDescribeType = objType;
+    }
+    return cachedDescribe;
+  }
+
   /**
    * Check{Insert,Read,Update} methods check both FLS and CRUD
    **/
@@ -236,10 +247,7 @@ public inherited sharing class fflib_SecurityUtils {
     SObjectType objType,
     String fieldName
   ) {
-    checkFieldIsInsertable(
-      objType,
-      fflib_SObjectDescribe.getDescribe(objType).getField(fieldName)
-    );
+    checkFieldIsInsertable(objType, describeFor(objType).getField(fieldName));
   }
 
   /**
@@ -284,10 +292,7 @@ public inherited sharing class fflib_SecurityUtils {
     SObjectType objType,
     String fieldName
   ) {
-    checkFieldIsReadable(
-      objType,
-      fflib_SObjectDescribe.getDescribe(objType).getField(fieldName)
-    );
+    checkFieldIsReadable(objType, describeFor(objType).getField(fieldName));
   }
 
   /**
@@ -332,10 +337,7 @@ public inherited sharing class fflib_SecurityUtils {
     SObjectType objType,
     String fieldName
   ) {
-    checkFieldIsUpdateable(
-      objType,
-      fflib_SObjectDescribe.getDescribe(objType).getField(fieldName)
-    );
+    checkFieldIsUpdateable(objType, describeFor(objType).getField(fieldName));
   }
 
   /**
