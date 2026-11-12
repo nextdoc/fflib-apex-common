@@ -169,6 +169,40 @@ public inherited sharing class fflib_SecurityUtils {
     return token;
   }
 
+  private static Id fieldDescribeCacheUserId;
+  private static Map<SObjectType, Map<String, DescribeFieldResult>> fieldDescribeCache = new Map<SObjectType, Map<String, DescribeFieldResult>>();
+
+  private static Map<String, DescribeFieldResult> fieldDescribesFor(
+    SObjectType objType
+  ) {
+    Id userId = UserInfo.getUserId();
+    if (userId != fieldDescribeCacheUserId) {
+      fieldDescribeCache.clear();
+      fieldDescribeCacheUserId = userId;
+    }
+    Map<String, DescribeFieldResult> describes = fieldDescribeCache.get(
+      objType
+    );
+    if (describes == null) {
+      describes = new Map<String, DescribeFieldResult>();
+      fieldDescribeCache.put(objType, describes);
+    }
+    return describes;
+  }
+
+  private static DescribeFieldResult fieldDescribeFor(
+    SObjectType objType,
+    Map<String, DescribeFieldResult> describes,
+    String fieldName
+  ) {
+    DescribeFieldResult fieldDescribe = describes.get(fieldName);
+    if (fieldDescribe == null) {
+      fieldDescribe = fieldTokenFor(objType, fieldName).getDescribe();
+      describes.put(fieldName, fieldDescribe);
+    }
+    return fieldDescribe;
+  }
+
   /**
    * Check{Insert,Read,Update} methods check both FLS and CRUD
    **/
@@ -181,11 +215,11 @@ public inherited sharing class fflib_SecurityUtils {
   @NamespaceAccessible
   public static void checkInsert(SObjectType objType, List<String> fieldNames) {
     checkObjectIsInsertable(objType);
-    Map<String, SObjectField> tokens = fieldTokensFor(objType);
+    Map<String, DescribeFieldResult> describes = fieldDescribesFor(objType);
     for (String fieldName : fieldNames) {
       checkFieldIsInsertable(
         objType,
-        fieldTokenFor(objType, tokens, fieldName).getDescribe()
+        fieldDescribeFor(objType, describes, fieldName)
       );
     }
   }
@@ -214,11 +248,11 @@ public inherited sharing class fflib_SecurityUtils {
   @NamespaceAccessible
   public static void checkRead(SObjectType objType, List<String> fieldNames) {
     checkObjectIsReadable(objType);
-    Map<String, SObjectField> tokens = fieldTokensFor(objType);
+    Map<String, DescribeFieldResult> describes = fieldDescribesFor(objType);
     for (String fieldName : fieldNames) {
       checkFieldIsReadable(
         objType,
-        fieldTokenFor(objType, tokens, fieldName).getDescribe()
+        fieldDescribeFor(objType, describes, fieldName)
       );
     }
   }
@@ -247,11 +281,11 @@ public inherited sharing class fflib_SecurityUtils {
   @NamespaceAccessible
   public static void checkUpdate(SObjectType objType, List<String> fieldNames) {
     checkObjectIsUpdateable(objType);
-    Map<String, SObjectField> tokens = fieldTokensFor(objType);
+    Map<String, DescribeFieldResult> describes = fieldDescribesFor(objType);
     for (String fieldName : fieldNames) {
       checkFieldIsUpdateable(
         objType,
-        fieldTokenFor(objType, tokens, fieldName).getDescribe()
+        fieldDescribeFor(objType, describes, fieldName)
       );
     }
   }
