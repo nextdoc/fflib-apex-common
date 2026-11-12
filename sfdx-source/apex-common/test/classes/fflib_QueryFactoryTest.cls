@@ -692,6 +692,61 @@ private inherited sharing class fflib_QueryFactoryTest {
 		System.assertEquals(allRowsQuery, actualSoql);
 	}
 
+	@isTest
+	static void headroomBulkQueryBuilding(){
+		Integer queries = 1000;
+		List<SObjectType> types = new List<SObjectType>{
+			Account.SObjectType, Contact.SObjectType, Opportunity.SObjectType, Case.SObjectType, Lead.SObjectType
+		};
+		Map<SObjectType, List<String>> fieldsByType = new Map<SObjectType, List<String>>();
+		for (SObjectType t : types) {
+			List<String> names = new List<String>();
+			for (SObjectField f : t.getDescribe().fields.getMap().values()) {
+				DescribeFieldResult d = f.getDescribe();
+				// fflib_SObjectDescribe.getField resolves some listed fields, such as Opportunity.LastSyncTime, to null
+				if (d.isAccessible() && fflib_SObjectDescribe.getDescribe(t).getField(d.getName()) != null) {
+					names.add(d.getName());
+				}
+			}
+			names.sort();
+			fieldsByType.put(t, names);
+		}
+		List<String> conditions = new List<String>{ 'Name != null', 'CreatedDate = LAST_N_DAYS:30', 'Id != null' };
+		Integer totalLength = 0;
+
+		Test.startTest();
+		for (Integer i = 0; i < queries; i++) {
+			SObjectType t = types[Math.mod(i, types.size())];
+			List<String> names = fieldsByType.get(t);
+			Integer width = 10 + Math.mod(i * 7, 30);
+			Integer start = Math.mod(i * 13, names.size());
+			List<String> selected = new List<String>();
+			for (Integer f = 0; f < width; f++) {
+				String name = names[Math.mod(start + f, names.size())];
+				selected.add(Math.mod(i + f, 3) == 0 ? name.toLowerCase() : (Math.mod(i + f, 3) == 1 ? name.toUpperCase() : name));
+			}
+			fflib_QueryFactory qf = new fflib_QueryFactory(t)
+				.setSortSelectFields(Math.mod(i, 2) == 0)
+				.selectFields(selected)
+				.selectField('CreatedBy.Name')
+				.setCondition(t == Lead.SObjectType || t == Case.SObjectType ? 'Id != null' : conditions[Math.mod(i, conditions.size())])
+				.addOrdering('CreatedDate', fflib_QueryFactory.SortOrder.DESCENDING, Math.mod(i, 2) == 0)
+				.addOrdering(names[Math.mod(start + 1, names.size())], fflib_QueryFactory.SortOrder.ASCENDING)
+				.setLimit(50 + i);
+			if (t == Account.SObjectType) {
+				qf.subselectQuery('Contacts').selectFields(new List<String>{ 'FirstName', 'LastName', 'Email' }).setLimit(5);
+				qf.subselectQuery('Opportunities').selectFields(new List<String>{ 'Name', 'StageName', 'Amount' });
+			} else if (t == Contact.SObjectType || t == Opportunity.SObjectType) {
+				qf.selectField('Account.Name').selectField('Account.Industry');
+			}
+			totalLength += qf.toSOQL().length();
+			totalLength += qf.deepClone().setLimit(10).toSOQL().length();
+		}
+		Test.stopTest();
+
+		System.assert(totalLength > 0, 'Expected SOQL to be built');
+	}
+
 	public static User createTestUser_noAccess(){
 		User usr;
 		try {

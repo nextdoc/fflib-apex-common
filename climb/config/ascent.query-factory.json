@@ -1,0 +1,64 @@
+{
+  "app": [
+    "sfdx-source/apex-common/main/classes/fflib_QueryFactory.cls"
+  ],
+  "test": [
+    "sfdx-source/apex-common/test/classes/fflib_QueryFactoryTest.cls"
+  ],
+  "testClasses": {
+    "sample": [
+      "fflib_QueryFactoryTest"
+    ],
+    "holdout": [
+      "fflib_SObjectSelectorTest"
+    ]
+  },
+  "headroomTest": [
+    "fflib_QueryFactoryTest.headroomBulkQueryBuilding"
+  ],
+  "steps": {
+    "plan": {
+      "model": "claude-opus-5-5",
+      "command": "claude -p --output-format json --model \"$MODEL\" --allowedTools Read,Glob,Grep"
+    },
+    "implement": {
+      "model": "claude-sonnet-5-5",
+      "command": "claude -p --output-format json --model \"$MODEL\" --permission-mode acceptEdits --allowedTools Read,Edit,Write,Glob,Grep"
+    },
+    "learn": {
+      "model": "claude-sonnet-5-5",
+      "command": "claude -p --output-format json --model \"$MODEL\" --tools \"\""
+    },
+    "retro": {
+      "model": "claude-opus-5-5",
+      "command": "claude -p --output-format json --model \"$MODEL\" --allowedTools Read,Glob,Grep"
+    },
+    "audit": {
+      "model": "claude-opus-5-5",
+      "command": "claude -p --output-format json --model \"$MODEL\" --permission-mode acceptEdits --allowedTools Read,Write,\"Bash(bun cli/anchor.ts check-findings:*)\""
+    },
+    "verify": {
+      "model": "claude-sonnet-5-5",
+      "command": "claude -p --output-format json --model \"$MODEL\" --permission-mode acceptEdits --allowedTools Read,Write,\"Bash(bun cli/anchor.ts run-scenario:*)\",\"Bash(sf data query:*)\""
+    }
+  },
+  "maxDiscards": 5,
+  "weights": {
+    "PMD": 1,
+    "Graph Engine": 1,
+    "Tests passing": 1,
+    "Code coverage": 1,
+    "Test run time": 1,
+    "Limit headroom": 1,
+    "Resource efficiency": 1
+  },
+  "margins": {
+    "PMD": 0.5,
+    "Graph Engine": 0.5,
+    "Tests passing": 0,
+    "Code coverage": 0,
+    "Test run time": 3,
+    "Limit headroom": 5,
+    "Resource efficiency": 1
+  }
+}
