@@ -229,6 +229,7 @@ public inherited sharing class fflib_QueryFactory {
    * @param obj the object to check equality of.
    **/
   @NamespaceAccessible
+  @SuppressWarnings('PMD.OverrideBothEqualsAndHashcode')
   public Boolean equals(Object obj) {
     if (
       !(obj instanceof fflib_QueryFactory) ||
