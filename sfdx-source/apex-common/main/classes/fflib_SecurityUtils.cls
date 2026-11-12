@@ -143,6 +143,25 @@ public inherited sharing class fflib_SecurityUtils {
     return cachedDescribe;
   }
 
+  private static Map<SObjectType, Map<String, SObjectField>> fieldTokenCache = new Map<SObjectType, Map<String, SObjectField>>();
+
+  private static SObjectField fieldTokenFor(
+    SObjectType objType,
+    String fieldName
+  ) {
+    Map<String, SObjectField> tokens = fieldTokenCache.get(objType);
+    if (tokens == null) {
+      tokens = new Map<String, SObjectField>();
+      fieldTokenCache.put(objType, tokens);
+    }
+    SObjectField token = tokens.get(fieldName);
+    if (token == null) {
+      token = describeFor(objType).getField(fieldName);
+      tokens.put(fieldName, token);
+    }
+    return token;
+  }
+
   /**
    * Check{Insert,Read,Update} methods check both FLS and CRUD
    **/
@@ -247,7 +266,7 @@ public inherited sharing class fflib_SecurityUtils {
     SObjectType objType,
     String fieldName
   ) {
-    checkFieldIsInsertable(objType, describeFor(objType).getField(fieldName));
+    checkFieldIsInsertable(objType, fieldTokenFor(objType, fieldName));
   }
 
   /**
@@ -292,7 +311,7 @@ public inherited sharing class fflib_SecurityUtils {
     SObjectType objType,
     String fieldName
   ) {
-    checkFieldIsReadable(objType, describeFor(objType).getField(fieldName));
+    checkFieldIsReadable(objType, fieldTokenFor(objType, fieldName));
   }
 
   /**
@@ -337,7 +356,7 @@ public inherited sharing class fflib_SecurityUtils {
     SObjectType objType,
     String fieldName
   ) {
-    checkFieldIsUpdateable(objType, describeFor(objType).getField(fieldName));
+    checkFieldIsUpdateable(objType, fieldTokenFor(objType, fieldName));
   }
 
   /**
