@@ -495,6 +495,16 @@ public inherited sharing class fflib_SecurityUtils {
     }
   }
 
+  private static void requireObjectAccess(
+    Boolean allowed,
+    OperationType operation,
+    SObjectType objType
+  ) {
+    if (!allowed) {
+      throw new CrudException(operation, objType);
+    }
+  }
+
   /**
    * CheckObjectIs* methods check only CRUD
    **/
@@ -508,9 +518,11 @@ public inherited sharing class fflib_SecurityUtils {
     if (BYPASS_INTERNAL_FLS_AND_CRUD) {
       return;
     }
-    if (!objType.getDescribe().isCreateable()) {
-      throw new CrudException(OperationType.CREATE, objType);
-    }
+    requireObjectAccess(
+      objType.getDescribe().isCreateable(),
+      OperationType.CREATE,
+      objType
+    );
   }
 
   /**
@@ -522,9 +534,11 @@ public inherited sharing class fflib_SecurityUtils {
     if (BYPASS_INTERNAL_FLS_AND_CRUD) {
       return;
     }
-    if (!objType.getDescribe().isAccessible()) {
-      throw new CrudException(OperationType.READ, objType);
-    }
+    requireObjectAccess(
+      objType.getDescribe().isAccessible(),
+      OperationType.READ,
+      objType
+    );
   }
 
   /**
@@ -536,9 +550,11 @@ public inherited sharing class fflib_SecurityUtils {
     if (BYPASS_INTERNAL_FLS_AND_CRUD) {
       return;
     }
-    if (!objType.getDescribe().isUpdateable()) {
-      throw new CrudException(OperationType.MODIFY, objType);
-    }
+    requireObjectAccess(
+      objType.getDescribe().isUpdateable(),
+      OperationType.MODIFY,
+      objType
+    );
   }
 
   /**
@@ -550,8 +566,10 @@ public inherited sharing class fflib_SecurityUtils {
     if (BYPASS_INTERNAL_FLS_AND_CRUD) {
       return;
     }
-    if (!objType.getDescribe().isDeletable()) {
-      throw new CrudException(OperationType.DEL, objType);
-    }
+    requireObjectAccess(
+      objType.getDescribe().isDeletable(),
+      OperationType.DEL,
+      objType
+    );
   }
 }
