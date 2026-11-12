@@ -746,8 +746,7 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
    **/
   @NamespaceAccessible
   public void registerPermanentlyDeleted(SObject record) {
-    this.registerEmptyRecycleBin(record);
-    this.registerDeleted(record);
+    this.registerPermanentlyDeleted(new List<SObject>{ record });
   }
 
   private void registerPublish(
@@ -1054,19 +1053,21 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
         throw new UnitOfWorkException('Invalid argument: relatedToField.');
       }
 
+      RelationshipByExternalId relationship = new RelationshipByExternalId();
       Schema.DescribeFieldResult relatedToFieldDescribe = relatedToField.getDescribe();
-      String relationshipName = relatedToFieldDescribe.getRelationshipName();
-      if (String.isBlank(relationshipName)) {
+      relationship.RelationshipName = relatedToFieldDescribe.getRelationshipName();
+      if (String.isBlank(relationship.RelationshipName)) {
         throw new UnitOfWorkException(
           'Invalid argument: relatedToField. Field supplied is not a relationship field.'
         );
       }
 
-      Schema.SObjectType relatedObject = relatedToFieldDescribe.getReferenceTo()[0];
-
       Schema.DescribeFieldResult externalIdFieldDescribe = externalIdField.getDescribe();
 
-      if (externalIdFieldDescribe.getSObjectType() != relatedObject) {
+      if (
+        externalIdFieldDescribe.getSObjectType() !=
+        relatedToFieldDescribe.getReferenceTo()[0]
+      ) {
         throw new UnitOfWorkException(
           'Invalid argument: externalIdField. Field supplied is not a known field on the target sObject.'
         );
@@ -1078,12 +1079,10 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
         );
       }
 
-      SObject relationshipObject = relatedObject.newSObject();
-      relationshipObject.put(externalIdField, externalId);
-      RelationshipByExternalId relationship = new RelationshipByExternalId();
       relationship.Record = record;
-      relationship.RelationshipName = relationshipName;
-      relationship.RelationshipObject = relationshipObject;
+      relationship.RelationshipObject = externalIdFieldDescribe.getSObjectType()
+        .newSObject();
+      relationship.RelationshipObject.put(externalIdField, externalId);
       m_relationships.add(relationship);
     }
 
