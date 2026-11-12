@@ -36,5 +36,44 @@
     "branch": "ascent/security-utils-2",
     "report": "ascents/security-utils-2/report.html?refresh=off",
     "retro": "ascents/security-utils-2/retro.json"
+  },
+  {
+    "name": "unit-of-work-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_SObjectUnitOfWork.cls",
+      "sfdx-source/apex-common/main/classes/fflib_ISObjectUnitOfWork.cls"
+    ],
+    "startedAt": "2026-11-12T08:35:49.734Z",
+    "iterations": 14,
+    "kept": 6,
+    "baseline": {
+      "overall": 77,
+      "scores": {
+        "PMD": 29.4,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 79.2,
+        "Test run time": 85.8,
+        "Limit headroom": 50.8,
+        "Resource efficiency": 94
+      }
+    },
+    "best": {
+      "overall": 90.3,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 83.3,
+        "Test run time": 88.8,
+        "Limit headroom": 66.2,
+        "Resource efficiency": 94
+      },
+      "iteration": 11,
+      "commit": "05aea65402bb7e356ca7f2b433ecdafa3df622fa"
+    },
+    "branch": "ascent/unit-of-work-1",
+    "report": "ascents/unit-of-work-1/report.html?refresh=off",
+    "retro": "ascents/unit-of-work-1/retro.json"
   }
 ]

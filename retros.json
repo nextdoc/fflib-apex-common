@@ -178,5 +178,197 @@
         }
       ]
     }
+  },
+  {
+    "name": "unit-of-work-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_SObjectUnitOfWork.cls",
+      "sfdx-source/apex-common/main/classes/fflib_ISObjectUnitOfWork.cls"
+    ],
+    "branch": "ascent/unit-of-work-1",
+    "report": "ascents/unit-of-work-1/report.html?refresh=off",
+    "retro": {
+      "ascent": "unit-of-work-1",
+      "at": "2026-11-12T09:21:26.256Z",
+      "base": "550ed4f58db713b02b63aa40b552ddfbcb0d3637",
+      "head": "05aea65402bb7e356ca7f2b433ecdafa3df622fa",
+      "changedTests": [],
+      "step": {
+        "model": "claude-opus-5-5",
+        "durationMs": 101153,
+        "costUsd": 0.6528502
+      },
+      "summary": "Only fflib_SObjectUnitOfWork.cls changed, so it drove every gain. PMD reached 100 through braces and deferred describes (iteration 1), Limit headroom rose 15.4 from skipping redundant resolve passes and removing isResolved() (iterations 5 and 11), and Code coverage rose 4.1 only by deleting untested statements (iterations 3, 8, 10 and 11), with no new paths tested. Tests passing, Graph Engine and Resource efficiency did not move. The main behaviour risk is in the untested external-id relationship path: resolve() now overwrites a parent reference that is already set, and building and validating that reference moved from commit time to register time.",
+      "behaviourChanges": [
+        {
+          "code": "B1",
+          "title": "External-id relationship now overwrites an existing parent reference",
+          "detail": "The baseline only called putSObject when Record.getSObject(RelationshipName) was null, so a parent reference the caller set, or an earlier registration for the same field, was kept (first wins). Without the isResolved guard, resolve() always writes the reference stored at registration, so the last registration wins and a manual reference is replaced. Resolve runs in the insert, upsert and update passes, so the overwrite repeats.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:1037-1040, :1116-1118; baseline RelationshipByExternalId.isResolved",
+          "iterations": [
+            11
+          ],
+          "severity": "medium",
+          "caughtByTests": false,
+          "proposedTest": "Use a mock IDML. Register a Contact as new, register an external-id relationship to Account, then set contact.Account to an Account reference with a different key before commitWork. Assert which reference reaches dmlInsert. Also register the same relationship twice with different ids and assert the first one wins."
+        },
+        {
+          "code": "B2",
+          "title": "External-id reference built and filled at register time, not commit time",
+          "detail": "relatedObject.newSObject() and put(externalIdField, externalId) now run in Relationships.add. A type-mismatched externalId (for example a String into a number external-id field) throws SObjectException from registerRelationship, outside commitWork's savepoint and onCommitWorkFinished(false), instead of inside the commit. One reference instance is now shared across all resolve passes instead of a fresh one per pass. The new object's type comes from externalIdFieldDescribe.getSObjectType(), which the check just above proves equal to getReferenceTo()[0].",
+          "evidence": "fflib_SObjectUnitOfWork.cls:1053-1083",
+          "iterations": [
+            8,
+            10
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Register an external-id relationship with an externalId of the wrong type. Assert the exception is thrown by registerRelationship (new behaviour) or by commitWork (baseline), and fix the intended contract."
+        },
+        {
+          "code": "B3",
+          "title": "Update pass no longer resolves relationships for types without dirty records",
+          "detail": "In the baseline the update pass re-resolved every type. A new child whose parent type was registered later got the parent Id written into the in-memory record (never saved, because the child was not dirty). Now that write is skipped unless the child's type has dirty records, so callers that read the child record's lookup field after commitWork may see null where the baseline showed the Id. Saved data is unchanged.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:908-920",
+          "iterations": [
+            5
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Create the UoW with types [Contact, Account], registerNew(contact, Contact.AccountId, account) and registerNew(account), commit with a mock DML that assigns Ids, and assert contact.AccountId after commit."
+        },
+        {
+          "code": "B4",
+          "title": "No 'field not queried' exception for dirty records missing the lookup field",
+          "detail": "Baseline isResolved() called Record.get(RelatedToField) whenever the parent had an Id. On a SOQL record without that field this throws SObjectException. Evolved code only calls put, so such records now commit successfully.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:1121-1131; baseline Relationship.isResolved",
+          "iterations": [
+            11
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Query an Opportunity without AccountId, call registerDirty(opp, Opportunity.AccountId, existingAccount) and commit; assert there is no exception and AccountId is set."
+        },
+        {
+          "code": "B5",
+          "title": "Same Id written again to already-resolved records",
+          "detail": "Relationship.resolve() and EmailRelationship.resolve() now run on every pass with no guard. Already-inserted records get the same Id written again in the upsert pass, and in the update pass when their type has dirty records. The result is identical; it only costs CPU proportional to links times passes.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:1037-1040",
+          "iterations": [
+            11
+          ],
+          "severity": "low",
+          "caughtByTests": true,
+          "proposedTest": ""
+        },
+        {
+          "code": "B6",
+          "title": "Single-record permanent delete delegates to the list overload",
+          "detail": "registerPermanentlyDeleted(SObject) now wraps the record in a list and calls the list overload, which still calls emptyRecycleBin then registerDeleted. The methods are non-virtual, so a subclass cannot change the dispatch. Behaviour is equivalent, but the single-record path is untested.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:737-750",
+          "iterations": [
+            10
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Call registerPermanentlyDeleted(singleRecord) with a mock DML and assert the record reaches both dmlDelete and emptyRecycleBin."
+        }
+      ],
+      "patterns": [
+        {
+          "code": "P1",
+          "title": "Brace-wrapping single-statement ifs",
+          "detail": "Clears PMD violations with no semantic change.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:381-394, 497-501, 542-544, 706-710, 1169-1171; iteration 1",
+          "verdict": "good"
+        },
+        {
+          "code": "P2",
+          "title": "Mixed DEFERRED and full describes",
+          "detail": "Commit-time loops and handleRegisterType use getDescribe(DEFERRED), but every per-record register path still uses the full getDescribe(). Both give the same name, so map keys match, but the inconsistency is confusing. Iteration 14 showed switching the register paths lost headroom. Caching the name per type would be cleaner.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:283-286 vs 386, 411, 457, 502, 711, 756",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P3",
+          "title": "Coverage raised by deleting untested statements",
+          "detail": "Coverage rose by shrinking the denominator: locals, fields and statements were removed from the external-id path and the single-record overloads. The untested external-id and publish paths are still untested, so the 83.3% overstates confidence.",
+          "evidence": "iterations 3, 8, 10, 11",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P4",
+          "title": "Shared registerPublish helper",
+          "detail": "Removes duplicated code across the three single-record publish methods with no behaviour change.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:752-813; iteration 3",
+          "verdict": "good"
+        },
+        {
+          "code": "P5",
+          "title": "Removing isResolved idempotency guards",
+          "detail": "Behaviour-preserving and a real CPU saving for Relationship and EmailRelationship, but it silently changed the first-wins/no-overwrite semantics of RelationshipByExternalId.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:1037-1040, 1107-1140; iteration 11",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P6",
+          "title": "Eager construction of the external-id reference",
+          "detail": "Building the reference in add() mainly served coverage. It moves the failure point and reuses a mutable SObject across passes.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:1080-1083; iterations 8 and 10",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P7",
+          "title": "Emptiness guard before resolve in the update pass",
+          "detail": "Cheap and clear, and matches the upsert pass, which already checks for records before resolving.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:914-919; iteration 5",
+          "verdict": "good"
+        }
+      ],
+      "testGaps": [
+        {
+          "code": "T1",
+          "title": "External-id registerRelationship path is entirely untested",
+          "detail": "The NOTE says no standard object has a usable external Id, but the validation branches and the resolve wiring can still be tested.",
+          "proposedTest": "Assert each validation message: null relatedToField; Contact.LastName (not a relationship field); Contact.AccountId with Opportunity.Name (wrong object); Contact.AccountId with Account.Name (not an external id). If a test-only custom object with an external-id field can be added, use a mock IDML to assert the Account reference with the external-id value reaches dmlInsert."
+        },
+        {
+          "code": "T2",
+          "title": "Overwrite and first-wins semantics of external-id relationships",
+          "detail": "Iteration 11 changed these and no test pins them.",
+          "proposedTest": "Register two external-id relationships for the same record and field, commit with a mock DML, and assert which external-id value is used."
+        },
+        {
+          "code": "T3",
+          "title": "Single-record publish and permanent-delete overloads",
+          "detail": "registerPublishBefore/AfterSuccess/AfterFailureTransaction(SObject) and registerPermanentlyDeleted(SObject) are not run by any test.",
+          "proposedTest": "Use a mock IDML with a platform-event type: register one event through each single-record method and assert eventPublish receives it in the right phase. For a single record, assert registerPermanentlyDeleted puts it in both the delete and empty-recycle-bin lists."
+        },
+        {
+          "code": "T4",
+          "title": "Relationship resolution across type order and passes",
+          "detail": "Nothing tests a child type registered before its parent type, or what the records hold in memory after commit.",
+          "proposedTest": "Use types [Contact, Account] with a Contact-to-Account relationship and no dirty records. Commit through a mock DML that assigns Ids, then assert contact.AccountId and the contents of the dmlInsert lists."
+        },
+        {
+          "code": "T5",
+          "title": "Dirty records queried without the lookup field",
+          "detail": "This removed failure mode is not pinned by any test.",
+          "proposedTest": "Query an Opportunity without AccountId, call registerDirty(opp, Opportunity.AccountId, account) and commit successfully."
+        }
+      ],
+      "other": [
+        {
+          "code": "X1",
+          "title": "Headroom may now be limited by something other than CPU in resolve",
+          "detail": "Iterations 12 and 13 show per-link savings in Relationships.resolve() are giving less and less. Remaining CPU cost is register-time work (about 31k full getDescribe().getName() calls) and the unavoidable put. A per-SObjectType name cache (iteration 2 bundled one with semantic changes that broke tests) is still worth trying on its own."
+        },
+        {
+          "code": "X2",
+          "title": "Reformatting inflated the line count",
+          "detail": "The DEFERRED changes were split over 3-4 lines (for example :283-286, :899-902). This does not affect coverage, which counts statements, but it hurts readability. Consider a private helper or a single-line form."
+        }
+      ]
+    }
   }
 ]
