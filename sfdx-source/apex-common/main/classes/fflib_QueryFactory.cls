@@ -2,44 +2,44 @@
  * Copyright (c), FinancialForce.com, inc
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without modification, 
+ * Redistribution and use in source and binary forms, with or without modification,
  *   are permitted provided that the following conditions are met:
  *
- * - Redistributions of source code must retain the above copyright notice, 
+ * - Redistributions of source code must retain the above copyright notice,
  *      this list of conditions and the following disclaimer.
- * - Redistributions in binary form must reproduce the above copyright notice, 
- *      this list of conditions and the following disclaimer in the documentation 
+ * - Redistributions in binary form must reproduce the above copyright notice,
+ *      this list of conditions and the following disclaimer in the documentation
  *      and/or other materials provided with the distribution.
- * - Neither the name of the FinancialForce.com, inc nor the names of its contributors 
- *      may be used to endorse or promote products derived from this software without 
+ * - Neither the name of the FinancialForce.com, inc nor the names of its contributors
+ *      may be used to endorse or promote products derived from this software without
  *      specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
- *  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES 
- *  OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL 
- *  THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ *  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ *  OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+ *  THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  *  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  *  OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  *  OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-**/
+ **/
 
 /**
  * QueryFactory provides an object-oriented way of building SOQL queries without resorting to string manipulation.
  * This class is not meant to be used as a replacement for all SOQL queries, and due to the relatively high overhead in both CPU and describe calls
  * should be used in places where highly dynamic queries, such as those that include field sets or are mutated heavily
  * in multiple locations are a good fit for use with fflib_QueryFactory.
- * 
+ *
  * To use call construct a new instance for each query you intend to make.
  * To add additional fields to the query make use of the selectField(s) methods.
  *
  * Currently the WHERE clause of the query is manipulated as a single string, and is decidedly less OO-styled than other methods.
  * This is expected to be expanded upon in the future.
- * 
+ *
  * To include one or more ORDER BY clause(s), use one of the addOrdering methods.  If not specified, the "NULLS FIRST" keywords
  * will be included by default. Constructing Ordering instances manually is discouraged.
- * 
- * Subselect Queries are supported with the subselectQuery methods.  
+ *
+ * Subselect Queries are supported with the subselectQuery methods.
  * More than one sub-query can be added to a single query.
  * An exception will thrown from the subselectQuery method when there is an attempt to add a subquery to a query with an invalid relationship.
  *
@@ -50,878 +50,1011 @@
  *
  * There is a google doc providing additional guidance on the use of this class with field sets at
  * https://docs.google.com/a/financialforce.com/document/d/1I4cxN4xHT4UJj_3Oi0YBL_MJ5chm-KG8kMN1D1un8-g/edit?usp=sharing
-**/
+ **/
 @NamespaceAccessible
-@SuppressWarnings('PMD.CognitiveComplexity, PMD.CyclomaticComplexity, PMD.ExcessivePublicCount, PMD.AvoidBooleanMethodParameters, PMD.ExcessiveParameterList, PMD.ClassNamingConventions, PMD.MethodNamingConventions, PMD.FieldNamingConventions, PMD.PropertyNamingConventions, PMD.FieldDeclarationsShouldBeAtStart, PMD.LocalVariableNamingConventions, PMD.ApexDoc, PMD.StdCyclomaticComplexity, PMD.NcssMethodCount, PMD.ExcessiveClassLength')
+@SuppressWarnings(
+  'PMD.CognitiveComplexity, PMD.CyclomaticComplexity, PMD.ExcessivePublicCount, PMD.AvoidBooleanMethodParameters, PMD.ExcessiveParameterList, PMD.ClassNamingConventions, PMD.MethodNamingConventions, PMD.FieldNamingConventions, PMD.PropertyNamingConventions, PMD.FieldDeclarationsShouldBeAtStart, PMD.LocalVariableNamingConventions, PMD.ApexDoc, PMD.StdCyclomaticComplexity, PMD.NcssMethodCount, PMD.ExcessiveClassLength'
+)
 public inherited sharing class fflib_QueryFactory {
-	@NamespaceAccessible
-	public enum SortOrder {ASCENDING, DESCENDING}
-	@NamespaceAccessible
-	public enum FLSEnforcement{NONE, LEGACY, USER_MODE, SYSTEM_MODE}
+  @NamespaceAccessible
+  public enum SortOrder {
+    ASCENDING,
+    DESCENDING
+  }
+  @NamespaceAccessible
+  public enum FLSEnforcement {
+    NONE,
+    LEGACY,
+    USER_MODE,
+    SYSTEM_MODE
+  }
 
-	/**
-	 * This property is read-only and may not be set after instantiation.
-	 * The {@link Schema.SObjectType} token of the SObject that will be used in the FROM clause of the resultant query.
-	**/
-	@NamespaceAccessible
-	public Schema.SObjectType table {get; private set;}
-	@TestVisible
-	private Set<String> fields; 
-	private String conditionExpression;
-	private Integer limitCount;
-	private Integer offsetCount;
-	private List<Ordering> order;
-	/**
-	 * Integrate checking for READ Field Level Security within the selectField(s) methods
-	 * This can optionally be enforced (or not) by calling the setEnforceFLS method prior to calling 
-	 * one of the selectField or selectFieldset methods.
-	**/
-	private FLSEnforcement mFlsEnforcement;
+  /**
+   * This property is read-only and may not be set after instantiation.
+   * The {@link Schema.SObjectType} token of the SObject that will be used in the FROM clause of the resultant query.
+   **/
+  @NamespaceAccessible
+  public Schema.SObjectType table { get; private set; }
+  @TestVisible
+  private Set<String> fields;
+  private String conditionExpression;
+  private Integer limitCount;
+  private Integer offsetCount;
+  private List<Ordering> order;
+  /**
+   * Integrate checking for READ Field Level Security within the selectField(s) methods
+   * This can optionally be enforced (or not) by calling the setEnforceFLS method prior to calling
+   * one of the selectField or selectFieldset methods.
+   **/
+  private FLSEnforcement mFlsEnforcement;
 
-	private Boolean sortSelectFields = true;
-	private Boolean allRows = false;
-	
-	/**
-	 * The relationship and  subselectQueryMap variables are used to support subselect queries.  Subselects can be added to 
-	 * a query, as long as it isn't a subselect query itself.  You may have many subselects inside
-	 * a query, but they may only be 1 level deep (no subselect inside a subselect)
-	 * to add a subselect, call the subselectQuery method, passing in the ChildRelationship.
-	**/
-	private Schema.ChildRelationship relationship;
-	private Map<Schema.ChildRelationship, fflib_QueryFactory> subselectQueryMap;
+  private Boolean sortSelectFields = true;
+  private Boolean allRows = false;
 
-	private String getFieldPath(String fieldName, Schema.sObjectType relatedSObjectType){
+  /**
+   * The relationship and  subselectQueryMap variables are used to support subselect queries.  Subselects can be added to
+   * a query, as long as it isn't a subselect query itself.  You may have many subselects inside
+   * a query, but they may only be 1 level deep (no subselect inside a subselect)
+   * to add a subselect, call the subselectQuery method, passing in the ChildRelationship.
+   **/
+  private Schema.ChildRelationship relationship;
+  private Map<Schema.ChildRelationship, fflib_QueryFactory> subselectQueryMap;
 
-		//Enforcing FLS using the legacy heuristic requires resolving the full field path to its respective
-		//Describe result to test for isAccessible on the DescribeFieldResult
-		//This is computationally expensive and should be bypassed if the QueryFactory instance is not
-		//enforcing FLS
-		//Starting in Summer '22, Apex can natively enforce CRUD and FLS with User Mode Operations
-		//Someday, the LEGACY FLSEnforcement heuristic will be removed
-		if(mFlsEnforcement == FLSEnforcement.USER_MODE || mFlsEnforcement == FLSEnforcement.SYSTEM_MODE){
-			return fieldName;
-		}
+  private String getFieldPath(
+    String fieldName,
+    Schema.sObjectType relatedSObjectType
+  ) {
+    //Enforcing FLS using the legacy heuristic requires resolving the full field path to its respective
+    //Describe result to test for isAccessible on the DescribeFieldResult
+    //This is computationally expensive and should be bypassed if the QueryFactory instance is not
+    //enforcing FLS
+    //Starting in Summer '22, Apex can natively enforce CRUD and FLS with User Mode Operations
+    //Someday, the LEGACY FLSEnforcement heuristic will be removed
+    if (
+      mFlsEnforcement == FLSEnforcement.USER_MODE ||
+      mFlsEnforcement == FLSEnforcement.SYSTEM_MODE
+    ) {
+      return fieldName;
+    }
 
-		if(!fieldName.contains('.')){ //single field
-			Schema.SObjectField token = fflib_SObjectDescribe.getDescribe(table).getField(fieldName.toLowerCase());
-			if(token == null) {
-				throw new InvalidFieldException(fieldName, this.table);
-			}
-			if(mFlsEnforcement == FLSEnforcement.LEGACY) {
-				fflib_SecurityUtils.checkFieldIsReadable(this.table, token);
-			}
+    if (!fieldName.contains('.')) {
+      //single field
+      Schema.SObjectField token = fflib_SObjectDescribe.getDescribe(table)
+        .getField(fieldName.toLowerCase());
+      if (token == null) {
+        throw new InvalidFieldException(fieldName, this.table);
+      }
+      if (mFlsEnforcement == FLSEnforcement.LEGACY) {
+        fflib_SecurityUtils.checkFieldIsReadable(this.table, token);
+      }
 
-			return token.getDescribe().getName();
-		}
+      return token.getDescribe().getName();
+    }
 
-		//traversing FK relationship(s)
-		List<String> fieldPath = new List<String>();
-		Schema.SObjectType lastSObjectType = table;
-		Iterator<String> i = fieldName.split('\\.').iterator();
-		while(i.hasNext()){
-			String field = i.next();
-			Schema.SObjectField token = fflib_SObjectDescribe.getDescribe(lastSObjectType).getField(field.toLowerCase());
-			DescribeFieldResult tokenDescribe = token != null ? token.getDescribe() : null;
-			
-			if (token != null && mFlsEnforcement == FLSEnforcement.LEGACY) {
-				fflib_SecurityUtils.checkFieldIsReadable(lastSObjectType, token);
-			}
+    //traversing FK relationship(s)
+    List<String> fieldPath = new List<String>();
+    Schema.SObjectType lastSObjectType = table;
+    Iterator<String> i = fieldName.split('\\.').iterator();
+    while (i.hasNext()) {
+      String field = i.next();
+      Schema.SObjectField token = fflib_SObjectDescribe.getDescribe(
+          lastSObjectType
+        )
+        .getField(field.toLowerCase());
+      DescribeFieldResult tokenDescribe = token != null
+        ? token.getDescribe()
+        : null;
 
-			if (token != null && i.hasNext() && (tokenDescribe.getSoapType() == Schema.SoapType.ID
-				|| (tokenDescribe.getSoapType() == Schema.SoapType.STRING && tokenDescribe.getType() == Schema.DisplayType.REFERENCE))) {
-				List<Schema.sObjectType> relatedObjs = tokenDescribe.getReferenceTo(); //if it's polymorphic, it matters which one we use - i.e. Lead.Owner is GROUP|USER and each has different fields.
+      if (token != null && mFlsEnforcement == FLSEnforcement.LEGACY) {
+        fflib_SecurityUtils.checkFieldIsReadable(lastSObjectType, token);
+      }
 
-				if (relatedObjs.size() == 1 || relatedSObjectType == null) {
-					lastSObjectType = relatedObjs[0]; //caller did not specify the one to use or there's only one so use the first one
-				}
-				else{
-					for (Schema.sObjectType sot : relatedObjs) {
-						if (sot == relatedSObjectType) {
-							lastSObjectType = sot;
-							break;
-						}
-					}
-				}
+      if (
+        token != null &&
+        i.hasNext() &&
+        (tokenDescribe.getSoapType() == Schema.SoapType.ID ||
+        (tokenDescribe.getSoapType() == Schema.SoapType.STRING &&
+        tokenDescribe.getType() == Schema.DisplayType.REFERENCE))
+      ) {
+        List<Schema.sObjectType> relatedObjs = tokenDescribe.getReferenceTo(); //if it's polymorphic, it matters which one we use - i.e. Lead.Owner is GROUP|USER and each has different fields.
 
-				fieldPath.add(tokenDescribe.getRelationshipName());
-			}else if(token != null && !i.hasNext()){
-				fieldPath.add(tokenDescribe.getName());
-			}else{
-				if(token == null)
-					throw new InvalidFieldException(field,lastSObjectType);
-				else
-					throw new NonReferenceFieldException(lastSObjectType+'.'+field+' is not a lookup or master-detail field but is used in a cross-object query field.');
-			}
-		}
+        if (relatedObjs.size() == 1 || relatedSObjectType == null) {
+          lastSObjectType = relatedObjs[0]; //caller did not specify the one to use or there's only one so use the first one
+        } else {
+          for (Schema.sObjectType sot : relatedObjs) {
+            if (sot == relatedSObjectType) {
+              lastSObjectType = sot;
+              break;
+            }
+          }
+        }
 
-		return String.join(fieldPath,'.');
-	}
-	
-	private String getFieldPath(String fieldName) {
-		return this.getFieldPath(fieldName, null);
-	}
+        fieldPath.add(tokenDescribe.getRelationshipName());
+      } else if (token != null && !i.hasNext()) {
+        fieldPath.add(tokenDescribe.getName());
+      } else {
+        if (token == null)
+          throw new InvalidFieldException(field, lastSObjectType);
+        else
+          throw new NonReferenceFieldException(
+            lastSObjectType +
+              '.' +
+              field +
+              ' is not a lookup or master-detail field but is used in a cross-object query field.'
+          );
+      }
+    }
 
-	@TestVisible
-	private static String getFieldTokenPath(Schema.SObjectField field){
-		if(field == null){
-			throw new InvalidFieldException('Invalid field: null');		
-		}
-		return field.getDescribe().getLocalName();
-	}
+    return String.join(fieldPath, '.');
+  }
 
-	/**
-	 * fflib_QueryFactory instances will be considered equal if they produce the same SOQL query.
-	 * A faster comparison will first be attempted to check if they apply to the same table, and contain the same number of fields selected.
-	 * This method will never return true if the provided object is not an instance of fflib_QueryFactory. 
-	 * @param obj the object to check equality of.
-	**/
-	@NamespaceAccessible
-	public Boolean equals(Object obj){
-		if( !(obj instanceof fflib_QueryFactory) || ((fflib_QueryFactory)obj).table != this.table || ((fflib_QueryFactory)obj).fields.size() != this.fields.size() )
-			return false;
-		return ((fflib_QueryFactory)obj).toSOQL() == this.toSOQL();
-	}
+  private String getFieldPath(String fieldName) {
+    return this.getFieldPath(fieldName, null);
+  }
 
-	/**
-	 * Construct a new fflib_QueryFactory instance with no options other than the FROM clause.
-	 * You *must* call selectField(s) before {@link #toSOQL} will return a valid, runnable query.
-	 * @param table	the SObject to be used in the FROM clause of the resultant query. This sets the value of {@link #table}.
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory(Schema.SObjectType table){
-		this.table = table;
-		fields = new Set<String>();
-		order = new List<Ordering>();
-		mFlsEnforcement = FLSEnforcement.NONE;
-	}
+  @TestVisible
+  private static String getFieldTokenPath(Schema.SObjectField field) {
+    if (field == null) {
+      throw new InvalidFieldException('Invalid field: null');
+    }
+    return field.getDescribe().getLocalName();
+  }
 
-	/**
-	 * Construct a new fflib_QueryFactory instance with no options other than the FROM clause and the relationship.
-	 * This should be used when constructing a subquery query for addition to a parent query. 
-	 * Objects created with this constructor cannot be added to another object using the subselectQuery method.
-	 * You *must* call selectField(s) before {@link #toSOQL} will return a valid, runnable query.
-	 * @param relationship the ChildRelationship to be used in the FROM Clause of the resultant Query (when set overrides value of table). This sets the value of {@link #relationship} and {@link #table}.
-	**/
-	private fflib_QueryFactory(Schema.ChildRelationship relationship){
-		this(relationship.getChildSObject()); 
-		this.relationship = relationship;
-	}
+  /**
+   * fflib_QueryFactory instances will be considered equal if they produce the same SOQL query.
+   * A faster comparison will first be attempted to check if they apply to the same table, and contain the same number of fields selected.
+   * This method will never return true if the provided object is not an instance of fflib_QueryFactory.
+   * @param obj the object to check equality of.
+   **/
+  @NamespaceAccessible
+  public Boolean equals(Object obj) {
+    if (
+      !(obj instanceof fflib_QueryFactory) ||
+      ((fflib_QueryFactory) obj).table != this.table ||
+      ((fflib_QueryFactory) obj).fields.size() != this.fields.size()
+    )
+      return false;
+    return ((fflib_QueryFactory) obj).toSOQL() == this.toSOQL();
+  }
 
-	/**
-	 * This method checks to see if the User has Read Access on {@link #table}. 
-	 * Asserts true if User has access.
-	 **/
-	@NamespaceAccessible
-	public fflib_QueryFactory assertIsAccessible(){
-		fflib_SecurityUtils.checkObjectIsReadable(table);
-		return this;
-	}
+  /**
+   * Construct a new fflib_QueryFactory instance with no options other than the FROM clause.
+   * You *must* call selectField(s) before {@link #toSOQL} will return a valid, runnable query.
+   * @param table	the SObject to be used in the FROM clause of the resultant query. This sets the value of {@link #table}.
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory(Schema.SObjectType table) {
+    this.table = table;
+    fields = new Set<String>();
+    order = new List<Ordering>();
+    mFlsEnforcement = FLSEnforcement.NONE;
+  }
 
-	/**
-	 * This method sets a flag to indicate that this query should have FLS Read
-	 * permission enforced.  If this method is not called, the default behavior
-	 * is that FLS read permission will not be checked.
-	 * @param enforce whether to enforce field level security (read)
-	 * @deprecated - use the setEnforceFLS overload that specifies Legacy or Native FLS enforcement
-	 **/
-	@NamespaceAccessible
-	public fflib_QueryFactory setEnforceFLS(Boolean enforce){
-		return setEnforceFLS(enforce ? FLSEnforcement.LEGACY : FLSEnforcement.NONE);
-	}
+  /**
+   * Construct a new fflib_QueryFactory instance with no options other than the FROM clause and the relationship.
+   * This should be used when constructing a subquery query for addition to a parent query.
+   * Objects created with this constructor cannot be added to another object using the subselectQuery method.
+   * You *must* call selectField(s) before {@link #toSOQL} will return a valid, runnable query.
+   * @param relationship the ChildRelationship to be used in the FROM Clause of the resultant Query (when set overrides value of table). This sets the value of {@link #relationship} and {@link #table}.
+   **/
+  private fflib_QueryFactory(Schema.ChildRelationship relationship) {
+    this(relationship.getChildSObject());
+    this.relationship = relationship;
+  }
 
-	@NamespaceAccessible
-	public fflib_QueryFactory setEnforceFLS(FLSEnforcement enforcement){
-		this.mFlsEnforcement = enforcement;
-		return this;
-	}
+  /**
+   * This method checks to see if the User has Read Access on {@link #table}.
+   * Asserts true if User has access.
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory assertIsAccessible() {
+    fflib_SecurityUtils.checkObjectIsReadable(table);
+    return this;
+  }
 
+  /**
+   * This method sets a flag to indicate that this query should have FLS Read
+   * permission enforced.  If this method is not called, the default behavior
+   * is that FLS read permission will not be checked.
+   * @param enforce whether to enforce field level security (read)
+   * @deprecated - use the setEnforceFLS overload that specifies Legacy or Native FLS enforcement
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory setEnforceFLS(Boolean enforce) {
+    return setEnforceFLS(enforce ? FLSEnforcement.LEGACY : FLSEnforcement.NONE);
+  }
 
-	/**
-	 * Sets a flag to indicate that this query should have ordered
-	 * query fields in the select statement (this at a small cost to performance).
-	 * If you are processing large query sets, you should switch this off.
-	 * @param doSort whether or not select fields should be sorted in the soql statement.
-	 **/
-	@NamespaceAccessible
-	public fflib_QueryFactory setSortSelectFields(Boolean doSort){
-		this.sortSelectFields = doSort;
-		return this;
-	}
-	/**
-	 * Selects a single field from the SObject specified in {@link #table}.
-	 * Selecting fields is idempotent, if this field is already selected calling this method will have no additional impact.
-	 * @param fieldName the API name of the field to add to the query's SELECT clause.
-	 **/
-	@NamespaceAccessible
-	public fflib_QueryFactory selectField(String fieldName){
-		return selectFields(new Set<String>{fieldName});
-	}
+  @NamespaceAccessible
+  public fflib_QueryFactory setEnforceFLS(FLSEnforcement enforcement) {
+    this.mFlsEnforcement = enforcement;
+    return this;
+  }
 
-	/**
-		* Selects a single field from the SObject specified in {@link #table}.
-		* Selecting fields is idempotent, if this field is already selected calling this method will have no additional impact.
-		* @param fieldName the API name of the field to add to the query's SELECT clause.
-		* @param relatedSObjectType the related sObjectType to resolve polymorphic object fields.
-	 **/
-	@NamespaceAccessible
-	public fflib_QueryFactory selectField(String fieldName, Schema.sObjectType relatedObjectType) {
-		addField(getFieldPath(fieldName, relatedObjectType));
-		return this;
-	}
-	
-	/**
-	 * Selects a field, avoiding the possible ambiguity of String API names.
-	 * @see #selectField(String)
-	 * @param field the {@link Schema.SObjectField} to select with this query.
-	 * @exception InvalidFieldException If the field is null {@code field}.
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory selectField(Schema.SObjectField field){
-		return selectFields(new Set<Schema.SObjectField>{field});
-	}
-	/**
-	 * Selects multiple fields. This acts the same as calling {@link #selectField(String)} multiple times.
-	 * @param fieldNames the Set of field API names to select.
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory selectFields(Set<String> fieldNames){
-		return selectStringField(fieldNames.iterator());
-	}
-	/**
-	 * Selects multiple fields. This acts the same as calling {@link #selectField(String)} multiple times.
-	 * @param fieldNames the List of field API names to select.
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory selectFields(List<String> fieldNames){
-		return selectStringField(fieldNames.iterator());
-	}
-	
-	private fflib_QueryFactory selectStringField(Iterator<String> iter){
-		while( iter.hasNext() ) {
-			addField(getFieldPath(iter.next()));
-		}
-		return this;
-	}
-	
-	/**
-	 * Selects multiple fields. This acts the same as calling {@link #selectField(Schema.SObjectField)} multiple times.
-	 * @param fields the Set of {@link Schema.SObjectField}s to select.
-	 * @exception InvalidFieldException if the fields are null {@code fields}.
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory selectFields(Set<Schema.SObjectField> fields){
-		return selectSObjectFields(fields.iterator());
-	}
+  /**
+   * Sets a flag to indicate that this query should have ordered
+   * query fields in the select statement (this at a small cost to performance).
+   * If you are processing large query sets, you should switch this off.
+   * @param doSort whether or not select fields should be sorted in the soql statement.
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory setSortSelectFields(Boolean doSort) {
+    this.sortSelectFields = doSort;
+    return this;
+  }
+  /**
+   * Selects a single field from the SObject specified in {@link #table}.
+   * Selecting fields is idempotent, if this field is already selected calling this method will have no additional impact.
+   * @param fieldName the API name of the field to add to the query's SELECT clause.
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory selectField(String fieldName) {
+    return selectFields(new Set<String>{ fieldName });
+  }
 
-	/**
-	 * Selects multiple fields. This acts the same as calling {@link #selectField(Schema.SObjectField)} multiple times.
-	 * @param fields the List of {@link Schema.SObjectField}s to select.
-	 * @exception InvalidFieldException if the fields are null {@code fields}.	 
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory selectFields(List<Schema.SObjectField> fields) {
-		return selectSObjectFields(fields.iterator());
-	}
+  /**
+   * Selects a single field from the SObject specified in {@link #table}.
+   * Selecting fields is idempotent, if this field is already selected calling this method will have no additional impact.
+   * @param fieldName the API name of the field to add to the query's SELECT clause.
+   * @param relatedSObjectType the related sObjectType to resolve polymorphic object fields.
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory selectField(
+    String fieldName,
+    Schema.sObjectType relatedObjectType
+  ) {
+    addField(getFieldPath(fieldName, relatedObjectType));
+    return this;
+  }
 
-	private fflib_QueryFactory selectSObjectFields(Iterator<Schema.SObjectField> iter){
+  /**
+   * Selects a field, avoiding the possible ambiguity of String API names.
+   * @see #selectField(String)
+   * @param field the {@link Schema.SObjectField} to select with this query.
+   * @exception InvalidFieldException If the field is null {@code field}.
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory selectField(Schema.SObjectField field) {
+    return selectFields(new Set<Schema.SObjectField>{ field });
+  }
+  /**
+   * Selects multiple fields. This acts the same as calling {@link #selectField(String)} multiple times.
+   * @param fieldNames the Set of field API names to select.
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory selectFields(Set<String> fieldNames) {
+    return selectStringField(fieldNames.iterator());
+  }
+  /**
+   * Selects multiple fields. This acts the same as calling {@link #selectField(String)} multiple times.
+   * @param fieldNames the List of field API names to select.
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory selectFields(List<String> fieldNames) {
+    return selectStringField(fieldNames.iterator());
+  }
 
-		while( iter.hasNext() ){
-			Schema.SObjectField token = iter.next();
-			if(token == null) {
-				throw new InvalidFieldException();
-			}
-			if (mFlsEnforcement == FLSEnforcement.LEGACY) {
-				fflib_SecurityUtils.checkFieldIsReadable(table, token);
-			}
-			addField( getFieldTokenPath(token) );
-		}
-		return this;
-	}
-	/**
-	 * @see #selectFieldSet(Schema.FieldSet,Boolean)
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory selectFieldSet(Schema.FieldSet fieldSet){
-		return selectFieldSet(fieldSet,true);
-	}
-	/**
-	 * This is equivalent to iterating the fields in the field set and calling {@link #selectField(String)} on each.
-	 * @param fieldSet Select all fields included in the field set. 
-	 * @param allowCrossObject if false this method will throw an exception if any fields in the field set reference fields on a related record.
-	 * @exception InvalidFieldSetException if the fieldset is invalid for table {@code fields}.	 
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory selectFieldSet(Schema.FieldSet fieldSet, Boolean allowCrossObject){ 
-		if(fieldSet.getSObjectType() != table)
-			throw new InvalidFieldSetException('Field set "'+fieldSet.getName()+'" is not for SObject type "'+table+'"');
-		for(Schema.FieldSetMember field: fieldSet.getFields()){
-			if(!allowCrossObject && field.getFieldPath().contains('.'))
-				throw new InvalidFieldSetException('Cross-object fields not allowed and field "'+field.getFieldPath()+'"" is a cross-object field.');
-			addField( getFieldPath(field.getFieldPath()) );
-		}
-		return this;
-	}
-	
-	private void addField(String fieldPath){
-		/** With the introduction of SYSTEM_MODE and USER_MODE, it no longer became necessary to
-		 * use DescribeFieldResult methods to resolve a selected field back to its canonical case-preserving 
-		 * field definition. The consequence is that duplicate fields could be introduced into the SELECT
-		 * clause if, for instance, the Apex code called "selectField('annualrevenue')" but that same AnnualRevenue
-		 * field were included via a Field Set and the FieldSetMember.getFieldPath() returns "AnnualRevenue"
-		 * So, in the cases where we're using USER_MODE or SYSTEM_MODE, we need to downcase all of the fields in the Set
-		 */
-		if(mFlsEnforcement == FLSEnforcement.SYSTEM_MODE || mFlsEnforcement == FLSEnforcement.USER_MODE){
-			fieldPath = fieldPath.toLowerCase();
-		}
+  private fflib_QueryFactory selectStringField(Iterator<String> iter) {
+    while (iter.hasNext()) {
+      addField(getFieldPath(iter.next()));
+    }
+    return this;
+  }
 
-		this.fields.add(fieldPath);
-	}
-	
-	/**
-	 * @param conditionExpression Sets the WHERE clause to the string provided. Do not include the "WHERE".
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory setCondition(String conditionExpression){
-		this.conditionExpression = conditionExpression;
-		return this;
-	}
-	/**
-	 * @returns the current value of the WHERE clause, if any, as set by {@link #setCondition}
-	**/
-	@NamespaceAccessible
-	public String getCondition(){
-		return this.conditionExpression;
-	}
-	/**
-	 * @param limitCount if not null causes a LIMIT clause to be added to the resulting query.
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory setLimit(Integer limitCount){
-		this.limitCount = limitCount;
-		return this;
-	}
-	/**
-	 * @returns the current value of the LIMIT clause, if any.
-	**/
-	@NamespaceAccessible
-	public Integer getLimit(){
-		return this.limitCount;
-	}
-	/**
-	 * @param offsetCount if not null causes a OFFSET clause to be added to the resulting query.
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory setOffset(Integer offsetCount){
-		this.offsetCount = offsetCount;
-		return this;
-	}
-	/**
-	 * @returns the current value of the OFFSET clause, if any.
-	**/
-	@NamespaceAccessible
-	public Integer getOffset(){
-		return this.offsetCount;
-	}
-	/**
-	 * @param o an instance of {@link fflib_QueryFactory.Ordering} to be added to the query's ORDER BY clause.
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory addOrdering(Ordering o){
-		this.order.add(o);
-		return this;
-	}
+  /**
+   * Selects multiple fields. This acts the same as calling {@link #selectField(Schema.SObjectField)} multiple times.
+   * @param fields the Set of {@link Schema.SObjectField}s to select.
+   * @exception InvalidFieldException if the fields are null {@code fields}.
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory selectFields(Set<Schema.SObjectField> fields) {
+    return selectSObjectFields(fields.iterator());
+  }
 
-	/**
-	 * @param o an instance of {@link fflib_QueryFactory.Ordering} to remove all existing (for instance defaults) and be added to the query's ORDER BY clause.
-	 **/
-	@NamespaceAccessible
-	public fflib_QueryFactory setOrdering(Ordering o){
-		this.order = new List<Ordering>{ o };
-		return this;
-	}
-	/**
-	 * @returns the list of orderings that will be used as the query's ORDER BY clause. You may remove elements from the returned list, or otherwise mutate it, to remove previously added orderings.
-	**/
-	@NamespaceAccessible
-	public List<Ordering> getOrderings(){
-		return this.order;
-	}
+  /**
+   * Selects multiple fields. This acts the same as calling {@link #selectField(Schema.SObjectField)} multiple times.
+   * @param fields the List of {@link Schema.SObjectField}s to select.
+   * @exception InvalidFieldException if the fields are null {@code fields}.
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory selectFields(List<Schema.SObjectField> fields) {
+    return selectSObjectFields(fields.iterator());
+  }
 
-	/**
-	 * @returns the selected fields
-	 **/
-	@NamespaceAccessible
-	public Set<String> getSelectedFields() { 
-		return this.fields;
-	}
+  private fflib_QueryFactory selectSObjectFields(
+    Iterator<Schema.SObjectField> iter
+  ) {
+    while (iter.hasNext()) {
+      Schema.SObjectField token = iter.next();
+      if (token == null) {
+        throw new InvalidFieldException();
+      }
+      if (mFlsEnforcement == FLSEnforcement.LEGACY) {
+        fflib_SecurityUtils.checkFieldIsReadable(table, token);
+      }
+      addField(getFieldTokenPath(token));
+    }
+    return this;
+  }
+  /**
+   * @see #selectFieldSet(Schema.FieldSet,Boolean)
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory selectFieldSet(Schema.FieldSet fieldSet) {
+    return selectFieldSet(fieldSet, true);
+  }
+  /**
+   * This is equivalent to iterating the fields in the field set and calling {@link #selectField(String)} on each.
+   * @param fieldSet Select all fields included in the field set.
+   * @param allowCrossObject if false this method will throw an exception if any fields in the field set reference fields on a related record.
+   * @exception InvalidFieldSetException if the fieldset is invalid for table {@code fields}.
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory selectFieldSet(
+    Schema.FieldSet fieldSet,
+    Boolean allowCrossObject
+  ) {
+    if (fieldSet.getSObjectType() != table)
+      throw new InvalidFieldSetException(
+        'Field set "' +
+          fieldSet.getName() +
+          '" is not for SObject type "' +
+          table +
+          '"'
+      );
+    for (Schema.FieldSetMember field : fieldSet.getFields()) {
+      if (!allowCrossObject && field.getFieldPath().contains('.'))
+        throw new InvalidFieldSetException(
+          'Cross-object fields not allowed and field "' +
+            field.getFieldPath() +
+            '"" is a cross-object field.'
+        );
+      addField(getFieldPath(field.getFieldPath()));
+    }
+    return this;
+  }
 
-	/**
-	 * Add a subquery query to this query.  If a subquery for this relationship already exists, it will be returned.
-	 * If not, a new one will be created and returned.
-	 * @deprecated  Replaced by {@link #subselectQuery(String relationshipName)} and {@link #subselectQuery(ChildRelationship relationship)}
-	 * @exception InvalidSubqueryRelationshipException If this method is called on a subselectQuery or with an invalid relationship 
-	 * @param related The related object type
-	**/
-	@NamespaceAccessible
-	@SuppressWarnings('PMD.AvoidDebugStatements')
-	public fflib_QueryFactory subselectQuery(SObjectType related){ 
-		System.debug(LoggingLevel.WARN, 'fflib_QueryFactory.subselectQuery(Schema.SObjectType) is deprecated and will be removed in a future release. Use fflib_QueryFactory.subselectQuery(String) or fflib_QueryFactory.subselectQuery(ChildRelationship) instead.');
-		return setSubselectQuery(getChildRelationship(related), false);
-	}
+  private void addField(String fieldPath) {
+    /** With the introduction of SYSTEM_MODE and USER_MODE, it no longer became necessary to
+     * use DescribeFieldResult methods to resolve a selected field back to its canonical case-preserving
+     * field definition. The consequence is that duplicate fields could be introduced into the SELECT
+     * clause if, for instance, the Apex code called "selectField('annualrevenue')" but that same AnnualRevenue
+     * field were included via a Field Set and the FieldSetMember.getFieldPath() returns "AnnualRevenue"
+     * So, in the cases where we're using USER_MODE or SYSTEM_MODE, we need to downcase all of the fields in the Set
+     */
+    if (
+      mFlsEnforcement == FLSEnforcement.SYSTEM_MODE ||
+      mFlsEnforcement == FLSEnforcement.USER_MODE
+    ) {
+      fieldPath = fieldPath.toLowerCase();
+    }
 
-	/**
-	 * Add a subquery query to this query.  If a subquery for this relationship already exists, it will be returned.
-	 * If not, a new one will be created and returned.
-	 * @deprecated  Replaced by {@link #subselectQuery(String relationshipName, Boolean assertIsAccessible)} and {@link #subselectQuery(ChildRelationship relationship, Boolean assertIsAccessible)}
-	 * @exception InvalidSubqueryRelationshipException If this method is called on a subselectQuery or with an invalid relationship 
-	 * @param related The related object type
-	 * @param assertIsAccessible indicates whether to check if the user has access to the subquery object
-	**/
-	@NamespaceAccessible
-	@SuppressWarnings('PMD.AvoidDebugStatements')
-	public fflib_QueryFactory subselectQuery(SObjectType related, Boolean assertIsAccessible){
-		System.debug(LoggingLevel.WARN, 'fflib_QueryFactory.subselectQuery(Schema.SObjectType, Boolean) is deprecated and will be removed in a future release. Use fflib_QueryFactory.subselectQuery(String, Boolean) or fflib_QueryFactory.subselectQuery(ChildRelationship, Boolean) instead.'); 
-		return setSubselectQuery(getChildRelationship(related), assertIsAccessible);
-	}
+    this.fields.add(fieldPath);
+  }
 
-	/**
-	 * Add a subquery query to this query.  If a subquery for this relationshipName already exists, it will be returned.
-	 * If not, a new one will be created and returned.
-	 * @exception InvalidSubqueryRelationshipException If this method is called on a subselectQuery or with an invalid relationship 
-	 * @param relationshipName The relationshipName to be added as a subquery
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory subselectQuery(String relationshipName){ 
-		return subselectQuery(relationshipName, false);
-	}
+  /**
+   * @param conditionExpression Sets the WHERE clause to the string provided. Do not include the "WHERE".
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory setCondition(String conditionExpression) {
+    this.conditionExpression = conditionExpression;
+    return this;
+  }
+  /**
+   * @returns the current value of the WHERE clause, if any, as set by {@link #setCondition}
+   **/
+  @NamespaceAccessible
+  public String getCondition() {
+    return this.conditionExpression;
+  }
+  /**
+   * @param limitCount if not null causes a LIMIT clause to be added to the resulting query.
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory setLimit(Integer limitCount) {
+    this.limitCount = limitCount;
+    return this;
+  }
+  /**
+   * @returns the current value of the LIMIT clause, if any.
+   **/
+  @NamespaceAccessible
+  public Integer getLimit() {
+    return this.limitCount;
+  }
+  /**
+   * @param offsetCount if not null causes a OFFSET clause to be added to the resulting query.
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory setOffset(Integer offsetCount) {
+    this.offsetCount = offsetCount;
+    return this;
+  }
+  /**
+   * @returns the current value of the OFFSET clause, if any.
+   **/
+  @NamespaceAccessible
+  public Integer getOffset() {
+    return this.offsetCount;
+  }
+  /**
+   * @param o an instance of {@link fflib_QueryFactory.Ordering} to be added to the query's ORDER BY clause.
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory addOrdering(Ordering o) {
+    this.order.add(o);
+    return this;
+  }
 
-	/**
-	 * Add a subquery query to this query.  If a subquery for this relationship already exists, it will be returned.
-	 * If not, a new one will be created and returned.
-	 * @exception InvalidSubqueryRelationshipException If this method is called on a subselectQuery or with an invalid relationship 
-	 * @param relationshipName The relationshipName to be added as a subquery
-	 * @param assertIsAccessible indicates whether to check if the user has access to the subquery object
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory subselectQuery(String relationshipName, Boolean assertIsAccessible){
-		Schema.ChildRelationship relationship = getChildRelationship(relationshipName);
-		if (relationship != null) {
-			return setSubselectQuery(relationship, assertIsAccessible);
-		}
-		throw new InvalidSubqueryRelationshipException('Invalid call to subselectQuery with relationshipName = '+relationshipName +'.  Relationship does not exist for ' + table.getDescribe().getName());	
-	}
+  /**
+   * @param o an instance of {@link fflib_QueryFactory.Ordering} to remove all existing (for instance defaults) and be added to the query's ORDER BY clause.
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory setOrdering(Ordering o) {
+    this.order = new List<Ordering>{ o };
+    return this;
+  }
+  /**
+   * @returns the list of orderings that will be used as the query's ORDER BY clause. You may remove elements from the returned list, or otherwise mutate it, to remove previously added orderings.
+   **/
+  @NamespaceAccessible
+  public List<Ordering> getOrderings() {
+    return this.order;
+  }
 
-	/**
-	 * Add a subquery query to this query.  If a subquery for this relationship already exists, it will be returned.
-	 * If not, a new one will be created and returned.
-	 * @exception InvalidSubqueryRelationshipException If this method is called on a subselectQuery or with an invalid relationship 
-	 * @param relationship The ChildRelationship to be added as a subquery
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory subselectQuery(Schema.ChildRelationship relationship){ 
-		return subselectQuery(relationship, false);
-	}
+  /**
+   * @returns the selected fields
+   **/
+  @NamespaceAccessible
+  public Set<String> getSelectedFields() {
+    return this.fields;
+  }
 
-	/**
-	 * Add a subquery query to this query.  If a subquery for this relationship already exists, it will be returned.
-	 * If not, a new one will be created and returned.
-	 * @exception InvalidSubqueryRelationshipException If this method is called on a subselectQuery or with an invalid relationship 
-	 * @param relationship The ChildRelationship to be added as a subquery
-	 * @param assertIsAccessible indicates whether to check if the user has access to the subquery object
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory subselectQuery(Schema.ChildRelationship relationship, Boolean assertIsAccessible){
-		return setSubselectQuery(relationship, assertIsAccessible);
-	}
+  /**
+   * Add a subquery query to this query.  If a subquery for this relationship already exists, it will be returned.
+   * If not, a new one will be created and returned.
+   * @deprecated  Replaced by {@link #subselectQuery(String relationshipName)} and {@link #subselectQuery(ChildRelationship relationship)}
+   * @exception InvalidSubqueryRelationshipException If this method is called on a subselectQuery or with an invalid relationship
+   * @param related The related object type
+   **/
+  @NamespaceAccessible
+  @SuppressWarnings('PMD.AvoidDebugStatements')
+  public fflib_QueryFactory subselectQuery(SObjectType related) {
+    System.debug(
+      LoggingLevel.WARN,
+      'fflib_QueryFactory.subselectQuery(Schema.SObjectType) is deprecated and will be removed in a future release. Use fflib_QueryFactory.subselectQuery(String) or fflib_QueryFactory.subselectQuery(ChildRelationship) instead.'
+    );
+    return setSubselectQuery(getChildRelationship(related), false);
+  }
 
-	/**
-	 * Add a subquery query to this query.  If a subquery for this relationship already exists, it will be returned.
-	 * If not, a new one will be created and returned.
-	 * @exception InvalidSubqueryRelationshipException If this method is called on a subselectQuery or with an invalid relationship 
-	 * @param relationship The ChildRelationship to be added as a subquery
-	**/
-	private fflib_QueryFactory setSubselectQuery(Schema.ChildRelationship relationship, Boolean assertIsAccessible){
-		if (this.subselectQueryMap == null){
-			this.subselectQueryMap = new Map<Schema.ChildRelationship, fflib_QueryFactory>();
-		}
-		if (this.subselectQueryMap.containsKey(relationship)){
-			return subselectQueryMap.get(relationship);
-		}
-		
-		fflib_QueryFactory subSelectQuery = new fflib_QueryFactory(relationship);
-		
-		//The child queryFactory should be configured in the same way as the parent by default - can override after if required
-		subSelectQuery.setSortSelectFields(sortSelectFields);
+  /**
+   * Add a subquery query to this query.  If a subquery for this relationship already exists, it will be returned.
+   * If not, a new one will be created and returned.
+   * @deprecated  Replaced by {@link #subselectQuery(String relationshipName, Boolean assertIsAccessible)} and {@link #subselectQuery(ChildRelationship relationship, Boolean assertIsAccessible)}
+   * @exception InvalidSubqueryRelationshipException If this method is called on a subselectQuery or with an invalid relationship
+   * @param related The related object type
+   * @param assertIsAccessible indicates whether to check if the user has access to the subquery object
+   **/
+  @NamespaceAccessible
+  @SuppressWarnings('PMD.AvoidDebugStatements')
+  public fflib_QueryFactory subselectQuery(
+    SObjectType related,
+    Boolean assertIsAccessible
+  ) {
+    System.debug(
+      LoggingLevel.WARN,
+      'fflib_QueryFactory.subselectQuery(Schema.SObjectType, Boolean) is deprecated and will be removed in a future release. Use fflib_QueryFactory.subselectQuery(String, Boolean) or fflib_QueryFactory.subselectQuery(ChildRelationship, Boolean) instead.'
+    );
+    return setSubselectQuery(getChildRelationship(related), assertIsAccessible);
+  }
 
-		if(assertIsAccessible){
-			subSelectQuery.assertIsAccessible();
-		}
-		subselectQueryMap.put(relationship, subSelectQuery);
-		return subSelectQuery;
-	}
+  /**
+   * Add a subquery query to this query.  If a subquery for this relationshipName already exists, it will be returned.
+   * If not, a new one will be created and returned.
+   * @exception InvalidSubqueryRelationshipException If this method is called on a subselectQuery or with an invalid relationship
+   * @param relationshipName The relationshipName to be added as a subquery
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory subselectQuery(String relationshipName) {
+    return subselectQuery(relationshipName, false);
+  }
 
-	/**
-	 * @returns the list of subquery instances of fflib_QueryFactory which will be added to the SOQL as relationship/child/sub-queries.
-	**/
-	@NamespaceAccessible
-	public List<fflib_QueryFactory> getSubselectQueries(){
-		if (subselectQueryMap != null) {
-			return subselectQueryMap.values();
-		}	
-		return null;
-	}
+  /**
+   * Add a subquery query to this query.  If a subquery for this relationship already exists, it will be returned.
+   * If not, a new one will be created and returned.
+   * @exception InvalidSubqueryRelationshipException If this method is called on a subselectQuery or with an invalid relationship
+   * @param relationshipName The relationshipName to be added as a subquery
+   * @param assertIsAccessible indicates whether to check if the user has access to the subquery object
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory subselectQuery(
+    String relationshipName,
+    Boolean assertIsAccessible
+  ) {
+    Schema.ChildRelationship relationship = getChildRelationship(
+      relationshipName
+    );
+    if (relationship != null) {
+      return setSubselectQuery(relationship, assertIsAccessible);
+    }
+    throw new InvalidSubqueryRelationshipException(
+      'Invalid call to subselectQuery with relationshipName = ' +
+        relationshipName +
+        '.  Relationship does not exist for ' +
+        table.getDescribe().getName()
+    );
+  }
 
-	/**
-	 * Get the ChildRelationship from the Table for the object type passed in.
-	 * @param objType The object type of the child relationship to get
-	**/
- 	private Schema.ChildRelationship getChildRelationship(SObjectType objType){
-		for (Schema.ChildRelationship childRow : table.getDescribe().getChildRelationships()){
-			//occasionally on some standard objects (Like Contact child of Contact) do not have a relationship name.  
-			//if there is no relationship name, we cannot query on it, so throw an exception.
-			if (childRow.getChildSObject() == objType && childRow.getRelationshipName() != null){ 
-				return childRow;
-			}   
-		}
-		throw new InvalidSubqueryRelationshipException('Invalid call to subselectQuery.  Invalid relationship for table '+table + ' and objtype='+objType);
-	}
+  /**
+   * Add a subquery query to this query.  If a subquery for this relationship already exists, it will be returned.
+   * If not, a new one will be created and returned.
+   * @exception InvalidSubqueryRelationshipException If this method is called on a subselectQuery or with an invalid relationship
+   * @param relationship The ChildRelationship to be added as a subquery
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory subselectQuery(
+    Schema.ChildRelationship relationship
+  ) {
+    return subselectQuery(relationship, false);
+  }
 
-	/**
-	 * Get the ChildRelationship from the Table for the relationship name passed in.
-	 * @param relationshipName The name of the object's ChildRelationship on get
-	**/
- 	private Schema.ChildRelationship getChildRelationship(String relationshipName){
-		for (Schema.ChildRelationship childRow : table.getDescribe().getChildRelationships()){
-			if (childRow.getRelationshipName() == relationshipName){ 
-				return childRow;
-			}   
-		}
-		return null;
-	}
+  /**
+   * Add a subquery query to this query.  If a subquery for this relationship already exists, it will be returned.
+   * If not, a new one will be created and returned.
+   * @exception InvalidSubqueryRelationshipException If this method is called on a subselectQuery or with an invalid relationship
+   * @param relationship The ChildRelationship to be added as a subquery
+   * @param assertIsAccessible indicates whether to check if the user has access to the subquery object
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory subselectQuery(
+    Schema.ChildRelationship relationship,
+    Boolean assertIsAccessible
+  ) {
+    return setSubselectQuery(relationship, assertIsAccessible);
+  }
 
-	/**
-	 * Add a field to be sorted on.  This may be a direct field or a field 
-	 * related through an object lookup or master-detail relationship.
-	 * Use the set to store unique field names, since we only want to sort
-	 * by the same field one time.  The sort expressions are stored in a list
-	 * so that they are applied to the SOQL in the same order that they
-	 * were added in. 
-	 * @param fieldName The string value of the field to be sorted on
-	 * @param direction the direction to be sorted on (ASCENDING or DESCENDING)
-	 * @param nullsLast whether to sort null values last (NULLS LAST keyword included).
-	**/  
-	@NamespaceAccessible
-	public fflib_QueryFactory addOrdering(String fieldName, SortOrder direction, Boolean nullsLast){
-		order.add(
-			new Ordering(getFieldPath(fieldName), direction, nullsLast)
-		);	
-		return this;
-	}
+  /**
+   * Add a subquery query to this query.  If a subquery for this relationship already exists, it will be returned.
+   * If not, a new one will be created and returned.
+   * @exception InvalidSubqueryRelationshipException If this method is called on a subselectQuery or with an invalid relationship
+   * @param relationship The ChildRelationship to be added as a subquery
+   **/
+  private fflib_QueryFactory setSubselectQuery(
+    Schema.ChildRelationship relationship,
+    Boolean assertIsAccessible
+  ) {
+    if (this.subselectQueryMap == null) {
+      this.subselectQueryMap = new Map<Schema.ChildRelationship, fflib_QueryFactory>();
+    }
+    if (this.subselectQueryMap.containsKey(relationship)) {
+      return subselectQueryMap.get(relationship);
+    }
 
-	 /**
-	 * Add a field to be sorted on.  This may be a direct field or a field 
-	 * related through an object lookup or master-detail relationship.
-	 * Use the set to store unique field names, since we only want to sort
-	 * by the same field one time.  The sort expressions are stored in a list
-	 * so that they are applied to the SOQL in the same order that they
-	 * were added in. 
-	 * @param field The SObjectField to sort.  This can only be a direct reference.
-	 * @param direction the direction to be sorted on (ASCENDING or DESCENDING)
-	 * @param nullsLast whether to sort null values last (NULLS LAST keyword included).
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory addOrdering(SObjectField field, SortOrder direction, Boolean nullsLast){
-		order.add(
-			new Ordering(getFieldTokenPath(field), direction, nullsLast)
-		);	
-		return this;
-	}
+    fflib_QueryFactory subSelectQuery = new fflib_QueryFactory(relationship);
 
-	/**
-	 * Add a field to be sorted on.  This may be a direct field or a field 
-	 * related through an object lookup or master-detail relationship.
-	 * Use the set to store unique field names, since we only want to sort
-	 * by the same field one time.  The sort expressions are stored in a list
-	 * so that they are applied to the SOQL in the same order that they
-	 * were added in. 
-	 * The "NULLS FIRST" keywords will be included by default.  If "NULLS LAST" 
-	 * is required, use one of the overloaded addOrdering methods which include this parameter.
-	 * @param fieldName The string value of the field to be sorted on
-	 * @param direction the direction to be sorted on (ASCENDING or DESCENDING)
-	**/  
-	@NamespaceAccessible
-	public fflib_QueryFactory addOrdering(String fieldName, SortOrder direction){
-		order.add(
-			new Ordering(getFieldPath(fieldName), direction)
-		);	
-		return this;
-	}
+    //The child queryFactory should be configured in the same way as the parent by default - can override after if required
+    subSelectQuery.setSortSelectFields(sortSelectFields);
 
-	 /**
-	 * Add a field to be sorted on.  This may be a direct field or a field 
-	 * related through an object lookup or master-detail relationship.
-	 * Use the set to store unique field names, since we only want to sort
-	 * by the same field one time.  The sort expressions are stored in a list
-	 * so that they are applied to the SOQL in the same order that they
-	 * were added in. 
-	 * The "NULLS FIRST" keywords will be included by default.  If "NULLS LAST" 
-	 * is required, use one of the overloaded addOrdering methods which include this parameter.
-	 * @param field The SObjectField to sort.  This can only be a direct reference.
-	 * @param direction the direction to be sorted on (ASCENDING or DESCENDING)
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory addOrdering(SObjectField field, SortOrder direction){
-		order.add(
-			new Ordering(getFieldTokenPath(field), direction)
-		);	
-		return this;
-	}
+    if (assertIsAccessible) {
+      subSelectQuery.assertIsAccessible();
+    }
+    subselectQueryMap.put(relationship, subSelectQuery);
+    return subSelectQuery;
+  }
 
-	/**
-	 * Remove existing ordering and set a field to be sorted on.  This may be a direct field or a field
-	 * related through an object lookup or master-detail relationship.
-	 * Use the set to store unique field names, since we only want to sort
-	 * by the same field one time.  The sort expressions are stored in a list
-	 * so that they are applied to the SOQL in the same order that they
-	 * were added in.
-	 * @param fieldName The string value of the field to be sorted on
-	 * @param direction the direction to be sorted on (ASCENDING or DESCENDING)
-	 * @param nullsLast whether to sort null values last (NULLS LAST keyword included).
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory setOrdering(String fieldName, SortOrder direction, Boolean nullsLast){
-		Ordering ordr = new Ordering(getFieldPath(fieldName), direction, nullsLast);
-		return setOrdering(ordr);
-	}
+  /**
+   * @returns the list of subquery instances of fflib_QueryFactory which will be added to the SOQL as relationship/child/sub-queries.
+   **/
+  @NamespaceAccessible
+  public List<fflib_QueryFactory> getSubselectQueries() {
+    if (subselectQueryMap != null) {
+      return subselectQueryMap.values();
+    }
+    return null;
+  }
 
-	/**
-	 * Remove existing ordering and set a field to be sorted on.  This may be a direct field or a field
-	 * related through an object lookup or master-detail relationship.
-	 * Use the set to store unique field names, since we only want to sort
-	 * by the same field one time.  The sort expressions are stored in a list
-	 * so that they are applied to the SOQL in the same order that they
-	 * were added in.
-	 * @param field The SObjectField to sort.  This can only be a direct reference.
-	 * @param direction the direction to be sorted on (ASCENDING or DESCENDING)
-	 * @param nullsLast whether to sort null values last (NULLS LAST keyword included).
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory setOrdering(SObjectField field, SortOrder direction, Boolean nullsLast){
-		Ordering ordr = new Ordering(getFieldTokenPath(field), direction, nullsLast);
-		return setOrdering(ordr);
-	}
+  /**
+   * Get the ChildRelationship from the Table for the object type passed in.
+   * @param objType The object type of the child relationship to get
+   **/
+  private Schema.ChildRelationship getChildRelationship(SObjectType objType) {
+    for (
+      Schema.ChildRelationship childRow : table.getDescribe()
+        .getChildRelationships()
+    ) {
+      //occasionally on some standard objects (Like Contact child of Contact) do not have a relationship name.
+      //if there is no relationship name, we cannot query on it, so throw an exception.
+      if (
+        childRow.getChildSObject() == objType &&
+        childRow.getRelationshipName() != null
+      ) {
+        return childRow;
+      }
+    }
+    throw new InvalidSubqueryRelationshipException(
+      'Invalid call to subselectQuery.  Invalid relationship for table ' +
+        table +
+        ' and objtype=' +
+        objType
+    );
+  }
 
-	/**
-	 * Remove existing ordering and set a field to be sorted on.  This may be a direct field or a field
-	 * related through an object lookup or master-detail relationship.
-	 * Use the set to store unique field names, since we only want to sort
-	 * by the same field one time.  The sort expressions are stored in a list
-	 * so that they are applied to the SOQL in the same order that they
-	 * were added in.
-	 * @param fieldName The string value of the field to be sorted on
-	 * @param direction the direction to be sorted on (ASCENDING or DESCENDING)
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory setOrdering(String fieldName, SortOrder direction){
-		Ordering ordr = new Ordering(getFieldPath(fieldName), direction);
-		return setOrdering(ordr);
-	}
+  /**
+   * Get the ChildRelationship from the Table for the relationship name passed in.
+   * @param relationshipName The name of the object's ChildRelationship on get
+   **/
+  private Schema.ChildRelationship getChildRelationship(
+    String relationshipName
+  ) {
+    for (
+      Schema.ChildRelationship childRow : table.getDescribe()
+        .getChildRelationships()
+    ) {
+      if (childRow.getRelationshipName() == relationshipName) {
+        return childRow;
+      }
+    }
+    return null;
+  }
 
-	/**
-	 * Remove existing ordering and set a field to be sorted on.  This may be a direct field or a field
-	 * related through an object lookup or master-detail relationship.
-	 * Use the set to store unique field names, since we only want to sort
-	 * by the same field one time.  The sort expressions are stored in a list
-	 * so that they are applied to the SOQL in the same order that they
-	 * were added in.
-	 * @param field The SObjectField to sort.  This can only be a direct reference.
-	 * @param direction the direction to be sorted on (ASCENDING or DESCENDING)
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory setOrdering(SObjectField field, SortOrder direction){
-		Ordering ordr = new Ordering(getFieldTokenPath(field), direction);
-		return setOrdering(ordr);
-	}
+  /**
+   * Add a field to be sorted on.  This may be a direct field or a field
+   * related through an object lookup or master-detail relationship.
+   * Use the set to store unique field names, since we only want to sort
+   * by the same field one time.  The sort expressions are stored in a list
+   * so that they are applied to the SOQL in the same order that they
+   * were added in.
+   * @param fieldName The string value of the field to be sorted on
+   * @param direction the direction to be sorted on (ASCENDING or DESCENDING)
+   * @param nullsLast whether to sort null values last (NULLS LAST keyword included).
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory addOrdering(
+    String fieldName,
+    SortOrder direction,
+    Boolean nullsLast
+  ) {
+    order.add(new Ordering(getFieldPath(fieldName), direction, nullsLast));
+    return this;
+  }
 
-	/**
-	 * Method that sets flag to append 'ALL ROWS' results to the query
-	 * @return  Returns this fflib_QueryFactory instance
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory setAllRows(){
-		return this.setAllRows(true);
-	}
+  /**
+   * Add a field to be sorted on.  This may be a direct field or a field
+   * related through an object lookup or master-detail relationship.
+   * Use the set to store unique field names, since we only want to sort
+   * by the same field one time.  The sort expressions are stored in a list
+   * so that they are applied to the SOQL in the same order that they
+   * were added in.
+   * @param field The SObjectField to sort.  This can only be a direct reference.
+   * @param direction the direction to be sorted on (ASCENDING or DESCENDING)
+   * @param nullsLast whether to sort null values last (NULLS LAST keyword included).
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory addOrdering(
+    SObjectField field,
+    SortOrder direction,
+    Boolean nullsLast
+  ) {
+    order.add(new Ordering(getFieldTokenPath(field), direction, nullsLast));
+    return this;
+  }
 
-	/**
-	 * Method that (un)sets flag to append 'ALL ROWS' results to the query
-	 *
-	 * @param   allRows     whether 'ALL ROWS' should be appended to the query
-	 * @return  Returns this fflib_QueryFactory instance
-	 */
-	@NamespaceAccessible
-	public fflib_QueryFactory setAllRows( Boolean allRows ){
-		this.allRows = allRows;
-		return this;
-	}
+  /**
+   * Add a field to be sorted on.  This may be a direct field or a field
+   * related through an object lookup or master-detail relationship.
+   * Use the set to store unique field names, since we only want to sort
+   * by the same field one time.  The sort expressions are stored in a list
+   * so that they are applied to the SOQL in the same order that they
+   * were added in.
+   * The "NULLS FIRST" keywords will be included by default.  If "NULLS LAST"
+   * is required, use one of the overloaded addOrdering methods which include this parameter.
+   * @param fieldName The string value of the field to be sorted on
+   * @param direction the direction to be sorted on (ASCENDING or DESCENDING)
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory addOrdering(String fieldName, SortOrder direction) {
+    order.add(new Ordering(getFieldPath(fieldName), direction));
+    return this;
+  }
 
-	/**
-	 * Convert the values provided to this instance into a full SOQL string for use with Database.query
-	 * Check to see if subqueries queries need to be added after the field list.
-	**/
-	@NamespaceAccessible
-	public String toSOQL(){
-		String result = 'SELECT ';
-		//if no fields have been added, just add the Id field so that the query or subquery will not just fail
-		if (fields.size() == 0){
-			if (mFlsEnforcement == FLSEnforcement.LEGACY){
-				fflib_SecurityUtils.checkFieldIsReadable(table, 'Id');
-			}
-			result += 'Id';
-		}else {
-			List<String> fieldsToQuery = new List<String>(fields);
-		
-			if(sortSelectFields){
-				fieldsToQuery.sort(); 
-			}	
-		
-			result += String.join(fieldsToQuery,', ');
-		}
-		
-		if(subselectQueryMap != null && !subselectQueryMap.isEmpty()){
-			for (fflib_QueryFactory childRow : subselectQueryMap.values()){
-				result += ', (' + childRow.toSOQL() + ') ';
-			}	
-		}
-		result += ' FROM ' + (relationship != null ? relationship.getRelationshipName() : table.getDescribe().getName());
+  /**
+   * Add a field to be sorted on.  This may be a direct field or a field
+   * related through an object lookup or master-detail relationship.
+   * Use the set to store unique field names, since we only want to sort
+   * by the same field one time.  The sort expressions are stored in a list
+   * so that they are applied to the SOQL in the same order that they
+   * were added in.
+   * The "NULLS FIRST" keywords will be included by default.  If "NULLS LAST"
+   * is required, use one of the overloaded addOrdering methods which include this parameter.
+   * @param field The SObjectField to sort.  This can only be a direct reference.
+   * @param direction the direction to be sorted on (ASCENDING or DESCENDING)
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory addOrdering(
+    SObjectField field,
+    SortOrder direction
+  ) {
+    order.add(new Ordering(getFieldTokenPath(field), direction));
+    return this;
+  }
 
-		if(conditionExpression != null) {
-			result += ' WHERE ' + conditionExpression;
-		}
+  /**
+   * Remove existing ordering and set a field to be sorted on.  This may be a direct field or a field
+   * related through an object lookup or master-detail relationship.
+   * Use the set to store unique field names, since we only want to sort
+   * by the same field one time.  The sort expressions are stored in a list
+   * so that they are applied to the SOQL in the same order that they
+   * were added in.
+   * @param fieldName The string value of the field to be sorted on
+   * @param direction the direction to be sorted on (ASCENDING or DESCENDING)
+   * @param nullsLast whether to sort null values last (NULLS LAST keyword included).
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory setOrdering(
+    String fieldName,
+    SortOrder direction,
+    Boolean nullsLast
+  ) {
+    Ordering ordr = new Ordering(getFieldPath(fieldName), direction, nullsLast);
+    return setOrdering(ordr);
+  }
 
-		//Subselects can't specify USER_MODE or SYSTEM_MODE -- only the top-level query can do so
-		if(relationship == null && mFlsEnforcement == FLSEnforcement.USER_MODE){
-			result += ' WITH USER_MODE';
-		}
-		else if(relationship == null && mFlsEnforcement == FLSEnforcement.SYSTEM_MODE){
-			result += ' WITH SYSTEM_MODE';
-		}
+  /**
+   * Remove existing ordering and set a field to be sorted on.  This may be a direct field or a field
+   * related through an object lookup or master-detail relationship.
+   * Use the set to store unique field names, since we only want to sort
+   * by the same field one time.  The sort expressions are stored in a list
+   * so that they are applied to the SOQL in the same order that they
+   * were added in.
+   * @param field The SObjectField to sort.  This can only be a direct reference.
+   * @param direction the direction to be sorted on (ASCENDING or DESCENDING)
+   * @param nullsLast whether to sort null values last (NULLS LAST keyword included).
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory setOrdering(
+    SObjectField field,
+    SortOrder direction,
+    Boolean nullsLast
+  ) {
+    Ordering ordr = new Ordering(
+      getFieldTokenPath(field),
+      direction,
+      nullsLast
+    );
+    return setOrdering(ordr);
+  }
 
-		if(order.size() > 0){
-			result += ' ORDER BY ';
-			for(Ordering o:order)
-				result += o.toSOQL() +', ';
-			result = result.substring(0,result.length()-2);
-		}
-	
-		if(limitCount != null)
-			result += ' LIMIT '+limitCount;
+  /**
+   * Remove existing ordering and set a field to be sorted on.  This may be a direct field or a field
+   * related through an object lookup or master-detail relationship.
+   * Use the set to store unique field names, since we only want to sort
+   * by the same field one time.  The sort expressions are stored in a list
+   * so that they are applied to the SOQL in the same order that they
+   * were added in.
+   * @param fieldName The string value of the field to be sorted on
+   * @param direction the direction to be sorted on (ASCENDING or DESCENDING)
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory setOrdering(String fieldName, SortOrder direction) {
+    Ordering ordr = new Ordering(getFieldPath(fieldName), direction);
+    return setOrdering(ordr);
+  }
 
-		if(offsetCount != null)
-			result += ' OFFSET '+offsetCount;
-		
-		if(allRows) {
-			result += ' ALL ROWS';
-		}
+  /**
+   * Remove existing ordering and set a field to be sorted on.  This may be a direct field or a field
+   * related through an object lookup or master-detail relationship.
+   * Use the set to store unique field names, since we only want to sort
+   * by the same field one time.  The sort expressions are stored in a list
+   * so that they are applied to the SOQL in the same order that they
+   * were added in.
+   * @param field The SObjectField to sort.  This can only be a direct reference.
+   * @param direction the direction to be sorted on (ASCENDING or DESCENDING)
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory setOrdering(
+    SObjectField field,
+    SortOrder direction
+  ) {
+    Ordering ordr = new Ordering(getFieldTokenPath(field), direction);
+    return setOrdering(ordr);
+  }
 
-		return result;
-	}
+  /**
+   * Method that sets flag to append 'ALL ROWS' results to the query
+   * @return  Returns this fflib_QueryFactory instance
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory setAllRows() {
+    return this.setAllRows(true);
+  }
 
-	/**
-	 * Create a "deep" clone of this object that can be safely mutated without affecting the cloned instance
-	 * @return a deep clone of this fflib_QueryFactory
-	**/
-	@NamespaceAccessible
-	public fflib_QueryFactory deepClone(){	
+  /**
+   * Method that (un)sets flag to append 'ALL ROWS' results to the query
+   *
+   * @param   allRows     whether 'ALL ROWS' should be appended to the query
+   * @return  Returns this fflib_QueryFactory instance
+   */
+  @NamespaceAccessible
+  public fflib_QueryFactory setAllRows(Boolean allRows) {
+    this.allRows = allRows;
+    return this;
+  }
 
-		fflib_QueryFactory clone = new fflib_QueryFactory(this.table)
-			.setLimit(this.limitCount)
-			.setOffset(this.offsetCount)
-			.setCondition(this.conditionExpression)
-			.setEnforceFLS(this.mFlsEnforcement);
+  /**
+   * Convert the values provided to this instance into a full SOQL string for use with Database.query
+   * Check to see if subqueries queries need to be added after the field list.
+   **/
+  @NamespaceAccessible
+  public String toSOQL() {
+    String result = 'SELECT ';
+    //if no fields have been added, just add the Id field so that the query or subquery will not just fail
+    if (fields.size() == 0) {
+      if (mFlsEnforcement == FLSEnforcement.LEGACY) {
+        fflib_SecurityUtils.checkFieldIsReadable(table, 'Id');
+      }
+      result += 'Id';
+    } else {
+      List<String> fieldsToQuery = new List<String>(fields);
 
-		Map<Schema.ChildRelationship, fflib_QueryFactory> subqueries = this.subselectQueryMap;
-		if(subqueries != null) {
-			Map<Schema.ChildRelationship, fflib_QueryFactory> clonedSubqueries = new Map<Schema.ChildRelationship, fflib_QueryFactory>();
-			for(Schema.ChildRelationship key : subqueries.keySet()) {
-				clonedSubqueries.put(key, subqueries.get(key).deepClone());
-			}
-			clone.subselectQueryMap = clonedSubqueries;
-		}
+      if (sortSelectFields) {
+        fieldsToQuery.sort();
+      }
 
-		clone.relationship = this.relationship;
-		clone.order = this.order.clone();
-		clone.fields = this.fields.clone();
+      result += String.join(fieldsToQuery, ', ');
+    }
 
-		return clone;
-	}
-	
-	@NamespaceAccessible
-	public inherited sharing class Ordering{
-		private SortOrder direction;
-		private boolean nullsLast;
-		private String field;
+    if (subselectQueryMap != null && !subselectQueryMap.isEmpty()) {
+      for (fflib_QueryFactory childRow : subselectQueryMap.values()) {
+        result += ', (' + childRow.toSOQL() + ') ';
+      }
+    }
+    result +=
+      ' FROM ' +
+      (relationship != null
+        ? relationship.getRelationshipName()
+        : table.getDescribe().getName());
 
-		@NamespaceAccessible
-		public Ordering(String sobjType, String fieldName, SortOrder direction){
-			this(
-				fflib_SObjectDescribe.getDescribe(sobjType).getField(fieldName),
-				direction
-			);
-		}
-		/**
-		 * Construct a new ordering instance for use with {@link fflib_QueryFactory#addOrdering}
-		 * Once constructed it's properties may not be modified.
-		**/
-		@NamespaceAccessible
-		public Ordering(Schema.SObjectField field, SortOrder direction){
-			this(fflib_QueryFactory.getFieldTokenPath(field), direction, false); //SOQL docs state NULLS FIRST is default behavior
-		}
-		@NamespaceAccessible
-		public Ordering(Schema.SObjectField field, SortOrder direction, Boolean nullsLast){
-			this(fflib_QueryFactory.getFieldTokenPath(field), direction, nullsLast);
-		}
-		@TestVisible
-		private Ordering(String field, SortOrder direction){
-			this(field, direction, false);
-		}
-		@TestVisible
-		private Ordering(String field, SortOrder direction, Boolean nullsLast){
-			this.direction = direction;
-			this.field = field;
-			this.nullsLast = nullsLast;
-		}
-		@NamespaceAccessible
-		public String getField(){
-			return this.field;
-		}
-		@NamespaceAccessible
-		public SortOrder getDirection(){
-			return direction;
-		}
-		@NamespaceAccessible
-		public String toSOQL(){
-			return field + ' ' + (direction == SortOrder.ASCENDING ? 'ASC' : 'DESC') + (nullsLast ? ' NULLS LAST ' : ' NULLS FIRST ');
-		}
-	}
+    if (conditionExpression != null) {
+      result += ' WHERE ' + conditionExpression;
+    }
 
+    //Subselects can't specify USER_MODE or SYSTEM_MODE -- only the top-level query can do so
+    if (relationship == null && mFlsEnforcement == FLSEnforcement.USER_MODE) {
+      result += ' WITH USER_MODE';
+    } else if (
+      relationship == null &&
+      mFlsEnforcement == FLSEnforcement.SYSTEM_MODE
+    ) {
+      result += ' WITH SYSTEM_MODE';
+    }
 
-	
-	@NamespaceAccessible
-	public inherited sharing class InvalidFieldException extends Exception{
-		private String fieldName;
-		private Schema.SObjectType objectType;
-		@NamespaceAccessible
-		public InvalidFieldException(String fieldName, Schema.SObjectType objectType){
-			this.objectType = objectType;
-			this.fieldName = fieldName;
-			this.setMessage( 'Invalid field \''+fieldName+'\' for object \''+objectType+'\'' );
-		}
-	}
+    if (order.size() > 0) {
+      result += ' ORDER BY ';
+      for (Ordering o : order)
+        result += o.toSOQL() + ', ';
+      result = result.substring(0, result.length() - 2);
+    }
 
-	@NamespaceAccessible
-	public inherited sharing class InvalidFieldSetException extends Exception{}
-	@NamespaceAccessible
-	public inherited sharing class NonReferenceFieldException extends Exception{}
-	@NamespaceAccessible
-	public inherited sharing class InvalidSubqueryRelationshipException extends Exception{}
+    if (limitCount != null)
+      result += ' LIMIT ' + limitCount;
+
+    if (offsetCount != null)
+      result += ' OFFSET ' + offsetCount;
+
+    if (allRows) {
+      result += ' ALL ROWS';
+    }
+
+    return result;
+  }
+
+  /**
+   * Create a "deep" clone of this object that can be safely mutated without affecting the cloned instance
+   * @return a deep clone of this fflib_QueryFactory
+   **/
+  @NamespaceAccessible
+  public fflib_QueryFactory deepClone() {
+    fflib_QueryFactory clone = new fflib_QueryFactory(this.table)
+      .setLimit(this.limitCount)
+      .setOffset(this.offsetCount)
+      .setCondition(this.conditionExpression)
+      .setEnforceFLS(this.mFlsEnforcement);
+
+    Map<Schema.ChildRelationship, fflib_QueryFactory> subqueries = this.subselectQueryMap;
+    if (subqueries != null) {
+      Map<Schema.ChildRelationship, fflib_QueryFactory> clonedSubqueries = new Map<Schema.ChildRelationship, fflib_QueryFactory>();
+      for (Schema.ChildRelationship key : subqueries.keySet()) {
+        clonedSubqueries.put(key, subqueries.get(key).deepClone());
+      }
+      clone.subselectQueryMap = clonedSubqueries;
+    }
+
+    clone.relationship = this.relationship;
+    clone.order = this.order.clone();
+    clone.fields = this.fields.clone();
+
+    return clone;
+  }
+
+  @NamespaceAccessible
+  public inherited sharing class Ordering {
+    private SortOrder direction;
+    private boolean nullsLast;
+    private String field;
+
+    @NamespaceAccessible
+    public Ordering(String sobjType, String fieldName, SortOrder direction) {
+      this(
+        fflib_SObjectDescribe.getDescribe(sobjType).getField(fieldName),
+        direction
+      );
+    }
+    /**
+     * Construct a new ordering instance for use with {@link fflib_QueryFactory#addOrdering}
+     * Once constructed it's properties may not be modified.
+     **/
+    @NamespaceAccessible
+    public Ordering(Schema.SObjectField field, SortOrder direction) {
+      this(fflib_QueryFactory.getFieldTokenPath(field), direction, false); //SOQL docs state NULLS FIRST is default behavior
+    }
+    @NamespaceAccessible
+    public Ordering(
+      Schema.SObjectField field,
+      SortOrder direction,
+      Boolean nullsLast
+    ) {
+      this(fflib_QueryFactory.getFieldTokenPath(field), direction, nullsLast);
+    }
+    @TestVisible
+    private Ordering(String field, SortOrder direction) {
+      this(field, direction, false);
+    }
+    @TestVisible
+    private Ordering(String field, SortOrder direction, Boolean nullsLast) {
+      this.direction = direction;
+      this.field = field;
+      this.nullsLast = nullsLast;
+    }
+    @NamespaceAccessible
+    public String getField() {
+      return this.field;
+    }
+    @NamespaceAccessible
+    public SortOrder getDirection() {
+      return direction;
+    }
+    @NamespaceAccessible
+    public String toSOQL() {
+      return field +
+        ' ' +
+        (direction == SortOrder.ASCENDING ? 'ASC' : 'DESC') +
+        (nullsLast ? ' NULLS LAST ' : ' NULLS FIRST ');
+    }
+  }
+
+  @NamespaceAccessible
+  public inherited sharing class InvalidFieldException extends Exception {
+    private String fieldName;
+    private Schema.SObjectType objectType;
+    @NamespaceAccessible
+    public InvalidFieldException(
+      String fieldName,
+      Schema.SObjectType objectType
+    ) {
+      this.objectType = objectType;
+      this.fieldName = fieldName;
+      this.setMessage(
+        'Invalid field \'' + fieldName + '\' for object \'' + objectType + '\''
+      );
+    }
+  }
+
+  @NamespaceAccessible
+  public inherited sharing class InvalidFieldSetException extends Exception {
+  }
+  @NamespaceAccessible
+  public inherited sharing class NonReferenceFieldException extends Exception {
+  }
+  @NamespaceAccessible
+  public inherited sharing class InvalidSubqueryRelationshipException extends Exception {
+  }
 }
