@@ -149,11 +149,23 @@ public inherited sharing class fflib_SecurityUtils {
     SObjectType objType,
     String fieldName
   ) {
+    return fieldTokenFor(objType, fieldTokensFor(objType), fieldName);
+  }
+
+  private static Map<String, SObjectField> fieldTokensFor(SObjectType objType) {
     Map<String, SObjectField> tokens = fieldTokenCache.get(objType);
     if (tokens == null) {
       tokens = new Map<String, SObjectField>();
       fieldTokenCache.put(objType, tokens);
     }
+    return tokens;
+  }
+
+  private static SObjectField fieldTokenFor(
+    SObjectType objType,
+    Map<String, SObjectField> tokens,
+    String fieldName
+  ) {
     SObjectField token = tokens.get(fieldName);
     if (token == null) {
       token = describeFor(objType).getField(fieldName);
@@ -174,8 +186,12 @@ public inherited sharing class fflib_SecurityUtils {
   @NamespaceAccessible
   public static void checkInsert(SObjectType objType, List<String> fieldNames) {
     checkObjectIsInsertable(objType);
+    Map<String, SObjectField> tokens = fieldTokensFor(objType);
     for (String fieldName : fieldNames) {
-      checkFieldIsInsertable(objType, fieldName);
+      checkFieldIsInsertable(
+        objType,
+        fieldTokenFor(objType, tokens, fieldName).getDescribe()
+      );
     }
   }
 
@@ -203,8 +219,12 @@ public inherited sharing class fflib_SecurityUtils {
   @NamespaceAccessible
   public static void checkRead(SObjectType objType, List<String> fieldNames) {
     checkObjectIsReadable(objType);
+    Map<String, SObjectField> tokens = fieldTokensFor(objType);
     for (String fieldName : fieldNames) {
-      checkFieldIsReadable(objType, fieldName);
+      checkFieldIsReadable(
+        objType,
+        fieldTokenFor(objType, tokens, fieldName).getDescribe()
+      );
     }
   }
 
@@ -232,8 +252,12 @@ public inherited sharing class fflib_SecurityUtils {
   @NamespaceAccessible
   public static void checkUpdate(SObjectType objType, List<String> fieldNames) {
     checkObjectIsUpdateable(objType);
+    Map<String, SObjectField> tokens = fieldTokensFor(objType);
     for (String fieldName : fieldNames) {
-      checkFieldIsUpdateable(objType, fieldName);
+      checkFieldIsUpdateable(
+        objType,
+        fieldTokenFor(objType, tokens, fieldName).getDescribe()
+      );
     }
   }
 
