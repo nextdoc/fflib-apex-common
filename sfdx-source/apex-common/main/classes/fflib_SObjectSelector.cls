@@ -89,7 +89,7 @@ public abstract with sharing class fflib_SObjectSelector implements fflib_ISObje
   private Schema.DescribeSObjectResult sObjectDescribe {
     get {
       if (sObjectDescribe == null) {
-        sObjectDescribe = getSObjectType().getDescribe();
+        sObjectDescribe = describeSObject(getSObjectType());
       }
       return sObjectDescribe;
     }
@@ -114,6 +114,8 @@ public abstract with sharing class fflib_SObjectSelector implements fflib_ISObje
    **/
   private static String DEFAULT_SORT_FIELD = 'CreatedDate';
   private static String SF_ID_FIELD = 'Id';
+  private static final Map<Schema.SObjectField, String> FIELD_NAME_CACHE = new Map<Schema.SObjectField, String>();
+  private static final Map<Schema.SObjectType, Schema.DescribeSObjectResult> SOBJECT_DESCRIBE_CACHE = new Map<Schema.SObjectType, Schema.DescribeSObjectResult>();
 
   /**
    * Implement this method to inform the base class of the SObject (custom or standard) to be queried
@@ -538,7 +540,7 @@ public abstract with sharing class fflib_SObjectSelector implements fflib_ISObje
     // Add fields from selector prefixing the relationship path
     for (SObjectField field : getSObjectFieldList()) {
       queryFactory.selectField(
-        relationshipFieldPath + '.' + field.getDescribe().getName(),
+        relationshipFieldPath + '.' + getFieldName(field),
         this.getSObjectType()
       );
     }
@@ -661,13 +663,16 @@ public abstract with sharing class fflib_SObjectSelector implements fflib_ISObje
       queryFactory.selectFields(getSObjectFieldList());
 
       List<Schema.FieldSet> fieldSetList = getSObjectFieldSetList();
-      if (m_includeFieldSetFields && fieldSetList != null)
-        for (Schema.FieldSet fieldSet : fieldSetList)
+      if (m_includeFieldSetFields && fieldSetList != null) {
+        for (Schema.FieldSet fieldSet : fieldSetList) {
           queryFactory.selectFieldSet(fieldSet);
+        }
+      }
 
       // Automatically select the CurrencyIsoCode for MC orgs (unless the object is a known exception to the rule)
-      if (isCurrencyIsoCodeAvailable())
+      if (isCurrencyIsoCodeAvailable()) {
         queryFactory.selectField('CurrencyIsoCode', getSObjectType());
+      }
     }
 
     // Parse the getOrderBy()
@@ -695,6 +700,28 @@ public abstract with sharing class fflib_SObjectSelector implements fflib_ISObje
     queryFactory.setSortSelectFields(m_sortSelectFields);
 
     return queryFactory;
+  }
+
+  private static String getFieldName(Schema.SObjectField field) {
+    String name = FIELD_NAME_CACHE.get(field);
+    if (name == null) {
+      name = field.getDescribe().getName();
+      FIELD_NAME_CACHE.put(field, name);
+    }
+    return name;
+  }
+
+  private static Schema.DescribeSObjectResult describeSObject(
+    Schema.SObjectType sObjectType
+  ) {
+    Schema.DescribeSObjectResult result = SOBJECT_DESCRIBE_CACHE.get(
+      sObjectType
+    );
+    if (result == null) {
+      result = sObjectType.getDescribe();
+      SOBJECT_DESCRIBE_CACHE.put(sObjectType, result);
+    }
+    return result;
   }
 
   /**
