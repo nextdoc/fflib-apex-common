@@ -486,6 +486,51 @@ private with sharing class fflib_SObjectSelectorTest
 		Assert.isTrue(soql.contains('WITH USER_MODE'),'Expected SOQL to contain WITH USER_MODE; Actual:' + soql);
 	}
 
+	@IsTest
+	static void headroomBulkSelectorQueries(){
+		Integer rounds = 600;
+		List<Account> accounts = new List<Account>();
+		for (Integer i = 0; i < 200; i++) {
+			accounts.add(new Account(Name = 'Headroom ' + i, AccountNumber = 'HR-' + (1000 + i), AnnualRevenue = 1000 * Math.mod(i, 17)));
+		}
+		insert accounts;
+		Set<Id> accountIds = new Map<Id, Account>(accounts).keySet();
+		List<fflib_SObjectSelector.DataAccess> modes = new List<fflib_SObjectSelector.DataAccess>{
+			fflib_SObjectSelector.DataAccess.LEGACY, fflib_SObjectSelector.DataAccess.USER_MODE, fflib_SObjectSelector.DataAccess.SYSTEM_MODE
+		};
+		Integer totalLength = 0;
+		Integer rows = 0;
+
+		Test.startTest();
+		for (Integer i = 0; i < rounds; i++) {
+			fflib_SObjectSelector.DataAccess mode = modes[Math.mod(i, modes.size())];
+			AccountSelector accountSelector = new AccountSelector(Math.mod(i, 2) == 0, Math.mod(i, 3) != 0, Math.mod(i, 4) == 0, Math.mod(i, 5) != 0);
+			fflib_QueryFactory accountQuery = accountSelector.newQueryFactory(Math.mod(i, 7) != 0);
+			new Testfflib_UserSObjectSelector().configureQueryFactoryFields(accountQuery, Math.mod(i, 2) == 0 ? 'Owner' : 'CreatedBy');
+			new AccessLevelOpportunitySelector(mode).addQueryFactorySubselect(accountQuery, 'Opportunities', Math.mod(i, 3) != 1);
+			accountQuery.setCondition('AnnualRevenue >= ' + Math.mod(i, 17) * 1000).setLimit(10 + i);
+			totalLength += accountQuery.toSOQL().length();
+
+			AccessLevelOpportunitySelector opportunitySelector = new AccessLevelOpportunitySelector(mode);
+			fflib_QueryFactory opportunityQuery = opportunitySelector.newQueryFactory(true, mode);
+			new DefaultSortingAccountSelector(Math.mod(i, 2) == 1).configureQueryFactoryFields(opportunityQuery, 'Account');
+			totalLength += opportunityQuery.toSOQL().length();
+
+			fflib_SObjectSelector other = Math.mod(i, 3) == 0 ? (fflib_SObjectSelector) new CaseSelector()
+				: (Math.mod(i, 3) == 1 ? (fflib_SObjectSelector) new TaskSelector() : (fflib_SObjectSelector) new ContractSelector());
+			totalLength += other.newQueryFactory().toSOQL().length();
+			totalLength += other.getFieldListString().length() + accountSelector.getRelatedFieldListString('Parent' + Math.mod(i, 3)).length();
+			totalLength += accountSelector.getSObjectName().length() + accountSelector.getOrderBy().length();
+		}
+		for (fflib_SObjectSelector.DataAccess mode : modes) {
+			rows += new AccessLevelAccountSelector(mode).selectSObjectsById(accountIds).size();
+		}
+		Test.stopTest();
+
+		System.assert(totalLength > 0, 'Expected SOQL to be built');
+		System.assertEquals(600, rows, 'Each mode should select every account');
+	}
+
 	private inherited sharing class AccountSelector extends fflib_SObjectSelector
 	{
 		public AccountSelector()
