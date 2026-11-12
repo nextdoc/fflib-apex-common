@@ -40,6 +40,19 @@ public inherited sharing class fflib_SecurityUtils {
     DEL
   } //UPDATE and DELETE are reserved words
 
+  private static final Map<OperationType, String> CRUD_MESSAGES = new Map<OperationType, String>{
+    OperationType.CREATE => System.Label.fflib_security_error_object_not_insertable,
+    OperationType.READ => System.Label.fflib_security_error_object_not_readable,
+    OperationType.MODIFY => System.Label.fflib_security_error_object_not_updateable,
+    OperationType.DEL => System.Label.fflib_security_error_object_not_deletable
+  };
+
+  private static final Map<OperationType, String> FLS_MESSAGES = new Map<OperationType, String>{
+    OperationType.CREATE => System.Label.fflib_security_error_field_not_insertable,
+    OperationType.READ => System.Label.fflib_security_error_field_not_readable,
+    OperationType.MODIFY => System.Label.fflib_security_error_field_not_updateable
+  };
+
   /**
    * SecurityException is never be thrown directly by fflib_SecurityUtils, instead all
    * forms of CRUD and FLD violations throw subclasses of it. It is provided as a convenience
@@ -65,23 +78,9 @@ public inherited sharing class fflib_SecurityUtils {
     ) {
       this.m_operation = operation;
       this.m_objectType = objectType;
-      if (operation == OperationType.CREATE) {
-        this.setMessage(
-          System.Label.fflib_security_error_object_not_insertable
-        );
-      } else if (operation == OperationType.READ) {
-        this.setMessage(System.Label.fflib_security_error_object_not_readable);
-      } else if (operation == OperationType.MODIFY) {
-        this.setMessage(
-          System.Label.fflib_security_error_object_not_updateable
-        );
-      } else if (operation == OperationType.DEL) {
-        this.setMessage(System.Label.fflib_security_error_object_not_deletable);
-      }
-
       this.setMessage(
         String.format(
-          this.getMessage(),
+          CRUD_MESSAGES.get(operation),
           new List<String>{ objectType.getDescribe().getName() }
         )
       );
@@ -103,17 +102,9 @@ public inherited sharing class fflib_SecurityUtils {
       this.m_operation = operation;
       this.m_objectType = objectType;
       this.m_fieldToken = fieldToken;
-      if (operation == OperationType.CREATE) {
-        this.setMessage(System.Label.fflib_security_error_field_not_insertable);
-      } else if (operation == OperationType.READ) {
-        this.setMessage(System.Label.fflib_security_error_field_not_readable);
-      } else if (operation == OperationType.MODIFY) {
-        this.setMessage(System.Label.fflib_security_error_field_not_updateable);
-      }
-
       this.setMessage(
         String.format(
-          this.getMessage(),
+          FLS_MESSAGES.get(operation),
           new List<String>{
             objectType.getDescribe().getName(),
             fieldToken.getDescribe().getName()
@@ -168,7 +159,11 @@ public inherited sharing class fflib_SecurityUtils {
   ) {
     SObjectField token = tokens.get(fieldName);
     if (token == null) {
-      token = describeFor(objType).getField(fieldName);
+      fflib_SObjectDescribe describe = describeFor(objType);
+      if (describe == null) {
+        throw new NullPointerException();
+      }
+      token = describe.getField(fieldName);
       tokens.put(fieldName, token);
     }
     return token;
