@@ -426,10 +426,11 @@ public abstract with sharing class fflib_SObjectSelector implements fflib_ISObje
    **/
   @NamespaceAccessible
   public void assertIsAccessible() {
-    if (!sObjectDescribe.isAccessible())
+    if (!sObjectDescribe.isAccessible()) {
       throw new fflib_SObjectDomain.DomainException(
         'Permission to access an ' + getSObjectName() + ' denied.'
       );
+    }
   }
 
   /**
