@@ -168,16 +168,15 @@ public inherited sharing class fflib_QueryFactory {
       ) {
         List<Schema.sObjectType> relatedObjs = tokenDescribe.getReferenceTo(); //if it's polymorphic, it matters which one we use - i.e. Lead.Owner is GROUP|USER and each has different fields.
 
-        if (relatedObjs.size() == 1 || relatedSObjectType == null) {
-          lastSObjectType = relatedObjs[0]; //caller did not specify the one to use or there's only one so use the first one
-        } else {
-          for (Schema.sObjectType sot : relatedObjs) {
-            if (sot == relatedSObjectType) {
-              lastSObjectType = sot;
-              break;
-            }
-          }
-        }
+        Schema.SObjectType preferredType = relatedObjs.contains(
+            relatedSObjectType
+          )
+          ? relatedSObjectType
+          : lastSObjectType;
+        lastSObjectType = relatedObjs.size() == 1 ||
+          relatedSObjectType == null
+          ? relatedObjs[0]
+          : preferredType;
 
         fieldPath.add(tokenDescribe.getRelationshipName());
       } else if (token != null && !i.hasNext()) {
