@@ -113,5 +113,44 @@
     "branch": "ascent/query-factory-1",
     "report": "ascents/query-factory-1/report.html?refresh=off",
     "retro": "ascents/query-factory-1/retro.json"
+  },
+  {
+    "name": "sobject-selector-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_SObjectSelector.cls",
+      "sfdx-source/apex-common/main/classes/fflib_ISObjectSelector.cls"
+    ],
+    "startedAt": "2026-11-12T21:53:01.241Z",
+    "iterations": 24,
+    "kept": 7,
+    "baseline": {
+      "overall": 80.8,
+      "scores": {
+        "PMD": 49,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 83.6,
+        "Test run time": 81.7,
+        "Limit headroom": 52.6,
+        "Resource efficiency": 98.8
+      }
+    },
+    "best": {
+      "overall": 88.8,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 90.8,
+        "Test run time": 80.7,
+        "Limit headroom": 51.6,
+        "Resource efficiency": 98.8
+      },
+      "iteration": 19,
+      "commit": "b8fc1f112ec984e5ab6ab7d92a170c467f6a35d4"
+    },
+    "branch": "ascent/sobject-selector-1",
+    "report": "ascents/sobject-selector-1/report.html?refresh=off",
+    "retro": "ascents/sobject-selector-1/retro.json"
   }
 ]

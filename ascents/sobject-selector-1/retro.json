@@ -1,0 +1,144 @@
+{
+  "ascent": "sobject-selector-1",
+  "at": "2026-11-12T22:56:29.845Z",
+  "base": "971d9bca9b7aa9900f92dda6b91f414cacd374e7",
+  "head": "b8fc1f112ec984e5ab6ab7d92a170c467f6a35d4",
+  "changedTests": [],
+  "step": {
+    "model": "claude-opus-5-5",
+    "durationMs": 73517,
+    "costUsd": 0.6829168
+  },
+  "summary": "Only fflib_SObjectSelector.cls changed. PMD went from 49 to 100 through brace wraps and the DEFERRED describe option (iterations 3, 5, 9, 10). Coverage went from 83.6 to 90.8 by wiring uncalled public methods into paths that already run (iterations 13, 15), not by adding tests. Limit headroom ended 1 point below the baseline even though iterations 9 and 19 added static describe, field-name and default-order-by caches. Normal behaviour is preserved. The main change is that the DescribeSObjectResult (and so isAccessible()) is now cached per transaction instead of per selector, which can give stale CRUD answers across System.runAs.",
+  "behaviourChanges": [
+    {
+      "code": "B1",
+      "title": "Object describe and isAccessible() now cached per transaction, not per selector",
+      "detail": "The sObjectDescribe getter now reads a static SOBJECT_DESCRIBE_CACHE keyed by SObjectType. In the baseline, each new selector instance ran a fresh getDescribe(), so a selector built inside System.runAs saw the runAs user's object access. Now the first describe of a type in the transaction is reused by every later selector, whichever user is running. Public assertIsAccessible() can then pass or fail based on another user's permissions. The CrudException catch is safe because its fallback throw sends the same message either way. In production the running user doesn't change within a transaction, so the risk is mostly tests and code that use System.runAs.",
+      "evidence": "fflib_SObjectSelector.cls:89-95, 420, 704-715",
+      "iterations": [
+        9,
+        10
+      ],
+      "severity": "medium",
+      "caughtByTests": false,
+      "proposedTest": "In one test method, outside runAs, call new AccountSelector().assertIsAccessible() (passes as admin). Then, inside runAs with a user who has no Account read access, call new AccountSelector().assertIsAccessible() and assert it throws DomainException. With the static cache it doesn't throw."
+    },
+    {
+      "code": "B2",
+      "title": "Describe fetched with SObjectDescribeOptions.DEFERRED",
+      "detail": "Child relationships load lazily. The selector never reads them from this describe, so there is no visible change. If someone later adds getChildRelationships() through sObjectDescribe, it still works, just loaded lazily.",
+      "evidence": "fflib_SObjectSelector.cls:711",
+      "iterations": [
+        10
+      ],
+      "severity": "low",
+      "caughtByTests": false,
+      "proposedTest": "Not needed. Optionally assert getSObjectName() and the CurrencyIsoCode detection give the same results as an EAGER describe."
+    },
+    {
+      "code": "B3",
+      "title": "Default getOrderBy() string cached per SObjectType for the transaction",
+      "detail": "The name field, its encryption flag and whether CreatedDate exists are schema facts, so the result matches the baseline. Overridden getOrderBy() and the per-instance m_orderBy behave as before. The fallback branch now reads the shared cached describe instead of the instance's sObjectFieldsMap, which gives the same answer.",
+      "evidence": "fflib_SObjectSelector.cls:223-228, 717-742",
+      "iterations": [
+        19
+      ],
+      "severity": "low",
+      "caughtByTests": true,
+      "proposedTest": "Assert the default getOrderBy() for an object with no name field or an encrypted one (for example a custom object with an AutoNumber or encrypted Name) returns CreatedDate or Id. Today only name-field objects are exercised."
+    },
+    {
+      "code": "B4",
+      "title": "Constructor routes through setDataAccess",
+      "detail": "Same end state: non-LEGACY modes only come from the (Boolean, DataAccess) constructor, which already passes enforceCRUD and enforceFLS as false, and null access also leaves both false. setDataAccess is non-virtual, so subclasses can't intercept it during construction.",
+      "evidence": "fflib_SObjectSelector.cls:148-154, 196-208, 266-276",
+      "iterations": [
+        13
+      ],
+      "severity": "low",
+      "caughtByTests": true,
+      "proposedTest": "Assert isEnforcingCRUD() and isEnforcingFLS() are false for USER_MODE and SYSTEM_MODE selectors, and true or false as passed for LEGACY selectors."
+    },
+    {
+      "code": "B5",
+      "title": "Extra assertIsAccessible() call in the CRUD catch",
+      "detail": "It throws the same DomainException message as the fallback, so callers see no difference. It adds a describe lookup on the failure path only. The fallback throw stays as a backstop that, in practice, only runs when the cached describe disagrees with the live check.",
+      "evidence": "fflib_SObjectSelector.cls:630-636",
+      "iterations": [
+        15
+      ],
+      "severity": "low",
+      "caughtByTests": true,
+      "proposedTest": "Covered by testAssertIsAccessible. Optionally assert the exception type and message exactly."
+    }
+  ],
+  "patterns": [
+    {
+      "code": "P1",
+      "title": "Brace wraps with redundant branches kept",
+      "detail": "Pure readability and PMD fixes. Keeping the redundant null and ASC sort branches preserved behaviour and coverage.",
+      "evidence": "fflib_SObjectSelector.cls:656-682; iterations 3, 5, 9",
+      "verdict": "good"
+    },
+    {
+      "code": "P2",
+      "title": "Static per-transaction caches of schema-only values",
+      "detail": "FIELD_NAME_CACHE and DEFAULT_ORDER_BY_CACHE hold values that depend only on the key, so they are safe. SOBJECT_DESCRIBE_CACHE also holds the user-dependent isAccessible(), which makes it less safe than it looks.",
+      "evidence": "fflib_SObjectSelector.cls:117-119, 695-742",
+      "verdict": "questionable"
+    },
+    {
+      "code": "P3",
+      "title": "Coverage bought by wiring uncalled public methods into covered paths",
+      "detail": "getSObjectType2 calling sObjectType(), the constructor calling setDataAccess, and the catch calling assertIsAccessible() raise line coverage without testing those methods' contracts. The catch now does the same check twice, and its fallback throw is effectively dead code.",
+      "evidence": "fflib_SObjectSelector.cls:207, 433, 631; iterations 13, 15",
+      "verdict": "questionable"
+    },
+    {
+      "code": "P4",
+      "title": "Hill climbing gated on a noisy headroom metric",
+      "detail": "Brace-only edits were rejected for headroom drops of 10-20 points, and the final headroom is below the baseline despite the caches. The metric's run-to-run noise is larger than the effects being measured.",
+      "evidence": "iterations 2, 4, 6, 17, 19",
+      "verdict": "bad"
+    }
+  ],
+  "testGaps": [
+    {
+      "code": "T1",
+      "title": "CRUD answers across System.runAs after describe caching",
+      "detail": "No test describes the same SObjectType as two different users in one transaction.",
+      "proposedTest": "Build an AccountSelector and call getSObjectName() as admin, then call assertIsAccessible() inside runAs with a user who has no Account read access. Expect DomainException."
+    },
+    {
+      "code": "T2",
+      "title": "Default order-by fallback branch",
+      "detail": "The CreatedDate and Id branches of resolveDefaultOrderBy aren't asserted for any object.",
+      "proposedTest": "Use a selector on an object without a usable name field and assert getOrderBy() equals 'CreatedDate', or 'Id' when CreatedDate is missing."
+    },
+    {
+      "code": "T3",
+      "title": "Public methods covered only indirectly",
+      "detail": "setDataAccess, ignoreCRUD, sObjectType and assertIsAccessible run without any assertions on what they do.",
+      "proposedTest": "Call setDataAccess(USER_MODE) on a LEGACY selector built with enforceCRUD=true and assert isEnforcingCRUD() and isEnforcingFLS() become false. Call ignoreCRUD() and assert isEnforcingCRUD() is false."
+    },
+    {
+      "code": "T4",
+      "title": "Multi-currency CurrencyIsoCode selection",
+      "detail": "The CURRENCY_ISO_CODE_ENABLED path, now backed by the cached describe, never runs in a single-currency scratch org.",
+      "proposedTest": "Add a multi-currency scratch definition and assert CurrencyIsoCode appears in the generated SOQL."
+    }
+  ],
+  "other": [
+    {
+      "code": "X1",
+      "title": "Possible later cleanup",
+      "detail": "If SOBJECT_DESCRIBE_CACHE is kept, consider dropping the redundant fallback throw in the CrudException catch, or reverting assertIsAccessible() to a per-instance describe so the access check is always fresh. Iteration 21 showed that per-build describes aren't a meaningful CPU cost."
+    },
+    {
+      "code": "X2",
+      "title": "Gains came from a few iterations",
+      "detail": "Of 24 iterations, 7 were kept. PMD came from iterations 3, 5, 9 and 10, coverage from 13 and 15, and headroom only from 19 (+4.7, which still left the final score below the baseline)."
+    }
+  ]
+}
