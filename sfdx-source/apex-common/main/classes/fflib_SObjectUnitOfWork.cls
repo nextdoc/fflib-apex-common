@@ -1035,11 +1035,8 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
     private List<IRelationship> m_relationships = new List<IRelationship>();
 
     public void resolve() {
-      // Resolve relationships
       for (IRelationship relationship : m_relationships) {
-        if (!relationship.isResolved()) {
-          relationship.resolve();
-        }
+        relationship.resolve();
       }
     }
 
@@ -1109,7 +1106,6 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
 
   private interface IRelationship {
     void resolve();
-    Boolean isResolved();
   }
 
   private inherited sharing class RelationshipByExternalId implements IRelationship {
@@ -1119,10 +1115,6 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
 
     public void resolve() {
       this.Record.putSObject(this.RelationshipName, this.RelationshipObject);
-    }
-
-    public Boolean isResolved() {
-      return this.Record.getSObject(this.RelationshipName) != null;
     }
   }
 
@@ -1136,11 +1128,6 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
         this.Record.put(this.RelatedToField, this.RelatedTo.Id);
       }
     }
-
-    public Boolean isResolved() {
-      return String.isNotBlank(this.RelatedTo.Id) &&
-        this.Record.get(this.RelatedToField) == this.RelatedTo.Id;
-    }
   }
 
   private inherited sharing class EmailRelationship implements IRelationship {
@@ -1149,11 +1136,6 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
 
     public void resolve() {
       this.email.setWhatId(this.relatedTo.Id);
-    }
-
-    public Boolean isResolved() {
-      return String.isNotBlank(this.RelatedTo.Id) &&
-        this.email.getWhatId() == this.RelatedTo.Id;
     }
   }
 
