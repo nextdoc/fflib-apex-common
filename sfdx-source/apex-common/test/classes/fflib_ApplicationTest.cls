@@ -577,6 +577,77 @@ private inherited sharing class fflib_ApplicationTest
 		}
 	}
 
+	@IsTest
+	private static void headroomBulkFactoryCalls()
+	{
+		Integer rounds = 320;
+		List<Account> accounts = new List<Account>();
+		for (Integer i = 0; i < 200; i++) {
+			accounts.add(new Account(Id = headroomId('001', i), Name = 'Headroom ' + i));
+		}
+		HEADROOM_ACCOUNTS = accounts;
+		List<Opportunity> opportunities = new List<Opportunity>();
+		for (Integer i = 0; i < 400; i++) {
+			Id accountId = Math.mod(i, 7) == 0 ? null : accounts[Math.mod(i * 13, 200)].Id;
+			opportunities.add(new Opportunity(Id = headroomId('006', i), AccountId = accountId, Name = 'Opp ' + i));
+		}
+		fflib_Application.SelectorFactory selectors = new fflib_Application.SelectorFactory(
+			new Map<SObjectType, Type> { Account.SObjectType => HeadroomAccountSelector.class });
+		fflib_Application.DomainFactory domains = new fflib_Application.DomainFactory(
+			selectors, new Map<SObjectType, Type> { Account.SObjectType => HeadroomDomainConstructor.class });
+		fflib_Application.ServiceFactory services = new fflib_Application.ServiceFactory(
+			new Map<Type, Type> {
+				IOpportunitiesService.class => OpportunitiesServiceImpl.class,
+				IAccountService.class => AccountsServiceImpl.class });
+
+		Integer selected = 0;
+		Integer domainObjects = 0;
+		Integer serviceCount = 0;
+		for (Integer r = 0; r < rounds; r++) {
+			Integer size = 20 + Math.mod(r * 37, 180);
+			Set<Id> ids = new Set<Id>();
+			for (Integer i = 0; i < size; i++) {
+				ids.add(accounts[Math.mod(i + r, 200)].Id);
+			}
+			selected += selectors.selectById(ids).size();
+			selected += selectors.selectByRelationship(opportunities, Opportunity.AccountId).size();
+			domainObjects += domains.newInstance(ids).getObjects().size();
+			domainObjects += domains.newInstance(accounts).getObjects().size();
+			for (Integer i = 0; i < 50; i++) {
+				serviceCount += services.newInstance(Math.mod(i, 2) == 0 ? IAccountService.class : IOpportunitiesService.class) != null ? 1 : 0;
+			}
+		}
+		System.assertEquals(rounds * 400, selected);
+		System.assertEquals(rounds * 400, domainObjects);
+		System.assertEquals(rounds * 50, serviceCount);
+	}
+
+	private static List<Account> HEADROOM_ACCOUNTS = new List<Account>();
+
+	private static Id headroomId(String keyPrefix, Integer i)
+	{
+		return Id.valueOf(keyPrefix + String.valueOf(i + 1).leftPad(12, '0'));
+	}
+
+	public class HeadroomAccountSelector implements fflib_ISObjectSelector
+	{
+		public SObjectType sObjectType() { return Account.SObjectType; }
+		public List<SObject> selectSObjectsById(Set<Id> idSet) { return HEADROOM_ACCOUNTS; }
+	}
+
+	public class HeadroomDomainConstructor implements fflib_IDomainConstructor
+	{
+		public fflib_IDomain construct(List<Object> objects) { return new HeadroomDomain(objects); }
+	}
+
+	public class HeadroomDomain implements fflib_IDomain
+	{
+		private final List<Object> objects;
+		public HeadroomDomain(List<Object> objects) { this.objects = objects; }
+		public Object getType() { return Account.SObjectType; }
+		public List<Object> getObjects() { return objects; }
+	}
+
 	// Configure and create the ServiceFactory for this Application
 	public static final fflib_Application.ServiceFactory Service = 
 		new fflib_Application.ServiceFactory( 
