@@ -603,6 +603,7 @@ private inherited sharing class fflib_ApplicationTest
 		Integer selected = 0;
 		Integer domainObjects = 0;
 		Integer serviceCount = 0;
+		Test.startTest();
 		for (Integer r = 0; r < rounds; r++) {
 			Integer size = 20 + Math.mod(r * 37, 180);
 			Set<Id> ids = new Set<Id>();
@@ -617,6 +618,7 @@ private inherited sharing class fflib_ApplicationTest
 				serviceCount += services.newInstance(Math.mod(i, 2) == 0 ? IAccountService.class : IOpportunitiesService.class) != null ? 1 : 0;
 			}
 		}
+		Test.stopTest();
 		System.assertEquals(rounds * 400, selected);
 		System.assertEquals(rounds * 400, domainObjects);
 		System.assertEquals(rounds * 50, serviceCount);
