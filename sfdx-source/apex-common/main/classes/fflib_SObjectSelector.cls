@@ -678,12 +678,13 @@ public abstract with sharing class fflib_SObjectSelector implements fflib_ISObje
         ? orderByParts[1]
         : null;
       fflib_QueryFactory.SortOrder fieldSortOrder = fflib_QueryFactory.SortOrder.ASCENDING;
-      if (fieldSortOrderPart == null)
+      if (fieldSortOrderPart == null) {
         fieldSortOrder = fflib_QueryFactory.SortOrder.ASCENDING;
-      else if (fieldSortOrderPart.equalsIgnoreCase('DESC'))
+      } else if (fieldSortOrderPart.equalsIgnoreCase('DESC')) {
         fieldSortOrder = fflib_QueryFactory.SortOrder.DESCENDING;
-      else if (fieldSortOrderPart.equalsIgnoreCase('ASC'))
+      } else if (fieldSortOrderPart.equalsIgnoreCase('ASC')) {
         fieldSortOrder = fflib_QueryFactory.SortOrder.ASCENDING;
+      }
       queryFactory.addOrdering(
         fieldNamePart,
         fieldSortOrder,
