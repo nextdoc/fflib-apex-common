@@ -357,8 +357,17 @@ public inherited sharing class fflib_QueryFactory {
   }
 
   private fflib_QueryFactory selectStringField(Iterator<String> iter) {
+    if (mFlsEnforcement != FLSEnforcement.NONE) {
+      while (iter.hasNext()) {
+        addField(getFieldPath(iter.next()));
+      }
+      return this;
+    }
+    String keyPrefix = table + ':null:';
     while (iter.hasNext()) {
-      addField(getFieldPath(iter.next()));
+      String fieldName = iter.next();
+      String path = RESOLVED_FIELD_PATHS.get(keyPrefix + fieldName);
+      fields.add(path == null ? getFieldPath(fieldName) : path);
     }
     return this;
   }
