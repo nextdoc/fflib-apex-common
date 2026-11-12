@@ -78,10 +78,11 @@ public inherited sharing class fflib_SecurityUtils {
     ) {
       this.m_operation = operation;
       this.m_objectType = objectType;
+      String objectName = objectType.getDescribe().getName();
       this.setMessage(
         String.format(
           CRUD_MESSAGES.get(operation),
-          new List<String>{ objectType.getDescribe().getName() }
+          new List<String>{ objectName }
         )
       );
     }
@@ -102,13 +103,12 @@ public inherited sharing class fflib_SecurityUtils {
       this.m_operation = operation;
       this.m_objectType = objectType;
       this.m_fieldToken = fieldToken;
+      String objectName = objectType.getDescribe().getName();
+      String fieldName = fieldToken.getDescribe().getName();
       this.setMessage(
         String.format(
           FLS_MESSAGES.get(operation),
-          new List<String>{
-            objectType.getDescribe().getName(),
-            fieldToken.getDescribe().getName()
-          }
+          new List<String>{ objectName, fieldName }
         )
       );
     }
@@ -285,7 +285,8 @@ public inherited sharing class fflib_SecurityUtils {
     SObjectType objType,
     String fieldName
   ) {
-    checkFieldIsInsertable(objType, fieldTokenFor(objType, fieldName));
+    SObjectField fieldToken = fieldTokenFor(objType, fieldName);
+    checkFieldIsInsertable(objType, fieldToken);
   }
 
   /**
@@ -297,7 +298,8 @@ public inherited sharing class fflib_SecurityUtils {
     SObjectType objType,
     SObjectField fieldToken
   ) {
-    checkFieldIsInsertable(objType, fieldToken.getDescribe());
+    DescribeFieldResult fieldDescribe = fieldToken.getDescribe();
+    checkFieldIsInsertable(objType, fieldDescribe);
   }
 
   /**
@@ -330,7 +332,8 @@ public inherited sharing class fflib_SecurityUtils {
     SObjectType objType,
     String fieldName
   ) {
-    checkFieldIsReadable(objType, fieldTokenFor(objType, fieldName));
+    SObjectField fieldToken = fieldTokenFor(objType, fieldName);
+    checkFieldIsReadable(objType, fieldToken);
   }
 
   /**
@@ -342,7 +345,8 @@ public inherited sharing class fflib_SecurityUtils {
     SObjectType objType,
     SObjectField fieldToken
   ) {
-    checkFieldIsReadable(objType, fieldToken.getDescribe());
+    DescribeFieldResult fieldDescribe = fieldToken.getDescribe();
+    checkFieldIsReadable(objType, fieldDescribe);
   }
 
   /**
@@ -375,7 +379,8 @@ public inherited sharing class fflib_SecurityUtils {
     SObjectType objType,
     String fieldName
   ) {
-    checkFieldIsUpdateable(objType, fieldTokenFor(objType, fieldName));
+    SObjectField fieldToken = fieldTokenFor(objType, fieldName);
+    checkFieldIsUpdateable(objType, fieldToken);
   }
 
   /**
@@ -387,7 +392,8 @@ public inherited sharing class fflib_SecurityUtils {
     SObjectType objType,
     SObjectField fieldToken
   ) {
-    checkFieldIsUpdateable(objType, fieldToken.getDescribe());
+    DescribeFieldResult fieldDescribe = fieldToken.getDescribe();
+    checkFieldIsUpdateable(objType, fieldDescribe);
   }
 
   /**
