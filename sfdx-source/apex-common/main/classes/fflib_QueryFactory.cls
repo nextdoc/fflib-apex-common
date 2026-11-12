@@ -173,15 +173,16 @@ public inherited sharing class fflib_QueryFactory {
       } else if (token != null && !i.hasNext()) {
         fieldPath.add(tokenDescribe.getName());
       } else {
-        if (token == null)
+        if (token == null) {
           throw new InvalidFieldException(field, lastSObjectType);
-        else
+        } else {
           throw new NonReferenceFieldException(
             lastSObjectType +
               '.' +
               field +
               ' is not a lookup or master-detail field but is used in a cross-object query field.'
           );
+        }
       }
     }
 
@@ -212,8 +213,9 @@ public inherited sharing class fflib_QueryFactory {
       !(obj instanceof fflib_QueryFactory) ||
       ((fflib_QueryFactory) obj).table != this.table ||
       ((fflib_QueryFactory) obj).fields.size() != this.fields.size()
-    )
+    ) {
       return false;
+    }
     return ((fflib_QueryFactory) obj).toSOQL() == this.toSOQL();
   }
 
@@ -393,7 +395,7 @@ public inherited sharing class fflib_QueryFactory {
     Schema.FieldSet fieldSet,
     Boolean allowCrossObject
   ) {
-    if (fieldSet.getSObjectType() != table)
+    if (fieldSet.getSObjectType() != table) {
       throw new InvalidFieldSetException(
         'Field set "' +
           fieldSet.getName() +
@@ -401,13 +403,15 @@ public inherited sharing class fflib_QueryFactory {
           table +
           '"'
       );
+    }
     for (Schema.FieldSetMember field : fieldSet.getFields()) {
-      if (!allowCrossObject && field.getFieldPath().contains('.'))
+      if (!allowCrossObject && field.getFieldPath().contains('.')) {
         throw new InvalidFieldSetException(
           'Cross-object fields not allowed and field "' +
             field.getFieldPath() +
             '"" is a cross-object field.'
         );
+      }
       addField(getFieldPath(field.getFieldPath()));
     }
     return this;
@@ -929,16 +933,19 @@ public inherited sharing class fflib_QueryFactory {
 
     if (order.size() > 0) {
       result += ' ORDER BY ';
-      for (Ordering o : order)
+      for (Ordering o : order) {
         result += o.toSOQL() + ', ';
+      }
       result = result.substring(0, result.length() - 2);
     }
 
-    if (limitCount != null)
+    if (limitCount != null) {
       result += ' LIMIT ' + limitCount;
+    }
 
-    if (offsetCount != null)
+    if (offsetCount != null) {
       result += ' OFFSET ' + offsetCount;
+    }
 
     if (allRows) {
       result += ' ALL ROWS';
