@@ -1,0 +1,233 @@
+{
+  "application": {
+    "overall": 85.3,
+    "dimensions": {
+      "PMD": 28.1,
+      "Graph Engine": 96.2,
+      "Tests passing": 100,
+      "Code coverage": 88.1,
+      "Test run time": 99.4,
+      "Resource efficiency": 100
+    },
+    "skipped": [
+      "Limit headroom"
+    ],
+    "classes": [
+      "fflib_Application",
+      "fflib_IDomain",
+      "fflib_IDomainConstructor",
+      "fflib_IDomainFactory",
+      "fflib_ISelectorFactory",
+      "fflib_IServiceFactory",
+      "fflib_IUnitOfWorkFactory"
+    ],
+    "tests": [
+      "fflib_ApplicationTest"
+    ],
+    "run": "target/map/fflib/runs/application",
+    "scoredAt": "2026-11-12T05:48:15.132Z"
+  },
+  "objects": {
+    "overall": 90.9,
+    "dimensions": {
+      "PMD": 51,
+      "Graph Engine": 100,
+      "Tests passing": 100,
+      "Code coverage": 94.6,
+      "Test run time": 99.8,
+      "Resource efficiency": 100
+    },
+    "skipped": [
+      "Limit headroom"
+    ],
+    "classes": [
+      "fflib_Objects",
+      "fflib_IObjects"
+    ],
+    "tests": [
+      "fflib_ObjectsTest"
+    ],
+    "run": "target/map/fflib/runs/objects",
+    "scoredAt": "2026-11-12T05:48:15.134Z"
+  },
+  "sobjects": {
+    "overall": 89,
+    "dimensions": {
+      "PMD": 35.2,
+      "Graph Engine": 100,
+      "Tests passing": 100,
+      "Code coverage": 99.5,
+      "Test run time": 99.5,
+      "Resource efficiency": 100
+    },
+    "skipped": [
+      "Limit headroom"
+    ],
+    "classes": [
+      "fflib_SObjects",
+      "fflib_ISObjects"
+    ],
+    "tests": [
+      "fflib_SObjectsTest"
+    ],
+    "run": "target/map/fflib/runs/sobjects",
+    "scoredAt": "2026-11-12T05:48:15.134Z"
+  },
+  "sobject-domain": {
+    "overall": 84.6,
+    "dimensions": {
+      "PMD": 17,
+      "Graph Engine": 100,
+      "Tests passing": 100,
+      "Code coverage": 91.3,
+      "Test run time": 99.3,
+      "Resource efficiency": 100
+    },
+    "skipped": [
+      "Limit headroom"
+    ],
+    "classes": [
+      "fflib_SObjectDomain",
+      "fflib_ISObjectDomain"
+    ],
+    "tests": [
+      "fflib_SObjectDomainTest"
+    ],
+    "run": "target/map/fflib/runs/sobject-domain",
+    "scoredAt": "2026-11-12T05:48:15.135Z"
+  },
+  "sobject-selector": {
+    "overall": 85.5,
+    "dimensions": {
+      "PMD": 49,
+      "Graph Engine": 100,
+      "Tests passing": 100,
+      "Code coverage": 76.2,
+      "Test run time": 88.7,
+      "Resource efficiency": 98.8
+    },
+    "skipped": [
+      "Limit headroom"
+    ],
+    "classes": [
+      "fflib_SObjectSelector",
+      "fflib_ISObjectSelector"
+    ],
+    "tests": [
+      "fflib_SObjectSelectorTest"
+    ],
+    "run": "target/map/fflib/runs/sobject-selector",
+    "scoredAt": "2026-11-12T05:48:15.135Z"
+  },
+  "unit-of-work": {
+    "overall": 83.6,
+    "dimensions": {
+      "PMD": 29.4,
+      "Graph Engine": 100,
+      "Tests passing": 100,
+      "Code coverage": 81.1,
+      "Test run time": 96.9,
+      "Resource efficiency": 94
+    },
+    "skipped": [
+      "Limit headroom"
+    ],
+    "classes": [
+      "fflib_SObjectUnitOfWork",
+      "fflib_ISObjectUnitOfWork"
+    ],
+    "tests": [
+      "fflib_SObjectUnitOfWorkTest"
+    ],
+    "run": "target/map/fflib/runs/unit-of-work",
+    "scoredAt": "2026-11-12T05:48:15.136Z"
+  },
+  "query-factory": {
+    "overall": 84.6,
+    "dimensions": {
+      "PMD": 43.9,
+      "Graph Engine": 75.8,
+      "Tests passing": 100,
+      "Code coverage": 90.7,
+      "Test run time": 97.2,
+      "Resource efficiency": 100
+    },
+    "skipped": [
+      "Limit headroom"
+    ],
+    "classes": [
+      "fflib_QueryFactory"
+    ],
+    "tests": [
+      "fflib_QueryFactoryTest"
+    ],
+    "run": "target/map/fflib/runs/query-factory",
+    "scoredAt": "2026-11-12T05:48:15.136Z"
+  },
+  "sobject-describe": {
+    "overall": 94.2,
+    "dimensions": {
+      "PMD": 71.4,
+      "Graph Engine": 100,
+      "Tests passing": 100,
+      "Code coverage": 94.5,
+      "Test run time": 99.1,
+      "Resource efficiency": 100
+    },
+    "skipped": [
+      "Limit headroom"
+    ],
+    "classes": [
+      "fflib_SObjectDescribe"
+    ],
+    "tests": [
+      "fflib_SObjectDescribeTest"
+    ],
+    "run": "target/map/fflib/runs/sobject-describe",
+    "scoredAt": "2026-11-12T05:48:15.136Z"
+  },
+  "security-utils": {
+    "overall": 77.1,
+    "dimensions": {
+      "PMD": 23.8,
+      "Graph Engine": 61,
+      "Tests passing": 100,
+      "Code coverage": 96.4,
+      "Test run time": 81.2,
+      "Resource efficiency": 100
+    },
+    "skipped": [
+      "Limit headroom"
+    ],
+    "classes": [
+      "fflib_SecurityUtils"
+    ],
+    "tests": [
+      "fflib_SecurityUtilsTest"
+    ],
+    "run": "target/map/fflib/runs/security-utils",
+    "scoredAt": "2026-11-12T05:48:15.137Z"
+  },
+  "string-builder": {
+    "overall": 92.8,
+    "dimensions": {
+      "PMD": 64.1,
+      "Graph Engine": 100,
+      "Tests passing": 100,
+      "Code coverage": 92.7,
+      "Test run time": 99.9,
+      "Resource efficiency": 100
+    },
+    "skipped": [
+      "Limit headroom"
+    ],
+    "classes": [
+      "fflib_StringBuilder"
+    ],
+    "tests": [
+      "fflib_StringBuilderTest"
+    ],
+    "run": "target/map/fflib/runs/string-builder",
+    "scoredAt": "2026-11-12T05:48:15.137Z"
+  }
+}

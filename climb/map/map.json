@@ -1,0 +1,99 @@
+{
+  "approved": true,
+  "source": {
+    "root": "../fflib-apex-common",
+    "include": ["sfdx-source/apex-common/**/classes/*.cls"],
+    "ignore": []
+  },
+  "unassigned": [],
+  "groups": [
+    {
+      "id": "application",
+      "name": "Application factories",
+      "description": "Configures and creates the unit of work, services, selectors and domains for an application.",
+      "classes": [
+        "fflib_Application",
+        "fflib_IDomain",
+        "fflib_IDomainConstructor",
+        "fflib_IDomainFactory",
+        "fflib_ISelectorFactory",
+        "fflib_IServiceFactory",
+        "fflib_IUnitOfWorkFactory"
+      ],
+      "tests": ["fflib_ApplicationTest"],
+      "fixtures": []
+    },
+    {
+      "id": "objects",
+      "name": "Objects",
+      "description": "Domain base class for a typed list of any objects.",
+      "classes": ["fflib_Objects", "fflib_IObjects"],
+      "tests": ["fflib_ObjectsTest"],
+      "fixtures": []
+    },
+    {
+      "id": "sobjects",
+      "name": "SObjects",
+      "description": "Domain base class for a list of records, with field getters, setters and filters.",
+      "classes": ["fflib_SObjects", "fflib_ISObjects"],
+      "tests": ["fflib_SObjectsTest"],
+      "fixtures": []
+    },
+    {
+      "id": "sobject-domain",
+      "name": "SObject domain",
+      "description": "Trigger handler base class that dispatches trigger events to domain methods.",
+      "classes": ["fflib_SObjectDomain", "fflib_ISObjectDomain"],
+      "tests": ["fflib_SObjectDomainTest"],
+      "fixtures": []
+    },
+    {
+      "id": "sobject-selector",
+      "name": "SObject selector",
+      "description": "Selector base class that builds and runs SOQL queries for one SObject type.",
+      "classes": ["fflib_SObjectSelector", "fflib_ISObjectSelector"],
+      "tests": ["fflib_SObjectSelectorTest"],
+      "fixtures": []
+    },
+    {
+      "id": "unit-of-work",
+      "name": "Unit of work",
+      "description": "Collects record inserts, updates, deletes and relationships, then commits them in dependency order.",
+      "classes": ["fflib_SObjectUnitOfWork", "fflib_ISObjectUnitOfWork"],
+      "tests": ["fflib_SObjectUnitOfWorkTest"],
+      "fixtures": []
+    },
+    {
+      "id": "query-factory",
+      "name": "Query factory",
+      "description": "Builds SOQL strings with fields, conditions, ordering and subqueries.",
+      "classes": ["fflib_QueryFactory"],
+      "tests": ["fflib_QueryFactoryTest"],
+      "fixtures": []
+    },
+    {
+      "id": "sobject-describe",
+      "name": "SObject describe",
+      "description": "Caches SObject and field describe results.",
+      "classes": ["fflib_SObjectDescribe"],
+      "tests": ["fflib_SObjectDescribeTest"],
+      "fixtures": []
+    },
+    {
+      "id": "security-utils",
+      "name": "Security utils",
+      "description": "Checks object CRUD and field FLS access and throws on denial.",
+      "classes": ["fflib_SecurityUtils"],
+      "tests": ["fflib_SecurityUtilsTest"],
+      "fixtures": []
+    },
+    {
+      "id": "string-builder",
+      "name": "String builder",
+      "description": "Builds delimited strings and SOQL field lists.",
+      "classes": ["fflib_StringBuilder"],
+      "tests": ["fflib_StringBuilderTest"],
+      "fixtures": []
+    }
+  ]
+}
