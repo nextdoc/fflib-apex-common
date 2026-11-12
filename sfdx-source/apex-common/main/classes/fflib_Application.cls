@@ -69,8 +69,9 @@ public inherited sharing virtual class fflib_Application {
     @NamespaceAccessible
     public virtual fflib_ISObjectUnitOfWork newInstance() {
       // Mock?
-      if (m_mockUow != null)
+      if (m_mockUow != null) {
         return m_mockUow;
+      }
       return new fflib_SObjectUnitOfWork(m_objectTypes);
     }
 
@@ -84,8 +85,9 @@ public inherited sharing virtual class fflib_Application {
       fflib_SObjectUnitOfWork.IDML dml
     ) {
       // Mock?
-      if (m_mockUow != null)
+      if (m_mockUow != null) {
         return m_mockUow;
+      }
       return new fflib_SObjectUnitOfWork(m_objectTypes, dml);
     }
 
@@ -102,8 +104,9 @@ public inherited sharing virtual class fflib_Application {
       List<SObjectType> objectTypes
     ) {
       // Mock?
-      if (m_mockUow != null)
+      if (m_mockUow != null) {
         return m_mockUow;
+      }
       return new fflib_SObjectUnitOfWork(objectTypes);
     }
 
@@ -121,8 +124,9 @@ public inherited sharing virtual class fflib_Application {
       fflib_SObjectUnitOfWork.IDML dml
     ) {
       // Mock?
-      if (m_mockUow != null)
+      if (m_mockUow != null) {
         return m_mockUow;
+      }
       return new fflib_SObjectUnitOfWork(objectTypes, dml);
     }
 
@@ -178,18 +182,22 @@ public inherited sharing virtual class fflib_Application {
     @NamespaceAccessible
     public virtual Object newInstance(Type serviceInterfaceType) {
       // Mock implementation?
-      if (m_serviceInterfaceTypeByMockService.containsKey(serviceInterfaceType))
+      if (
+        m_serviceInterfaceTypeByMockService.containsKey(serviceInterfaceType)
+      ) {
         return m_serviceInterfaceTypeByMockService.get(serviceInterfaceType);
+      }
 
       // Create an instance of the type implementing the given interface
       Type serviceImpl = m_serviceInterfaceTypeByServiceImplType.get(
         serviceInterfaceType
       );
-      if (serviceImpl == null)
+      if (serviceImpl == null) {
         throw new DeveloperException(
           'No implementation registered for service interface ' +
           serviceInterfaceType.getName()
         );
+      }
       return serviceImpl.newInstance();
     }
 
@@ -245,15 +253,17 @@ public inherited sharing virtual class fflib_Application {
     @NamespaceAccessible
     public virtual fflib_ISObjectSelector newInstance(SObjectType sObjectType) {
       // Mock implementation?
-      if (m_sObjectByMockSelector.containsKey(sObjectType))
+      if (m_sObjectByMockSelector.containsKey(sObjectType)) {
         return m_sObjectByMockSelector.get(sObjectType);
+      }
 
       // Determine Apex class for Selector class
       Type selectorClass = m_sObjectBySelectorType.get(sObjectType);
-      if (selectorClass == null)
+      if (selectorClass == null) {
         throw new DeveloperException(
           'Selector class not found for SObjectType ' + sObjectType
         );
+      }
 
       // Construct Selector class and query by Id for the records
       return (fflib_ISObjectSelector) selectorClass.newInstance();
@@ -270,17 +280,20 @@ public inherited sharing virtual class fflib_Application {
     @NamespaceAccessible
     public virtual List<SObject> selectById(Set<Id> recordIds) {
       // No point creating an empty Domain class, nor can we determine the SObjectType anyway
-      if (recordIds == null || recordIds.size() == 0)
+      if (recordIds == null || recordIds.size() == 0) {
         throw new DeveloperException('Invalid record Id\'s set');
+      }
 
       // Determine SObjectType
       SObjectType domainSObjectType = new List<Id>(recordIds)[0]
         .getSObjectType();
-      for (Id recordId : recordIds)
-        if (recordId.getSobjectType() != domainSObjectType)
+      for (Id recordId : recordIds) {
+        if (recordId.getSobjectType() != domainSObjectType) {
           throw new DeveloperException(
             'Unable to determine SObjectType, Set contains Id\'s from different SObject types'
           );
+        }
+      }
 
       // Construct Selector class and query by Id for the records
       return newInstance(domainSObjectType).selectSObjectsById(recordIds);
@@ -306,8 +319,9 @@ public inherited sharing virtual class fflib_Application {
       Set<Id> relatedIds = new Set<Id>();
       for (SObject relatedRecord : relatedRecords) {
         Id relatedId = (Id) relatedRecord.get(relationshipField);
-        if (relatedId != null)
+        if (relatedId != null) {
           relatedIds.add(relatedId);
+        }
       }
       return selectById(relatedIds);
     }
@@ -417,8 +431,9 @@ public inherited sharing virtual class fflib_Application {
     @NamespaceAccessible
     public virtual fflib_IDomain newInstance(List<SObject> records) {
       SObjectType domainSObjectType = records.getSObjectType();
-      if (domainSObjectType == null)
+      if (domainSObjectType == null) {
         throw new DeveloperException('Unable to determine SObjectType');
+      }
 
       return newInstance((List<Object>) records, (Object) domainSObjectType);
     }
@@ -429,15 +444,17 @@ public inherited sharing virtual class fflib_Application {
       Object objectType
     ) {
       // Mock implementation?
-      if (mockDomainByObject.containsKey(objectType))
+      if (mockDomainByObject.containsKey(objectType)) {
         return mockDomainByObject.get(objectType);
+      }
 
       // Determine SObjectType and Apex classes for Domain class
       Type domainConstructorClass = constructorTypeByObject.get(objectType);
-      if (domainConstructorClass == null)
+      if (domainConstructorClass == null) {
         throw new DeveloperException(
           'Domain constructor class not found for SObjectType ' + objectType
         );
+      }
 
       // Construct Domain class passing in the queried records
       Object domainConstructor = domainConstructorClass.newInstance();
@@ -472,8 +489,9 @@ public inherited sharing virtual class fflib_Application {
       List<SObject> records,
       SObjectType domainSObjectType
     ) {
-      if (domainSObjectType == null)
+      if (domainSObjectType == null) {
         throw new DeveloperException('Must specify sObjectType');
+      }
 
       return newInstance((List<Object>) records, (Object) domainSObjectType);
     }
