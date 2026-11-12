@@ -75,5 +75,43 @@
     "branch": "ascent/unit-of-work-1",
     "report": "ascents/unit-of-work-1/report.html?refresh=off",
     "retro": "ascents/unit-of-work-1/retro.json"
+  },
+  {
+    "name": "query-factory-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_QueryFactory.cls"
+    ],
+    "startedAt": "2026-11-12T20:42:03.090Z",
+    "iterations": 18,
+    "kept": 7,
+    "baseline": {
+      "overall": 78.3,
+      "scores": {
+        "PMD": 43.9,
+        "Graph Engine": 75.8,
+        "Tests passing": 100,
+        "Code coverage": 93.1,
+        "Test run time": 79,
+        "Limit headroom": 57.3,
+        "Resource efficiency": 98.8
+      }
+    },
+    "best": {
+      "overall": 95.4,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 93.5,
+        "Test run time": 87.1,
+        "Limit headroom": 88.1,
+        "Resource efficiency": 98.8
+      },
+      "iteration": 15,
+      "commit": "e9abff15ac2cc4ad443a4361c35afb1efed48655"
+    },
+    "branch": "ascent/query-factory-1",
+    "report": "ascents/query-factory-1/report.html?refresh=off",
+    "retro": "ascents/query-factory-1/retro.json"
   }
 ]

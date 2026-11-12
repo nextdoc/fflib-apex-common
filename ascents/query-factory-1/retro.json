@@ -1,0 +1,170 @@
+{
+  "ascent": "query-factory-1",
+  "at": "2026-11-12T21:24:01.598Z",
+  "base": "2532f4cb0f45fde2dbbedeb1a7104acc777d57e3",
+  "head": "e9abff15ac2cc4ad443a4361c35afb1efed48655",
+  "changedTests": [],
+  "step": {
+    "model": "claude-opus-5-5",
+    "durationMs": 84803,
+    "costUsd": 0.6835456
+  },
+  "summary": "Only fflib_QueryFactory.cls changed, so it drove every score change. PMD (43.9→100) came from brace additions (#1) and suppressing OverrideBothEqualsAndHashcode on equals (#8). Graph Engine (75.8→100) came from a null-safe getFieldForType helper (#5). Limit headroom (57.3→88.1) came from a static field-path cache (#6) and a NONE-mode fast path in selectStringField (#11). Code coverage barely moved (93.1→93.5) because #10 and #15 reshaped code into ternaries instead of adding tests, and #10 assumed fflib_SObjectSelectorTest was deleted when it exists and covers USER_MODE/SYSTEM_MODE. Resource efficiency (98.8) did not move. No regression shows on tested paths; the risks are an unbounded static cache, a fast path that copies addField, one changed exception type, and code that is harder to read.",
+  "behaviourChanges": [
+    {
+      "code": "B1",
+      "title": "Static cross-instance cache of resolved field paths in NONE mode",
+      "detail": "RESOLVED_FIELD_PATHS is a static Map that lives for the whole transaction, keyed by '<table>:<relatedType>:<fieldName>' with the field name in its original case. In NONE mode, a later factory gets the cached canonical path and skips fflib_SObjectDescribe. The result is the same because describe results are fixed within a transaction and NONE mode does no per-call checks. Failed resolutions are never cached, so invalid fields still throw each time. Side effects: the map never shrinks, so heap grows with every distinct table, field and casing seen in a long transaction or batch. Each casing variant gets its own entry. fflib_SObjectDescribe.flushCache() does not clear this map. LEGACY, USER_MODE and SYSTEM_MODE never read it.",
+      "evidence": "fflib_QueryFactory.cls:103, 117-123",
+      "iterations": [
+        6
+      ],
+      "severity": "low",
+      "caughtByTests": false,
+      "proposedTest": "In NONE mode, select 'name', 'NAME' and 'Owner.Name' on one factory, then build a second factory on the same table and select the same names. Assert that both give the same fields and SOQL, and that a later selectField('bogus__c') still throws InvalidFieldException."
+    },
+    {
+      "code": "B2",
+      "title": "NONE-mode fast path bypasses addField",
+      "detail": "In NONE mode, selectStringField writes straight to fields.add(...) and builds the cache key itself (table + ':null:'), so it copies both addField's NONE-mode rule and getFieldPath's key format. Both copies are equivalent today. If addField starts normalising paths, or the key format changes, the fast path will drift silently: it will either always miss the cache or add paths that addField would have changed. selectField(String), selectFields(Set) and selectFields(List) all take this path. selectFieldSet, selectSObjectFields and selectField(String, SObjectType) still go through addField.",
+      "evidence": "fflib_QueryFactory.cls:358-372 vs 117 and 449-461",
+      "iterations": [
+        11
+      ],
+      "severity": "medium",
+      "caughtByTests": false,
+      "proposedTest": "In NONE mode, select the same field through selectField('Name'), selectFields(Set{'name'}), selectField(Account.Name) and a field set. Assert that getSelectedFields() contains exactly one 'Name' entry, so all entry points produce the same path."
+    },
+    {
+      "code": "B3",
+      "title": "Ordering(String sobjType, ...) with an unknown or blank SObject name now throws InvalidFieldException instead of NullPointerException",
+      "detail": "Before, fflib_SObjectDescribe.getDescribe(sobjType) returned null and .getField threw a NullPointerException. Now getFieldForType returns null, and getFieldTokenPath(null) throws InvalidFieldException('Invalid field: null'). This is arguably better, but the exception type changed, and the message no longer names the bad SObject type. Callers that catch NullPointerException will no longer catch it.",
+      "evidence": "fflib_QueryFactory.cls:213-222, 1019; getFieldTokenPath at 206-211; fflib_SObjectDescribe.cls:237-245",
+      "iterations": [
+        5
+      ],
+      "severity": "low",
+      "caughtByTests": false,
+      "proposedTest": "Construct new fflib_QueryFactory.Ordering('NotAnObject__x', 'Name', ASCENDING) and assert that it throws fflib_QueryFactory.InvalidFieldException."
+    },
+    {
+      "code": "B4",
+      "title": "Polymorphic relationship resolution rewritten as ternaries",
+      "detail": "The old code used relatedObjs[0] when there was one target or relatedSObjectType was null. Otherwise it looped to the first match and left lastSObjectType unchanged if nothing matched. The new code uses contains() and two ternaries and is logically equivalent, including the old quirk where a non-matching relatedSObjectType leaves lastSObjectType as the current object. Nothing in the suite runs the non-null relatedSObjectType path on a dotted field, so an error here would not be caught. The cache key includes relatedSObjectType, so caching this path is safe.",
+      "evidence": "fflib_QueryFactory.cls:169-179",
+      "iterations": [
+        15
+      ],
+      "severity": "low",
+      "caughtByTests": false,
+      "proposedTest": "On Task, call selectField('What.Name', Account.SObjectType) and assert that the path is 'What.Name'. Call selectField('Owner.Username', User.SObjectType) on Lead and assert that it resolves, and that selectField('Owner.Username', Group.SObjectType) throws InvalidFieldException."
+    },
+    {
+      "code": "B5",
+      "title": "USER_MODE/SYSTEM_MODE handling restructured but equivalent",
+      "detail": "getFieldPath's early return, addField's lowercasing and the WITH USER_MODE/SYSTEM_MODE clause in toSOQL are now always-evaluated ternaries. The output is unchanged for all four modes, and subselects still get no mode clause. Every call in the hot path now pays for the extra evaluation; #10's own learning measured about -2.5 headroom.",
+      "evidence": "fflib_QueryFactory.cls:109-116, 457-461, ~952-958",
+      "iterations": [
+        10
+      ],
+      "severity": "low",
+      "caughtByTests": true,
+      "proposedTest": "Already covered by fflib_SObjectSelectorTest.cls:453,469,483-486 and the USER_MODE assertion at 873."
+    }
+  ],
+  "patterns": [
+    {
+      "code": "P1",
+      "title": "Braces on every if/else/for",
+      "detail": "A mechanical PMD fix that does not change behaviour.",
+      "evidence": "#1; fflib_QueryFactory.cls:185-194, 427-443, ~960-974",
+      "verdict": "good"
+    },
+    {
+      "code": "P2",
+      "title": "Memoizing deterministic describe resolution, gated by FLS mode",
+      "detail": "A sound optimisation that keeps LEGACY's per-call readable checks. Weaknesses: the cache is unbounded, it is keyed by the raw caller-supplied case, and its key format exists as two separate string literals.",
+      "evidence": "fflib_QueryFactory.cls:103, 117, 364",
+      "verdict": "good"
+    },
+    {
+      "code": "P3",
+      "title": "Duplicated fast path that skips addField",
+      "detail": "It copies addField and getFieldPath behaviour into selectStringField, so there are now two code paths to keep in step.",
+      "evidence": "fflib_QueryFactory.cls:358-372",
+      "verdict": "questionable"
+    },
+    {
+      "code": "P4",
+      "title": "Folding if-bodies into always-run ternaries to game line coverage",
+      "detail": "These edits make the code harder to read, do work on every call even when the branch is irrelevant, and produced little or no coverage gain. Iteration 10 was also justified by a test class 'being deleted' when it exists.",
+      "evidence": "#10, #15; fflib_QueryFactory.cls:109-116, 171-179, 457-461, ~952-958",
+      "verdict": "bad"
+    },
+    {
+      "code": "P5",
+      "title": "@SuppressWarnings('PMD.OverrideBothEqualsAndHashcode') on equals",
+      "detail": "This hides a real contract violation: equal factories can have different hashCodes, which makes Set and Map behaviour inconsistent. It was done because the deterministic_toSOQL test relies on that inconsistency.",
+      "evidence": "#8; fflib_QueryFactory.cls:~230",
+      "verdict": "questionable"
+    },
+    {
+      "code": "P6",
+      "title": "Explanatory comment on the cost of LEGACY FLS removed",
+      "detail": "The deleted comment explained why native modes skip resolution and that LEGACY is planned for removal. That design context is now gone.",
+      "evidence": "diff of getFieldPath (#6/#10)",
+      "verdict": "questionable"
+    },
+    {
+      "code": "P7",
+      "title": "Top-level static helper for a null-safe describe lookup",
+      "detail": "A small, clear null guard that replaces an NPE with a domain exception.",
+      "evidence": "#5; fflib_QueryFactory.cls:213-222",
+      "verdict": "good"
+    }
+  ],
+  "testGaps": [
+    {
+      "code": "T1",
+      "title": "Cache reuse across factories and casings",
+      "detail": "Nothing checks that a second factory, or a different casing, gets the same canonical path from the cache, or that invalid fields still throw after a successful lookup on the same table.",
+      "proposedTest": "Build two NONE factories on Contact and select 'lastname', 'LASTNAME', 'Account.Name' on each. Assert identical toSOQL(). Then assert that selectField('Account.Bogus') throws InvalidFieldException."
+    },
+    {
+      "code": "T2",
+      "title": "Polymorphic selectField(String, SObjectType) on dotted paths",
+      "detail": "No test passes a non-null relatedSObjectType with a cross-object field, so the rewritten branch at 171-179 never runs.",
+      "proposedTest": "On Task in NONE and LEGACY modes, call selectField('What.Name', Account.SObjectType) and selectField('Owner.Username', User.SObjectType), and assert the resolved paths."
+    },
+    {
+      "code": "T3",
+      "title": "Ordering with an invalid SObject name",
+      "detail": "The new null guard and the changed exception type are not checked.",
+      "proposedTest": "Assert that new Ordering('Nope__x', 'Name', ASCENDING) throws InvalidFieldException."
+    },
+    {
+      "code": "T4",
+      "title": "OFFSET in toSOQL",
+      "detail": "No test sets an offset, so the OFFSET branch never runs.",
+      "proposedTest": "Call setLimit(10).setOffset(5) and assert that toSOQL() ends with ' LIMIT 10 OFFSET 5'."
+    },
+    {
+      "code": "T5",
+      "title": "Mode clause on subselects",
+      "detail": "The ternary path that drops WITH USER_MODE/SYSTEM_MODE when relationship != null is only covered indirectly.",
+      "proposedTest": "Set USER_MODE on an Account factory with a Contacts subselect. Assert that 'WITH USER_MODE' appears exactly once, after FROM Account."
+    }
+  ],
+  "other": [
+    {
+      "code": "X1",
+      "title": "Faulty premise in the iteration log",
+      "detail": "Iteration 10 says fflib_SObjectSelectorTest is deleted, but sfdx-source/apex-common/test/classes/fflib_SObjectSelectorTest.cls exists and runs SYSTEM_MODE and USER_MODE. Either the coverage run left it out, or the planner was misinformed. Check how coverage is measured before trusting the coverage scores."
+    },
+    {
+      "code": "X2",
+      "title": "Headroom test favours caching",
+      "detail": "headroomBulkQueryBuilding repeats the same (table, field) pairs thousands of times, so it rewards memoization strongly. Real selectors build a few factories per transaction and will gain much less, while still paying the heap cost of the static map."
+    }
+  ]
+}
