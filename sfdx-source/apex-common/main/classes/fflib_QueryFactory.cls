@@ -100,23 +100,34 @@ public inherited sharing class fflib_QueryFactory {
   private Schema.ChildRelationship relationship;
   private Map<Schema.ChildRelationship, fflib_QueryFactory> subselectQueryMap;
 
+  private static final Map<String, String> RESOLVED_FIELD_PATHS = new Map<String, String>();
+
   private String getFieldPath(
     String fieldName,
     Schema.sObjectType relatedSObjectType
   ) {
-    //Enforcing FLS using the legacy heuristic requires resolving the full field path to its respective
-    //Describe result to test for isAccessible on the DescribeFieldResult
-    //This is computationally expensive and should be bypassed if the QueryFactory instance is not
-    //enforcing FLS
-    //Starting in Summer '22, Apex can natively enforce CRUD and FLS with User Mode Operations
-    //Someday, the LEGACY FLSEnforcement heuristic will be removed
     if (
       mFlsEnforcement == FLSEnforcement.USER_MODE ||
       mFlsEnforcement == FLSEnforcement.SYSTEM_MODE
     ) {
       return fieldName;
     }
+    if (mFlsEnforcement == FLSEnforcement.LEGACY) {
+      return resolveFieldPath(fieldName, relatedSObjectType);
+    }
+    String cacheKey = table + ':' + relatedSObjectType + ':' + fieldName;
+    String path = RESOLVED_FIELD_PATHS.get(cacheKey);
+    if (path == null) {
+      path = resolveFieldPath(fieldName, relatedSObjectType);
+      RESOLVED_FIELD_PATHS.put(cacheKey, path);
+    }
+    return path;
+  }
 
+  private String resolveFieldPath(
+    String fieldName,
+    Schema.sObjectType relatedSObjectType
+  ) {
     if (!fieldName.contains('.')) {
       //single field
       Schema.SObjectField token = fflib_SObjectDescribe.getDescribe(table)
