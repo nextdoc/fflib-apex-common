@@ -392,13 +392,11 @@ public inherited sharing class fflib_SecurityUtils {
     if (BYPASS_INTERNAL_FLS_AND_CRUD) {
       return;
     }
-    if (!fieldDescribe.isCreateable()) {
-      throw new FlsException(
-        OperationType.CREATE,
-        objType,
-        fieldDescribe.getSObjectField()
-      );
-    }
+    requireFieldAccess(
+      OperationType.CREATE,
+      objType,
+      fieldDescribe.isCreateable() ? null : fieldDescribe
+    );
   }
 
   /**
@@ -439,13 +437,11 @@ public inherited sharing class fflib_SecurityUtils {
     if (BYPASS_INTERNAL_FLS_AND_CRUD) {
       return;
     }
-    if (!fieldDescribe.isAccessible()) {
-      throw new FlsException(
-        OperationType.READ,
-        objType,
-        fieldDescribe.getSObjectField()
-      );
-    }
+    requireFieldAccess(
+      OperationType.READ,
+      objType,
+      fieldDescribe.isAccessible() ? null : fieldDescribe
+    );
   }
 
   /**
@@ -486,12 +482,20 @@ public inherited sharing class fflib_SecurityUtils {
     if (BYPASS_INTERNAL_FLS_AND_CRUD) {
       return;
     }
-    if (!fieldDescribe.isUpdateable()) {
-      throw new FlsException(
-        OperationType.MODIFY,
-        objType,
-        fieldDescribe.getSObjectField()
-      );
+    requireFieldAccess(
+      OperationType.MODIFY,
+      objType,
+      fieldDescribe.isUpdateable() ? null : fieldDescribe
+    );
+  }
+
+  private static void requireFieldAccess(
+    OperationType operation,
+    SObjectType objType,
+    DescribeFieldResult deniedField
+  ) {
+    if (deniedField != null) {
+      throw new FlsException(operation, objType, deniedField.getSObjectField());
     }
   }
 
