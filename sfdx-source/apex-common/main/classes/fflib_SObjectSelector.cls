@@ -639,6 +639,7 @@ public abstract with sharing class fflib_SObjectSelector implements fflib_ISObje
         // Leverage QueryFactory for CRUD checking
         queryFactory.assertIsAccessible();
       } catch (fflib_SecurityUtils.CrudException e) {
+        assertIsAccessible();
         // Marshal exception into DomainException for backwards compatibility
         throw new fflib_SObjectDomain.DomainException(
           'Permission to access an ' + getSObjectName() + ' denied.'
