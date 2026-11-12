@@ -106,14 +106,13 @@ public inherited sharing class fflib_QueryFactory {
     String fieldName,
     Schema.sObjectType relatedSObjectType
   ) {
-    if (
+    Boolean nativeMode =
       mFlsEnforcement == FLSEnforcement.USER_MODE ||
-      mFlsEnforcement == FLSEnforcement.SYSTEM_MODE
-    ) {
-      return fieldName;
-    }
-    if (mFlsEnforcement == FLSEnforcement.LEGACY) {
-      return resolveFieldPath(fieldName, relatedSObjectType);
+      mFlsEnforcement == FLSEnforcement.SYSTEM_MODE;
+    if (nativeMode || mFlsEnforcement == FLSEnforcement.LEGACY) {
+      return nativeMode
+        ? fieldName
+        : resolveFieldPath(fieldName, relatedSObjectType);
     }
     String cacheKey = table + ':' + relatedSObjectType + ':' + fieldName;
     String path = RESOLVED_FIELD_PATHS.get(cacheKey);
@@ -447,14 +446,12 @@ public inherited sharing class fflib_QueryFactory {
      * field were included via a Field Set and the FieldSetMember.getFieldPath() returns "AnnualRevenue"
      * So, in the cases where we're using USER_MODE or SYSTEM_MODE, we need to downcase all of the fields in the Set
      */
-    if (
+    this.fields.add(
       mFlsEnforcement == FLSEnforcement.SYSTEM_MODE ||
-      mFlsEnforcement == FLSEnforcement.USER_MODE
-    ) {
-      fieldPath = fieldPath.toLowerCase();
-    }
-
-    this.fields.add(fieldPath);
+        mFlsEnforcement == FLSEnforcement.USER_MODE
+        ? fieldPath.toLowerCase()
+        : fieldPath
+    );
   }
 
   /**
@@ -944,14 +941,13 @@ public inherited sharing class fflib_QueryFactory {
     }
 
     //Subselects can't specify USER_MODE or SYSTEM_MODE -- only the top-level query can do so
-    if (relationship == null && mFlsEnforcement == FLSEnforcement.USER_MODE) {
-      result += ' WITH USER_MODE';
-    } else if (
-      relationship == null &&
-      mFlsEnforcement == FLSEnforcement.SYSTEM_MODE
-    ) {
-      result += ' WITH SYSTEM_MODE';
-    }
+    String modeClause = mFlsEnforcement == FLSEnforcement.USER_MODE
+      ? ' WITH USER_MODE'
+      : '';
+    modeClause = mFlsEnforcement == FLSEnforcement.SYSTEM_MODE
+      ? ' WITH SYSTEM_MODE'
+      : modeClause;
+    result += relationship == null ? modeClause : '';
 
     if (order.size() > 0) {
       result += ' ORDER BY ';
