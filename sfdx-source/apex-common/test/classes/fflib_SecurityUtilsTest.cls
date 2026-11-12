@@ -338,5 +338,48 @@ private inherited sharing class fflib_SecurityUtilsTest {
 			);
 		}
 	}
-	
+
+	@isTest
+	static void headroomBulkFieldChecks() {
+		List<SObjectType> types = new List<SObjectType>{
+			Account.SObjectType, Contact.SObjectType, Lead.SObjectType, Opportunity.SObjectType, Case.SObjectType
+		};
+		Map<SObjectType, List<String>> readable = new Map<SObjectType, List<String>>();
+		Map<SObjectType, List<String>> createable = new Map<SObjectType, List<String>>();
+		Map<SObjectType, List<String>> updateable = new Map<SObjectType, List<String>>();
+		for (SObjectType t : types) {
+			readable.put(t, new List<String>());
+			createable.put(t, new List<String>());
+			updateable.put(t, new List<String>());
+			for (SObjectField f : t.getDescribe().fields.getMap().values()) {
+				DescribeFieldResult d = f.getDescribe();
+				// fflib_SObjectDescribe.getField resolves some listed fields, such as Opportunity.LastSyncTime, to null
+				if (fflib_SObjectDescribe.getDescribe(t).getField(d.getName()) == null) {
+					continue;
+				}
+				if (d.isAccessible()) {
+					readable.get(t).add(d.getName());
+				}
+				if (d.isCreateable()) {
+					createable.get(t).add(d.getName());
+				}
+				if (d.isUpdateable()) {
+					updateable.get(t).add(d.getName());
+				}
+			}
+		}
+
+		Test.startTest();
+		for (Integer i = 0; i < 120; i++) {
+			for (SObjectType t : types) {
+				fflib_SecurityUtils.checkRead(t, readable.get(t));
+				fflib_SecurityUtils.checkInsert(t, createable.get(t));
+				fflib_SecurityUtils.checkUpdate(t, updateable.get(t));
+			}
+		}
+		Test.stopTest();
+
+		System.assert(!readable.get(Account.SObjectType).isEmpty(), 'Expected readable Account fields');
+	}
+
 }
