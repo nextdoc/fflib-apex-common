@@ -1078,13 +1078,12 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
         );
       }
 
+      SObject relationshipObject = relatedObject.newSObject();
+      relationshipObject.put(externalIdField, externalId);
       RelationshipByExternalId relationship = new RelationshipByExternalId();
       relationship.Record = record;
-      relationship.RelatedToField = relatedToField;
-      relationship.RelatedTo = relatedObject;
       relationship.RelationshipName = relationshipName;
-      relationship.ExternalIdField = externalIdField;
-      relationship.ExternalId = externalId;
+      relationship.RelationshipObject = relationshipObject;
       m_relationships.add(relationship);
     }
 
@@ -1116,19 +1115,11 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
 
   private inherited sharing class RelationshipByExternalId implements IRelationship {
     public SObject Record;
-    public Schema.SObjectField RelatedToField;
-    public Schema.SObjectType RelatedTo;
     public String RelationshipName;
-    public Schema.SObjectField ExternalIdField;
-    public Object ExternalId;
+    public SObject RelationshipObject;
 
     public void resolve() {
-      SObject relationshipObject = this.RelatedTo.newSObject();
-      relationshipObject.put(
-        ExternalIdField.getDescribe().getName(),
-        this.ExternalId
-      );
-      this.Record.putSObject(this.RelationshipName, relationshipObject);
+      this.Record.putSObject(this.RelationshipName, this.RelationshipObject);
     }
 
     public Boolean isResolved() {
