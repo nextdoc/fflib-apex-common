@@ -201,6 +201,16 @@ public inherited sharing class fflib_QueryFactory {
     return field.getDescribe().getLocalName();
   }
 
+  private static Schema.SObjectField getFieldForType(
+    String sobjType,
+    String fieldName
+  ) {
+    fflib_SObjectDescribe describe = fflib_SObjectDescribe.getDescribe(
+      sobjType
+    );
+    return describe == null ? null : describe.getField(fieldName);
+  }
+
   /**
    * fflib_QueryFactory instances will be considered equal if they produce the same SOQL query.
    * A faster comparison will first be attempted to check if they apply to the same table, and contain the same number of fields selected.
@@ -990,10 +1000,7 @@ public inherited sharing class fflib_QueryFactory {
 
     @NamespaceAccessible
     public Ordering(String sobjType, String fieldName, SortOrder direction) {
-      this(
-        fflib_SObjectDescribe.getDescribe(sobjType).getField(fieldName),
-        direction
-      );
+      this(fflib_QueryFactory.getFieldForType(sobjType, fieldName), direction);
     }
     /**
      * Construct a new ordering instance for use with {@link fflib_QueryFactory#addOrdering}
