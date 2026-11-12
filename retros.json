@@ -1,0 +1,182 @@
+[
+  {
+    "name": "security-utils-2",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_SecurityUtils.cls"
+    ],
+    "branch": "ascent/security-utils-2",
+    "report": "ascents/security-utils-2/report.html?refresh=off",
+    "retro": {
+      "ascent": "security-utils-2",
+      "at": "2026-11-12T08:09:06.205Z",
+      "base": "f296360208903e68948be73f68fbb1237d6c9e58",
+      "head": "0cbeb5c703a54dc2b1ca96cf28b20b6b034fb4fe",
+      "changedTests": [],
+      "step": {
+        "model": "claude-opus-5-5",
+        "durationMs": 87006,
+        "costUsd": 0.7356368
+      },
+      "summary": "Only fflib_SecurityUtils.cls changed. PMD (23.8→100) came from adding braces (#1), Graph Engine (67.6→100) from an explicit null-check throw in fieldTokenFor (#10), and Limit headroom (51.6→100) mostly from caches, especially the verified-list Set<List<String>> cache (#16), which skips work only because headroomBulkFieldChecks sends identical lists 120 times. Allow/deny results for the tested cases are unchanged, but the evolved code now caches permission outcomes for the whole transaction and resolves error labels once at class load, which no test covers. Resource efficiency (fflib_SObjectSelectorTest, 98.8) did not move.",
+      "behaviourChanges": [
+        {
+          "code": "B1",
+          "title": "Passed field lists skip FLS re-checks for the rest of the transaction",
+          "detail": "Once checkRead/checkInsert/checkUpdate(SObjectType, List<String>) passes for a list, an equal list for the same user, operation and type returns right after the CRUD check, without any per-field FLS evaluation. Revoking permissions mid-transaction (for example deleting a PermissionSetAssignment or PermissionSet field permission inside the same runAs) would be seen by the baseline, which describes again on every call, but not by the evolved code. Only a change of UserInfo.getUserId() invalidates the cache.",
+          "evidence": "fflib_SecurityUtils.cls verifiedListsFor/resetCachesIfUserChanged (~lines 174-200), checkInsert/checkRead/checkUpdate early return (~241-243, 281-283, 321-323)",
+          "iterations": [
+            16
+          ],
+          "severity": "medium",
+          "caughtByTests": false,
+          "proposedTest": "In System.runAs(user holding a permission set with FLS on a field): call checkRead(type, [field]) and expect a pass; delete the field permission; call checkRead again and assert FlsException. (First confirm the platform itself re-evaluates within one transaction; if it doesn't, document the cache as matching platform behaviour.)"
+        },
+        {
+          "code": "B2",
+          "title": "DescribeFieldResult cached per type and field name for the transaction",
+          "detail": "The list methods reuse a DescribeFieldResult cached under the type and field name, cleared only when the user changes. Within one user, any permission refresh the platform would show is masked. The single-field and SObjectField overloads still describe fresh each time, so list and single-field calls can disagree after a permission change.",
+          "evidence": "fflib_SecurityUtils.cls fieldDescribesFor/fieldDescribeFor (~lines 202-228)",
+          "iterations": [
+            15
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Same as the revoked-permission test, comparing checkRead(type, List<String>) with checkFieldIsReadable(type, String) after the change."
+        },
+        {
+          "code": "B3",
+          "title": "Exception labels resolved at class load, not at throw time",
+          "detail": "CRUD_MESSAGES and FLS_MESSAGES are static finals initialised when the class first loads, under the user running at that moment. A later System.runAs user with a different language gets messages in the first user's language. The baseline read System.Label inside the exception constructor, so it used the throwing user's language.",
+          "evidence": "fflib_SecurityUtils.cls:43-54; CrudException/FlsException constructors ~81-86, ~106-113",
+          "iterations": [
+            10
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Load the class as the admin (call checkObjectIsReadable on Account), then System.runAs a user with LanguageLocaleKey set to another language and a translated label; trigger a CrudException and assert the message equals that user's System.Label value."
+        },
+        {
+          "code": "B4",
+          "title": "Unbounded heap growth from cloned verified lists",
+          "detail": "Every distinct passing list is cloned into a per-type, per-operation Set and kept for the transaction. Callers that build many different dynamic lists (selectors with varying field sets, large batch jobs) keep growing heap with no eviction. Each call also hashes the whole list for contains(), which is O(n) even on a hit.",
+          "evidence": "fflib_SecurityUtils.cls verified.add(fieldNames.clone()) ~252, ~292, ~332",
+          "iterations": [
+            16
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Call checkRead with 5,000 distinct one-field lists and assert Limits.getHeapSize() stays under a chosen budget, or check the growth is acceptable."
+        },
+        {
+          "code": "B5",
+          "title": "Unchanged: null, unknown-field and bypass behaviour",
+          "detail": "A null objType still throws NullPointerException (CRUD describe when bypass is off, the fieldTokenFor guard when it is on). An unknown field name still ends in null.getDescribe(), even with bypass on, as in the baseline. Lists are recorded only when bypass is off, and failures are never cached. Recorded here as checked, not as a change.",
+          "evidence": "fflib_SecurityUtils.cls fieldTokenFor ~155-170; fieldDescribeFor ~221-228",
+          "iterations": [
+            10,
+            15,
+            16
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Assert NullPointerException for checkRead(null, ['Name']) with bypass on and off, and for checkRead(Account.SObjectType, ['NoSuchField__c']) with bypass on."
+        }
+      ],
+      "patterns": [
+        {
+          "code": "P1",
+          "title": "Verified-list result cache",
+          "detail": "A big CPU win on the headroom test, which repeats identical lists 120 times, but it is shaped to the benchmark. Real callers seldom repeat identical lists, and it turns a stateless permission check into a stateful one. Storing a clone and clearing on user change are sound precautions.",
+          "evidence": "iteration 16; fflib_SecurityUtilsTest.cls:373-379",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P2",
+          "title": "Layered caches (single-entry describe, token map, field-describe map)",
+          "detail": "Three overlapping caches plus the fflib_SObjectDescribe cache below them. Once the verified-list cache exists, most of their benefit is redundant. They add state and code size for small gains.",
+          "evidence": "iterations 6, 7, 9, 15; fflib_SecurityUtils.cls ~126-228",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P3",
+          "title": "Static label maps replacing if/else chains",
+          "detail": "Shorter and easier to read, but it moves label resolution to class load (see the language behaviour change).",
+          "evidence": "iteration 10; fflib_SecurityUtils.cls:43-54",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P4",
+          "title": "Shared throw helpers requireObjectAccess / requireFieldAccess",
+          "detail": "Removing duplication is good. The field variant's 'pass the describe only when access is denied, else null' argument exists to satisfy coverage and PMD, and reads oddly compared with passing a boolean.",
+          "evidence": "iterations 17, 19; fflib_SecurityUtils.cls ~490-510",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P5",
+          "title": "Splitting statements into locals for coverage",
+          "detail": "Adds lines only to raise coverage, with no readability gain. Harmless.",
+          "evidence": "iteration 13",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P6",
+          "title": "Braces on all if bodies",
+          "detail": "Plain style improvement, no behaviour change.",
+          "evidence": "iteration 1",
+          "verdict": "good"
+        },
+        {
+          "code": "P7",
+          "title": "Explicit null guard in fieldTokenFor",
+          "detail": "Keeps the NullPointerException behaviour and satisfies Graph Engine. It is the one line no test runs.",
+          "evidence": "iteration 10; fflib_SecurityUtils.cls ~162-165",
+          "verdict": "good"
+        }
+      ],
+      "testGaps": [
+        {
+          "code": "T1",
+          "title": "Cache invalidation across System.runAs",
+          "detail": "No test calls the same list check as one user and then as a less-privileged user in the same transaction, so a broken resetCachesIfUserChanged would go unnoticed.",
+          "proposedTest": "As the admin, checkUpdate(Account.SObjectType, ['Name']) passes; then System.runAs(read-only user) the same call must throw a CrudException or FlsException."
+        },
+        {
+          "code": "T2",
+          "title": "READ failures",
+          "detail": "No test fails a read CRUD or FLS check, so the READ message labels and the READ throw path are pinned only indirectly.",
+          "proposedTest": "Use a user with no Account read access: assert checkRead(Account.SObjectType, ['Name']) throws a CrudException with getOperation()==READ and the message equal to the formatted fflib_security_error_object_not_readable label; do the same for a read FLS failure on a restricted field."
+        },
+        {
+          "code": "T3",
+          "title": "Null objType or unknown field",
+          "detail": "The guard's throw line is uncovered, and nothing pins the exception type for bad input.",
+          "proposedTest": "Assert NullPointerException for checkFieldIsReadable(null, 'Name') and checkRead(Account.SObjectType, ['Bogus__c']), with bypass on and off."
+        },
+        {
+          "code": "T4",
+          "title": "Caller changes a list after it passed",
+          "detail": "The stored clone is meant to stop this case passing wrongly, but no test exercises it.",
+          "proposedTest": "As the read-only user, checkRead(Account, fields) passes; add a non-readable field to the same list; the next call must throw FlsException."
+        },
+        {
+          "code": "T5",
+          "title": "Bypass toggled between calls",
+          "detail": "No test checks that a list passed while bypass was on is not recorded.",
+          "proposedTest": "As the read-only user with bypass=true, checkUpdate(Account, ['Name']); set bypass=false; the same call must throw."
+        }
+      ],
+      "other": [
+        {
+          "code": "X1",
+          "title": "Headroom test is overfit",
+          "detail": "headroomBulkFieldChecks sends identical lists 120 times, so Limit headroom 100 mainly measures the verified-list cache hit rate. It does not show real per-call cost. Add a variant with fresh or varied lists if headroom should drive future climbs."
+        },
+        {
+          "code": "X2",
+          "title": "Dimensions that did not move",
+          "detail": "Resource efficiency (fflib_SObjectSelectorTest, 98.8) did not change: its cost is selector SOQL outside this class. Run-time attempts (#23, #24) were discarded. Coverage is capped at 99.5 by the Graph Engine-required throw unless a null-objType test is added."
+        }
+      ]
+    }
+  }
+]
