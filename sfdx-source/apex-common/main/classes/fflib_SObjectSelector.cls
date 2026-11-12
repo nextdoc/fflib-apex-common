@@ -203,7 +203,7 @@ public abstract with sharing class fflib_SObjectSelector implements fflib_ISObje
     m_enforceCRUD = enforceCRUD;
     m_enforceFLS = enforceFLS;
     m_sortSelectFields = sortSelectFields;
-    m_DataAccess = dataAccess;
+    setDataAccess(dataAccess);
   }
 
   /**
@@ -441,7 +441,7 @@ public abstract with sharing class fflib_SObjectSelector implements fflib_ISObje
    **/
   @NamespaceAccessible
   public SObjectType getSObjectType2() {
-    return getSObjectType();
+    return sObjectType();
   }
 
   /**
