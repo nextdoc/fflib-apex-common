@@ -912,8 +912,11 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
           SObjectDescribeOptions.DEFERRED
         )
         .getName();
-      m_relationships.get(sObjectName).resolve();
-      m_dml.dmlUpdate(m_dirtyMapByType.get(sObjectName).values());
+      Map<Id, SObject> dirtyRecords = m_dirtyMapByType.get(sObjectName);
+      if (!dirtyRecords.isEmpty()) {
+        m_relationships.get(sObjectName).resolve();
+      }
+      m_dml.dmlUpdate(dirtyRecords.values());
     }
   }
 
