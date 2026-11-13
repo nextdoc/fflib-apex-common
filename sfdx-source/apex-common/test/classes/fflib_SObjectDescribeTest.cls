@@ -314,4 +314,44 @@ private with sharing class fflib_SObjectDescribeTest {
 	private static void isValidPicklistValue_invalidValue(){
 		System.Assert.areEqual(false, fflib_SObjectDescribe.isValidPicklistValue(Schema.Account.Rating, 'NotARealValue'), 'Expected an unknown picklist value to be considered invalid');
 	}
+
+	@isTest
+	private static void headroomBulkDescribes(){
+		Integer rounds = 75;
+		List<String> objectNames = new List<String>{ 'Account', 'Contact', 'Opportunity', 'Lead', 'Case' };
+		List<String> fieldNames = new List<String>{ 'Id', 'Name', 'OwnerId', 'CreatedDate', 'LastModifiedById', 'NonExistentField__c', 'name' };
+		List<Schema.SObjectField> picklistFields = new List<Schema.SObjectField>{ Schema.Account.Rating, Schema.Account.Industry, Schema.Opportunity.StageName, Schema.Lead.Status, Schema.Account.Name };
+		List<String> picklistValues = new List<String>{ 'Hot', 'Banking', 'Prospecting', 'NotARealValue', null };
+
+		Integer total = 0;
+		Test.startTest();
+		for (Integer r = 0; r < rounds; r++){
+			if (Math.mod(r, 10) == 0){
+				fflib_SObjectDescribe.flushCache();
+			}
+			for (Integer o = 0; o < objectNames.size(); o++){
+				fflib_SObjectDescribe d = Math.mod(r + o, 2) == 0
+					? fflib_SObjectDescribe.getDescribe(objectNames[o])
+					: fflib_SObjectDescribe.getDescribe(Schema.getGlobalDescribe().get(objectNames[o]));
+				for (String fieldName : fieldNames){
+					if (d.getField(fieldName, Math.mod(r, 3) == 0) != null){
+						total++;
+					}
+				}
+				total += d.getFields().size() + d.getFields().values().size() + d.getFieldSetsMap().size();
+				total += d.getNameField() == null ? 0 : 1;
+				total += fflib_SObjectDescribe.getNameField(d.getSObjectType()) == null ? 0 : 1;
+			}
+			fflib_SObjectDescribe.GlobalDescribeMap gd = fflib_SObjectDescribe.getGlobalDescribe();
+			total += gd.containsKey(objectNames[Math.mod(r, 5)]) ? 1 : 0;
+			total += gd.keySet(Math.mod(r, 2) == 0).size();
+			Schema.SObjectField picklistField = picklistFields[Math.mod(r, 5)];
+			total += fflib_SObjectDescribe.getPicklistValues(picklistField).size();
+			total += fflib_SObjectDescribe.getPicklistLabels(picklistField).size();
+			total += fflib_SObjectDescribe.isValidPicklistValue(picklistField, picklistValues[Math.mod(r, 5)]) ? 1 : 0;
+		}
+		Test.stopTest();
+
+		System.Assert.isTrue(total > 0, 'Expected the bulk describes to find fields and picklist values');
+	}
 }
