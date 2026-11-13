@@ -257,9 +257,7 @@ public inherited sharing class fflib_SObjectDescribe {
       Schema.SObjectType token = wrappedGlobalDescribe.get(
         sObjectName.toLowerCase()
       );
-      if (token == null) {
-        result = null;
-      } else {
+      if (token != null) {
         result = new fflib_SObjectDescribe(token);
       }
     }
@@ -282,8 +280,7 @@ public inherited sharing class fflib_SObjectDescribe {
     if (nativeDescribe == null) {
       return null;
     }
-    return instanceCache.get(nativeDescribe?.getName()?.toLowerCase()) ??
-      new fflib_SObjectDescribe(nativeDescribe.getSObjectType());
+    return getDescribe(nativeDescribe.getSObjectType());
   }
 
   @NamespaceAccessible
