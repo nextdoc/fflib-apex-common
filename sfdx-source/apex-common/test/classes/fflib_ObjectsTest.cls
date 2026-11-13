@@ -159,6 +159,66 @@ private inherited sharing class fflib_ObjectsTest
 		System.assertEquals(Object.class, domain.getType(), 'Incorrect returned type');
 	}
 
+	@IsTest
+	static void headroomBulkContainment()
+	{
+		Integer rounds = 25;
+		List<Object> members = new List<Object>();
+		List<DataTransferObject> transferObjects = new List<DataTransferObject>();
+		for (Integer i = 0; i < 300; i++)
+		{
+			Integer kind = Math.mod(i, 3);
+			if (kind == 0)
+			{
+				DataTransferObject dto = new DataTransferObject('Member ' + i);
+				transferObjects.add(dto);
+				members.add(dto);
+			}
+			else if (kind == 1)
+			{
+				members.add('Member ' + i);
+			}
+			else
+			{
+				members.add(i * 7);
+			}
+		}
+		List<Object> present = new List<Object>();
+		List<Object> absent = new List<Object>();
+		for (Integer i = 0; i < 150; i++)
+		{
+			present.add(members[Math.mod(i * 11, 300)]);
+			absent.add(Math.mod(i, 2) == 0 ? (Object) ('Outsider ' + i) : (Object) (i * 7 + 3));
+		}
+		Set<Object> presentSet = new Set<Object>(present);
+		Set<Object> absentSet = new Set<Object>(absent);
+		List<Object> mixed = new List<Object>(present);
+		mixed.add(absent[0]);
+		fflib_ObjectsTest.Domain domain = new Domain(members);
+
+		Integer hits = 0;
+		Test.startTest();
+		for (Integer r = 0; r < rounds; r++)
+		{
+			if (domain.containsAll(present)) hits++;
+			if (domain.containsAll(presentSet)) hits++;
+			if (!domain.containsAll(mixed)) hits++;
+			if (domain.containsNot(absent)) hits++;
+			if (domain.containsNot(absentSet)) hits++;
+			if (!domain.containsNot(mixed)) hits++;
+			for (Integer i = 0; i < 30; i++)
+			{
+				if (domain.contains(present[i])) hits++;
+				if (domain.containsNot(absent[i])) hits++;
+			}
+			if (domain.isNotEmpty() && domain.size() == 300) hits++;
+		}
+		Test.stopTest();
+
+		System.assertEquals(rounds * 67, hits, 'Every containment check should match the generated data');
+		System.assert(domain.contains(transferObjects[5]), 'Transfer objects should be found by reference');
+	}
+
 	private static Domain generateDomain()
 	{
 		return new Domain(generateDataTransferObjects());
