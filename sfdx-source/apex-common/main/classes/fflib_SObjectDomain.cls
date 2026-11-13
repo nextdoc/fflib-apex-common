@@ -274,8 +274,9 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
       );
     }
 
-    if (Configuration.OldOnUpdateValidateBehaviour)
+    if (Configuration.OldOnUpdateValidateBehaviour) {
       onValidate();
+    }
     onValidate(existingRecords);
     onAfterUpdate(existingRecords);
   }
@@ -309,10 +310,11 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
     if (
       Configuration.EnforcingTriggerCRUDSecurity &&
       !SObjectDescribe.isUndeletable()
-    )
+    ) {
       throw new DomainException(
         'Permission to undelete an ' + SObjectDescribe.getName() + ' denied.'
       );
+    }
 
     onAfterUndelete();
   }
