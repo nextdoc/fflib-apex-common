@@ -708,21 +708,28 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
       Boolean isUndelete
     ) {
       if (isBefore) {
-        if (isInsert)
+        if (isInsert) {
           return BeforeInsertEnabled;
-        else if (isUpdate)
+        }
+        if (isUpdate) {
           return BeforeUpdateEnabled;
-        else if (isDelete)
+        }
+        if (isDelete) {
           return BeforeDeleteEnabled;
+        }
       } else if (isAfter) {
-        if (isInsert)
+        if (isInsert) {
           return AfterInsertEnabled;
-        else if (isUpdate)
+        }
+        if (isUpdate) {
           return AfterUpdateEnabled;
-        else if (isDelete)
+        }
+        if (isDelete) {
           return AfterDeleteEnabled;
-        else if (isUndelete)
+        }
+        if (isUndelete) {
           return AfterUndeleteEnabled;
+        }
       }
       return true; // shouldnt ever get here!
     }
