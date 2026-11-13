@@ -313,5 +313,43 @@
     "branch": "ascent/objects-1",
     "report": "ascents/objects-1/report.html?refresh=off",
     "retro": "ascents/objects-1/retro.json"
+  },
+  {
+    "name": "string-builder-2",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_StringBuilder.cls"
+    ],
+    "startedAt": "2026-11-13T21:33:31.842Z",
+    "iterations": 8,
+    "kept": 2,
+    "baseline": {
+      "overall": 81.5,
+      "scores": {
+        "PMD": 64.1,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 92.7,
+        "Test run time": 75.2,
+        "Limit headroom": 63.2,
+        "Resource efficiency": 75.2
+      }
+    },
+    "best": {
+      "overall": 88.1,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 92.9,
+        "Test run time": 75.2,
+        "Limit headroom": 73.2,
+        "Resource efficiency": 75.3
+      },
+      "iteration": 3,
+      "commit": "c5b7379ddff3bb9d17f9fd5dd99494c5b5e09d73"
+    },
+    "branch": "ascent/string-builder-2",
+    "report": "ascents/string-builder-2/report.html?refresh=off",
+    "retro": "ascents/string-builder-2/retro.json"
   }
 ]
