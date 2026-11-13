@@ -498,21 +498,33 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
 
     // Invoke the applicable handler
     if (isBefore) {
-      if (isInsert)
+      if (isInsert) {
         domainObject.handleBeforeInsert();
-      else if (isUpdate)
+        return;
+      }
+      if (isUpdate) {
         domainObject.handleBeforeUpdate(oldRecordsMap);
-      else if (isDelete)
+        return;
+      }
+      if (isDelete) {
         domainObject.handleBeforeDelete();
-    } else {
-      if (isInsert)
-        domainObject.handleAfterInsert();
-      else if (isUpdate)
-        domainObject.handleAfterUpdate(oldRecordsMap);
-      else if (isDelete)
-        domainObject.handleAfterDelete();
-      else if (isUndelete)
-        domainObject.handleAfterUndelete();
+      }
+      return;
+    }
+    if (isInsert) {
+      domainObject.handleAfterInsert();
+      return;
+    }
+    if (isUpdate) {
+      domainObject.handleAfterUpdate(oldRecordsMap);
+      return;
+    }
+    if (isDelete) {
+      domainObject.handleAfterDelete();
+      return;
+    }
+    if (isUndelete) {
+      domainObject.handleAfterUndelete();
     }
   }
 
