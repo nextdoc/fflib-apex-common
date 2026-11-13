@@ -248,10 +248,11 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
     if (
       Configuration.EnforcingTriggerCRUDSecurity &&
       !SObjectDescribe.isCreateable()
-    )
+    ) {
       throw new DomainException(
         'Permission to create an ' + SObjectDescribe.getName() + ' denied.'
       );
+    }
 
     onValidate();
     onAfterInsert();
@@ -267,10 +268,11 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
     if (
       Configuration.EnforcingTriggerCRUDSecurity &&
       !SObjectDescribe.isUpdateable()
-    )
+    ) {
       throw new DomainException(
         'Permission to update an ' + SObjectDescribe.getName() + ' denied.'
       );
+    }
 
     if (Configuration.OldOnUpdateValidateBehaviour)
       onValidate();
@@ -288,10 +290,11 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
     if (
       Configuration.EnforcingTriggerCRUDSecurity &&
       !SObjectDescribe.isDeletable()
-    )
+    ) {
       throw new DomainException(
         'Permission to delete an ' + SObjectDescribe.getName() + ' denied.'
       );
+    }
 
     onAfterDelete();
   }
