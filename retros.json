@@ -701,5 +701,186 @@
         }
       ]
     }
+  },
+  {
+    "name": "application-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_Application.cls",
+      "sfdx-source/apex-common/main/classes/fflib_IDomain.cls",
+      "sfdx-source/apex-common/main/classes/fflib_IDomainConstructor.cls",
+      "sfdx-source/apex-common/main/classes/fflib_IDomainFactory.cls",
+      "sfdx-source/apex-common/main/classes/fflib_ISelectorFactory.cls",
+      "sfdx-source/apex-common/main/classes/fflib_IServiceFactory.cls",
+      "sfdx-source/apex-common/main/classes/fflib_IUnitOfWorkFactory.cls"
+    ],
+    "branch": "ascent/application-1",
+    "report": "ascents/application-1/report.html?refresh=off",
+    "retro": {
+      "ascent": "application-1",
+      "at": "2026-11-13T00:45:32.190Z",
+      "base": "0eef1834736e8ae1297bc8f31ecfe2a8c76499a7",
+      "head": "3d17d97ce47732c7e3790b25d0f4cbf6c97512e0",
+      "changedTests": [],
+      "step": {
+        "model": "claude-opus-5-5",
+        "durationMs": 97926,
+        "costUsd": 0.6901406000000001
+      },
+      "summary": "Only fflib_Application.cls changed. PMD (28.1→100) came from braces in #2 and a class-wide debug-statement suppression in #4. Limit headroom (60.6→85) came from Id-type caches in selectById (#6, #7) and a snapshot cache in selectByRelationship (#13), both tuned to a benchmark that sends the same list 320 times. Coverage (90.1→98.8) came only from restructuring (#9–#12, #15, #16), so the gain does not mean more is tested. Most edits behave the same as the baseline; the two caches are the real risk, because they keep data for the whole transaction and add CPU and heap cost for typical callers that pass a new list each time.",
+      "behaviourChanges": [
+        {
+          "code": "B1",
+          "title": "selectByRelationship compares and deep-clones the input list on every new list",
+          "detail": "Every call compares the list field by field (List<SObject> !=) against a saved deepClone(true,true,true). A new list, which is the normal case, also gets cloned. Callers that pass each list once, such as triggers or services, now pay extra CPU and roughly double the heap for that list, and the factory, often a static field, holds the copy for the whole transaction. A large batch scope or a list with many fields could hit the heap limit, and the baseline never did this. Results stay correct, because any field difference causes a miss and the cache only supplies the Id set.",
+          "evidence": "fflib_Application.cls:353-367",
+          "iterations": [
+            13
+          ],
+          "severity": "medium",
+          "caughtByTests": false,
+          "proposedTest": "Call selectByRelationship with 5,000 records with several fields populated, each a new list, and assert Limits.getHeapSize() and CPU stay within a fixed limit relative to the baseline loop; also call it with the same list after changing one AccountId and assert the new Id is passed to the selector."
+        },
+        {
+          "code": "B2",
+          "title": "selectById keeps every checked Id for the transaction",
+          "detail": "m_validatedIdsBySObjectType keeps all checked Ids for each SObjectType. The reset is checked before addAll (size() > 10000), so one large call can push the set well past 10,000 Ids, and the set is never released. Every call that misses also loops over every cached type with containsAll before falling back to the full check. Results and exceptions are unchanged, because an Id's type never changes and a mixed-type set can never be fully contained in a single-type set.",
+          "evidence": "fflib_Application.cls:227, :296-321",
+          "iterations": [
+            6,
+            7
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Call selectById with a 20,000-Id set, then with a different 100-Id set, and assert heap growth is bounded; check a mixed-type set still throws 'Unable to determine SObjectType' after a single-type subset was cached."
+        },
+        {
+          "code": "B3",
+          "title": "New protected field exposed to subclasses",
+          "detail": "m_validatedIdsBySObjectType is @NamespaceAccessible protected, so subclasses can see and change it. A subclass that adds wrong Ids could make selectById use the wrong SObjectType without checking.",
+          "evidence": "fflib_Application.cls:226-227",
+          "iterations": [
+            6,
+            7
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Make the field private, or add a test proving a subclass cannot bypass the type check."
+        },
+        {
+          "code": "B4",
+          "title": "DomainFactory construction order changed slightly",
+          "detail": "The SObjectType constructor now chains through this(selectorFactory, new Map<Object,Type>()), so mockDomainByObject and an empty constructorTypeByObject are set before the overridable getConstructorTypeByObject runs. In the baseline, constructorTypeByObject was null at that point. A subclass that reads these fields inside its override would see different values. Construction also creates one extra throwaway Map.",
+          "evidence": "fflib_Application.cls:443-456",
+          "iterations": [
+            9,
+            10,
+            12
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Subclass DomainFactory, override getConstructorTypeByObject to record whether constructorTypeByObject and mockDomainByObject are null, and assert the expected state."
+        },
+        {
+          "code": "B5",
+          "title": "Domain constructor dispatch relies on IConstructable2 extending IConstructable",
+          "detail": "The new early guard sends anything that is not IConstructable to the fflib_IDomainConstructor cast. This matches the baseline only because IConstructable2 extends IConstructable. If that relationship changed, IConstructable2-only classes would throw TypeException. The path for classes implementing only the old IConstructable interface is still never run by any test.",
+          "evidence": "fflib_Application.cls:509-526; fflib_SObjectDomain.cls:383",
+          "iterations": [
+            9,
+            15
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Register a constructor class that implements only fflib_SObjectDomain.IConstructable, and assert DomainFactory.newInstance returns its domain built from the records."
+        }
+      ],
+      "patterns": [
+        {
+          "code": "P1",
+          "title": "Caches tuned to the benchmark",
+          "detail": "The selectByRelationship snapshot cache only helps when the same value-equal list is passed again, which the headroom test does 320 times and real code rarely does. Iteration #13 helps the benchmark and makes normal use slower.",
+          "evidence": "fflib_ApplicationTest.cls:607-614; fflib_Application.cls:353-367",
+          "verdict": "bad"
+        },
+        {
+          "code": "P2",
+          "title": "Coverage raised by restructuring code, not by adding tests",
+          "detail": "Ternaries fold if/return bodies onto one line (#11, #15), constructors chain to empty ones (#10, #12), and helpers add executed lines (#9, #16). This raised the coverage ratio while the IConstructable path, the non-mock unit-of-work paths and setMock(fflib_IDomain) stay untested. Readability also suffers: construct2 and the short isV2/recs/ctor names exist only to keep a line under the formatter's width limit.",
+          "evidence": "fflib_Application.cls:72-130, 509-526, 577; iterations 9-12, 15, 16",
+          "verdict": "bad"
+        },
+        {
+          "code": "P3",
+          "title": "Class-wide PMD.AvoidDebugStatements suppression",
+          "detail": "This hides any debug statement added to the class in future, not just the two intended setMock warnings. A method-level @SuppressWarnings on the two setMock methods would be tighter.",
+          "evidence": "fflib_Application.cls:34",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P4",
+          "title": "Braces on all if/for bodies",
+          "detail": "A pure syntax change that removes the risk of mistakes with unbraced bodies.",
+          "evidence": "iteration 2",
+          "verdict": "good"
+        },
+        {
+          "code": "P5",
+          "title": "Cache invalidation by value equality",
+          "detail": "#13 validates the cache by comparing against a deep-cloned snapshot and hands out a cloned Id set, so callers can't corrupt it. It is safe, but it is costly to run on every call.",
+          "evidence": "fflib_Application.cls:364-367",
+          "verdict": "questionable"
+        }
+      ],
+      "testGaps": [
+        {
+          "code": "T1",
+          "title": "IConstructable (v1-only) domain constructor path",
+          "detail": "No test constructor implements only IConstructable; #15 hid that path on a line that always runs.",
+          "proposedTest": "Register a class implementing only IConstructable, and assert newInstance(records) returns its domain with the same records."
+        },
+        {
+          "code": "T2",
+          "title": "UnitOfWorkFactory without a mock",
+          "detail": "All four newInstance overloads are only tested after setMock.",
+          "proposedTest": "Call each newInstance overload without setMock and assert the result is an fflib_SObjectUnitOfWork with the expected object types and IDML."
+        },
+        {
+          "code": "T3",
+          "title": "selectByRelationship cache invalidation",
+          "detail": "No test calls it twice with the same list after changing a row, with a different field, or after setMock was called between the calls.",
+          "proposedTest": "Call it, change one record's AccountId, call it again, and assert the mock selector receives the new Id set; repeat with a different relationship field and after registering a mock selector."
+        },
+        {
+          "code": "T4",
+          "title": "selectById cache with mixed and overlapping sets",
+          "detail": "Only the always-mixed set case is tested. No test passes a mixed-type set after a single-type set was cached.",
+          "proposedTest": "Call selectById with Account Ids, then with those Ids plus one Opportunity Id, and assert DeveloperException 'Unable to determine SObjectType...'."
+        },
+        {
+          "code": "T5",
+          "title": "setMock(fflib_IDomain) and the Map<Object,Type> DomainFactory constructor",
+          "detail": "Both are unreachable from the current tests.",
+          "proposedTest": "Build a DomainFactory with Map<Object,Type>, register a mock using a variable typed as fflib_IDomain, and assert newInstance returns it for that getType() key."
+        },
+        {
+          "code": "T6",
+          "title": "Volume and heap behaviour",
+          "detail": "The only headroom test reuses one 400-row list; it does not measure large or new lists.",
+          "proposedTest": "Add a headroom test that passes 50 new 2,000-row lists to selectByRelationship and asserts heap and CPU stay bounded."
+        }
+      ],
+      "other": [
+        {
+          "code": "X1",
+          "title": "Iteration #1's lesson was probably wrong",
+          "detail": "#1 was discarded because removing the two setMock System.debug calls supposedly cost 8 headroom points, but the headroom test never calls setMock. The drop was noise, and later iterations (#4, #8, #11, #19) show swings of about ±10 on edits that don't affect runtime cost. The margins may be too tight compared to the measurement noise."
+        },
+        {
+          "code": "X2",
+          "title": "Headroom is now limited by the test itself",
+          "detail": "Iterations #14-#19 found that the remaining CPU is mostly the test's own loops, so further headroom gains here would mostly come from fitting the benchmark more closely. Consider removing or narrowing the #13 cache, and keeping the #7 cache only if real callers repeat selectById calls on overlapping sets."
+        }
+      ]
+    }
   }
 ]
