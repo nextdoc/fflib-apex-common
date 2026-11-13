@@ -154,7 +154,7 @@ public inherited sharing class fflib_SObjectDescribe {
       return null;
     }
     List<Schema.SObjectField> sObjectFields = sObjectType.getDescribe(
-        Schema.SObjectDescribeOptions.DEFERRED
+        SObjectDescribeOptions.DEFERRED
       )
       .fields.getMap()
       .values();
