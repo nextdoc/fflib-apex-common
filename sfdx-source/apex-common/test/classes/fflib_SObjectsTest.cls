@@ -496,4 +496,96 @@ public inherited sharing class fflib_SObjectsTest
 			clearField(Schema.Account.ShippingCountry);
 		}
 	}
+
+	@IsTest
+	private static void headroomBulkFieldOperations()
+	{
+		Integer rounds = 80;
+		List<String> countries = new List<String> { 'NL', 'US', '', null, 'AU' };
+		List<Account> parents = new List<Account>();
+		for (Integer i = 0; i < 20; i++) {
+			parents.add(new Account(Id = generateTestRecordId(Account.SObjectType), OwnerId = Math.mod(i, 3) == 0 ? null : generateTestRecordId(User.SObjectType)));
+		}
+		List<Account> accounts = new List<Account>();
+		for (Integer i = 0; i < 200; i++) {
+			Account parent = Math.mod(i, 6) == 0 ? null : parents[Math.mod(i * 7, 20)];
+			accounts.add(new Account(
+				Id = generateTestRecordId(Account.SObjectType),
+				Name = 'Headroom ' + Math.mod(i, 40),
+				ParentId = parent?.Id,
+				Parent = parent,
+				ShippingCountry = countries[Math.mod(i, 5)],
+				BillingCountry = countries[Math.mod(i * 3, 5)],
+				Rating = Math.mod(i, 4) == 0 ? null : 'Warm',
+				AnnualRevenue = Math.mod(i, 9) == 0 ? null : 1000 * Math.mod(i, 13)));
+		}
+		HeadroomAccounts domain = new HeadroomAccounts(accounts);
+		Set<Object> wantedCountries = new Set<Object> { 'NL', 'AU' };
+		Set<Schema.SObjectField> countryFields = new Set<Schema.SObjectField> { Account.ShippingCountry, Account.BillingCountry, Account.Rating };
+		Map<Object, Object> ratingByCountry = new Map<Object, Object> { 'NL' => 'Hot', 'US' => 'Warm', 'AU' => 'Cold' };
+
+		Integer total = 0;
+		Test.startTest();
+		for (Integer r = 0; r < rounds; r++) {
+			total += domain.getRecordIds().size();
+			total += domain.getIdFieldValues(Account.ParentId, false).size();
+			total += domain.getParentIdFieldValues('Parent.OwnerId').size();
+			total += domain.getStringFieldValues(Account.ShippingCountry, false).size();
+			total += domain.getFieldValues(Account.AnnualRevenue).size();
+			total += domain.byCountries(wantedCountries).size();
+			total += domain.byCountry('US').size();
+			total += domain.anyBlank(countryFields).size();
+			total += domain.allBlank(countryFields).size();
+			total += domain.anyNotBlank(countryFields).size();
+			total += domain.allNotBlank(countryFields).size();
+			domain.setRatingByCountry(ratingByCountry);
+			total += domain.groupRecordsByFieldValue(Account.Name).size();
+		}
+		Test.stopTest();
+
+		System.assert(total > rounds * 200, 'Expected results from every operation');
+	}
+
+	private inherited sharing class HeadroomAccounts extends fflib_SObjects
+	{
+		public HeadroomAccounts(List<Account> records)
+		{
+			super(records, Account.SObjectType);
+		}
+
+		public List<SObject> byCountries(Set<Object> countries)
+		{
+			return getRecordsByFieldValues(Account.ShippingCountry, countries);
+		}
+
+		public List<SObject> byCountry(String country)
+		{
+			return getRecordsByFieldValue(Account.BillingCountry, country);
+		}
+
+		public List<SObject> anyBlank(Set<Schema.SObjectField> fields)
+		{
+			return getRecordsWithBlankFieldValues(fields);
+		}
+
+		public List<SObject> allBlank(Set<Schema.SObjectField> fields)
+		{
+			return getRecordsWithAllBlankFieldValues(fields);
+		}
+
+		public List<SObject> anyNotBlank(Set<Schema.SObjectField> fields)
+		{
+			return getRecordsWithNotBlankFieldValues(fields);
+		}
+
+		public List<SObject> allNotBlank(Set<Schema.SObjectField> fields)
+		{
+			return getRecordsWithAllNotBlankFieldValues(fields);
+		}
+
+		public void setRatingByCountry(Map<Object, Object> ratingByCountry)
+		{
+			setFieldValueByMap(Account.ShippingCountry, Account.Rating, ratingByCountry);
+		}
+	}
 }
