@@ -402,16 +402,6 @@ public inherited sharing class fflib_SObjectDescribe {
         .toLowerCase();
       this.values = values;
     }
-    //A no-args constructor to allow subclasses with different constructor signatures
-    protected NamespacedAttributeMap() {
-      this(new Map<String, Object>());
-    }
-    /**
-     * A convenient shortcut for invoking #getObject(name, true)
-     **/
-    protected virtual Object getObject(String name) {
-      return this.getObject(name, true);
-    }
     /**
      *
      **/
