@@ -334,16 +334,14 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
   @NamespaceAccessible
   public List<SObject> getChangedRecords(Set<String> fieldNames) {
     List<SObject> changedRecords = new List<SObject>();
+    Map<Id, SObject> existing = this.ExistingRecords;
     for (SObject newRecord : Records) {
-      Id recordId = (Id) newRecord.get('Id');
-      if (
-        this.ExistingRecords == null ||
-        !this.ExistingRecords.containsKey(recordId)
-      ) {
+      Id recordId = newRecord.Id;
+      if (existing == null || !existing.containsKey(recordId)) {
         continue;
       }
 
-      SObject oldRecord = this.ExistingRecords.get(recordId);
+      SObject oldRecord = existing.get(recordId);
       for (String fieldName : fieldNames) {
         if (oldRecord.get(fieldName) != newRecord.get(fieldName)) {
           changedRecords.add(newRecord);
@@ -361,15 +359,13 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
   @NamespaceAccessible
   public List<SObject> getChangedRecords(Set<Schema.SObjectField> fieldTokens) {
     List<SObject> changedRecords = new List<SObject>();
+    Map<Id, SObject> existing = this.ExistingRecords;
     for (SObject newRecord : Records) {
-      Id recordId = (Id) newRecord.get('Id');
-      if (
-        this.ExistingRecords == null ||
-        !this.ExistingRecords.containsKey(recordId)
-      ) {
+      Id recordId = newRecord.Id;
+      if (existing == null || !existing.containsKey(recordId)) {
         continue;
       }
-      SObject oldRecord = this.ExistingRecords.get(recordId);
+      SObject oldRecord = existing.get(recordId);
       for (Schema.SObjectField fieldToken : fieldTokens) {
         if (oldRecord.get(fieldToken) != newRecord.get(fieldToken)) {
           changedRecords.add(newRecord);
