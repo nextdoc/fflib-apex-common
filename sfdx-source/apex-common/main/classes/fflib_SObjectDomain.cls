@@ -469,19 +469,21 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
       IConstructable domainConstructor = (IConstructable) constructableClass.newInstance();
 
       // Construct the domain class with the approprite record set
-      if (isInsert)
+      if (isInsert) {
         domainObject = domainConstructor.construct(newRecords);
-      else if (isUpdate)
+      } else if (isUpdate) {
         domainObject = domainConstructor.construct(newRecords);
-      else if (isDelete)
+      } else if (isDelete) {
         domainObject = domainConstructor.construct(oldRecordsMap.values());
-      else if (isUndelete)
+      } else if (isUndelete) {
         domainObject = domainConstructor.construct(newRecords);
+      }
 
       // Should this instance be reused on the next trigger invocation?
-      if (domainObject.Configuration.TriggerStateEnabled)
+      if (domainObject.Configuration.TriggerStateEnabled) {
         // Push this instance onto the stack to be popped during the after phase
         pushTriggerInstance(domainClass, domainObject);
+      }
     }
 
     // has this event been disabled?
