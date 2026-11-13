@@ -507,14 +507,23 @@ public inherited sharing virtual class fflib_Application {
       // Construct Domain class passing in the queried records
       Object domainConstructor = domainConstructorClass.newInstance();
 
-      // for backwards compatibility
-      return domainConstructor instanceof fflib_SObjectDomain.IConstructable2
-        ? (fflib_IDomain) ((fflib_SObjectDomain.IConstructable2) domainConstructor)
-            .construct((List<SObject>) objects, (SObjectType) objectType)
-        : domainConstructor instanceof fflib_SObjectDomain.IConstructable
-            ? (fflib_IDomain) ((fflib_SObjectDomain.IConstructable) domainConstructor)
-                .construct((List<SObject>) objects)
-            : ((fflib_IDomainConstructor) domainConstructor).construct(objects);
+      if (!(domainConstructor instanceof fflib_SObjectDomain.IConstructable)) {
+        return ((fflib_IDomainConstructor) domainConstructor)
+          .construct(objects);
+      }
+      fflib_SObjectDomain.IConstructable ctor = (fflib_SObjectDomain.IConstructable) domainConstructor;
+      List<SObject> recs = (List<SObject>) objects;
+      Boolean isV2 = ctor instanceof fflib_SObjectDomain.IConstructable2;
+      return isV2 ? construct2(ctor, recs, objectType) : ctor.construct(recs);
+    }
+
+    private fflib_SObjectDomain construct2(
+      fflib_SObjectDomain.IConstructable ctor,
+      List<SObject> recs,
+      Object objectType
+    ) {
+      return ((fflib_SObjectDomain.IConstructable2) ctor)
+        .construct(recs, (SObjectType) objectType);
     }
 
     /**
