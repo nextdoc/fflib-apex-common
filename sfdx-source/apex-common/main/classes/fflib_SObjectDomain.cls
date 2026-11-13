@@ -404,8 +404,9 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
   @NamespaceAccessible
   public static fflib_SObjectDomain getTriggerInstance(Type domainClass) {
     List<fflib_SObjectDomain> domains = TriggerStateByClass.get(domainClass);
-    if (domains == null || domains.size() == 0)
+    if (domains == null || domains.size() == 0) {
       return null;
+    }
     return domains[domains.size() - 1];
   }
 
@@ -1174,13 +1175,14 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
         someState = 'Error on Record ' + opp.Name;
 
         // Create a new Opportunity record to trigger recursive code path?
-        if (opp.Name.equals('Test Recursive 1'))
+        if (opp.Name.equals('Test Recursive 1')) {
           newOpps.add(
             new Opportunity(
               Name = 'Test Recursive 2',
               Type = 'Existing Account'
             )
           );
+        }
       }
 
       // If testing recursiving emulate an insert
@@ -1196,9 +1198,11 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
     @NamespaceAccessible
     public override void onAfterInsert() {
       // Use the state set in the before insert (since this is a stateful domain class)
-      if (someState != null)
-        for (Opportunity opp : (List<Opportunity>) Records)
+      if (someState != null) {
+        for (Opportunity opp : (List<Opportunity>) Records) {
           opp.addError(error(someState, opp));
+        }
+      }
     }
   }
 
@@ -1223,8 +1227,9 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
       super(sObjectList);
 
       // Enable old behaviour based on the test Opportunity name passed in
-      if (sObjectList[0].Name == 'Test Enable Old Behaviour')
+      if (sObjectList[0].Name == 'Test Enable Old Behaviour') {
         Configuration.enableOldOnUpdateValidateBehaviour();
+      }
     }
 
     @NamespaceAccessible
