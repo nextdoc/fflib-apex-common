@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ascent report</title>
+<script src="https://cdn.jsdelivr.net/npm/vega@5.30.0/build/vega.min.js" integrity="sha384-em7CHpJd+SsMugVFf6TY7AKQcLWMcbPhD84hmNK8o6WFDkK+2uHSUQRVQV1/w827" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5.21.0/build/vega-lite.min.js" integrity="sha384-GhkD6ks9/zgY1m5EFOUZWz/vMVMUFF/92DL61RZc+B42J8osL+jNufKv68bNHHZ2" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6.26.0/build/vega-embed.min.js" integrity="sha384-TqXb8su49m5OnEpKGO8m+VrgHesrUxyP22HgpXi4hnh1Hm43dXroiSYemNf5D8lv" crossorigin="anonymous"></script>
+<style>
+:root{--surface:#fcfcfb;--text:#0b0b0b;--muted:#52514e;--grid:#e6e5e0;--keep:#2a78d6;--discard:#8f8e89;--gated:#c26a1b;--rejected:#b8433a;--nochange:#b5b4ae;--error:#8e2a8e;--up:#1f7a3d;--down:#b8433a}
+@media (prefers-color-scheme:dark){:root{--surface:#1a1a19;--text:#fff;--muted:#c3c2b7;--grid:#383835;--keep:#3987e5;--discard:#8f8e89;--gated:#e08a3c;--rejected:#e0675d;--nochange:#5e5d59;--error:#c565c5;--up:#4cc176;--down:#e0675d}}
+body{margin:0;padding:24px 16px;background:var(--surface);color:var(--text);font:14px/1.4 system-ui,sans-serif}
+main{max-width:1280px;margin:0 auto}
+h1{font-size:20px;margin:0 0 4px}
+.meta{color:var(--muted);font-size:13px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:4px 16px}
+.meta b{color:var(--text);font-weight:600}
+code{font:12px ui-monospace,monospace}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin-bottom:24px}
+.card{border:1px solid var(--grid);border-radius:10px;padding:14px 16px;display:flex;gap:16px;align-items:center}
+.card svg.graphic{flex:none}
+.card > div{min-width:0}
+.card .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:6px}
+.card .big{font-size:28px;font-weight:600;line-height:1.1}
+.card .sub{color:var(--muted);font-size:13px;margin-top:4px}
+.card .row{margin-top:4px;font-size:13px}
+.card .row svg{vertical-align:-3px;margin-right:6px;color:var(--muted)}
+.card .row svg[width="10"]{vertical-align:-1px}
+h2{font-size:14px;color:var(--muted);font-weight:600;margin:28px 0 8px}
+.chart{width:100%}
+.empty{color:var(--muted);padding:32px 16px;text-align:center;border:1px dashed var(--grid);border-radius:8px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{color:var(--muted);font-weight:600;text-align:left;font-size:12px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--grid);vertical-align:top}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.up{color:var(--up)}.down{color:var(--down)}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:500;color:#fff;white-space:nowrap}
+.tag{display:inline-block;margin-top:4px;padding:0 6px;border:1px solid var(--grid);border-radius:4px;font-size:11px;color:var(--muted)}
+.focus{color:var(--muted);font-size:12px}
+.notes p{margin:0 0 6px}.notes p:last-child{margin:0}
+.notes .k{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-right:6px}
+.deltas{white-space:nowrap}
+a{color:var(--keep)}
+.refresh{position:fixed;top:12px;right:16px;color:var(--muted);font-size:12px;display:flex;align-items:center;gap:6px;background:var(--surface);padding:2px 6px;border-radius:6px}
+</style>
+</head>
+<body><main>
+<label class="refresh"><input type="checkbox" id="refresh"> Refresh every minute</label>
+<script>
+// The setting lives in the query string so it survives the reload, including from a file:// URL.
+{
+  const box = document.getElementById('refresh');
+  box.checked = new URLSearchParams(location.search).get('refresh') !== 'off';
+  if (box.checked) setTimeout(() => location.reload(), 60000);
+  box.onchange = () => { location.search = box.checked ? '' : '?refresh=off'; };
+}
+</script>
+<h1 id="title"></h1>
+<div class="meta" id="meta"></div>
+<div class="tiles" id="tiles"></div>
+<h2>Overall score by hours since baseline: current kept (line), fitted climb (dashed)</h2>
+<div class="chart" id="climb"></div>
+<h2>Minutes per iteration</h2>
+<div class="chart" id="durations"></div>
+<h2>Dimensions</h2>
+<div class="scroll"><table id="dimensions"></table></div>
+<h2>Iterations</h2>
+<div class="scroll"><table id="iterations"></table></div>
+<h2 id="cost-title">Cumulative agent cost by step</h2>
+<div class="chart" id="cost"></div>
+<section id="retro" hidden>
+<h2>Retrospective (first pass, agent generated)</h2>
+<p class="meta" id="retro-meta"></p>
+<p id="retro-summary"></p>
+<div class="scroll"><table id="retro-items"></table></div>
+</section>
+</main>
+<script>
+const data = {"ascent":{"name":"sobject-describe-1","mode":"deploy","plannerStreamline":false,"targetOrg":"fflib-apex-common","branch":"ascent/sobject-describe-1","baseCommit":"d4f3c3c2aeb6d7b6dd8383393730b2121bb25d6e","createdAt":"2026-11-13T23:23:59.604Z","updatedAt":"2026-11-13T23:51:32.436Z"},"summary":{"baseline":83.9,"current":87.3,"gain":3.4,"iterations":11,"kept":5,"hours":0.46,"perHour":3.75,"perIteration":0.31,"angle":17.2,"minutesPerIteration":2.3,"fit":[{"hours":0.0459,"fit":86.92},{"hours":0.4131,"fit":88.29}]},"cost":{"total":7.51,"byStep":{"plan":4.94,"implement":1.48,"learn":1.09},"series":[{"hours":0,"step":"plan","usd":0},{"hours":0,"step":"implement","usd":0},{"hours":0,"step":"learn","usd":0},{"hours":0.062,"step":"plan","usd":0.2935},{"hours":0.062,"step":"implement","usd":0.1348},{"hours":0.062,"step":"learn","usd":0.4717},{"hours":0.093,"step":"plan","usd":0.6098},{"hours":0.093,"step":"implement","usd":0.2493},{"hours":0.093,"step":"learn","usd":0.5289},{"hours":0.128,"step":"plan","usd":1.0139},{"hours":0.128,"step":"implement","usd":0.414},{"hours":0.128,"step":"learn","usd":0.5927},{"hours":0.156,"step":"plan","usd":1.3944},{"hours":0.156,"step":"implement","usd":0.5252},{"hours":0.156,"step":"learn","usd":0.6509},{"hours":0.187,"step":"plan","usd":1.7872},{"hours":0.187,"step":"implement","usd":0.6449},{"hours":0.187,"step":"learn","usd":0.711},{"hours":0.234,"step":"plan","usd":2.3086},{"hours":0.234,"step":"implement","usd":0.7759},{"hours":0.234,"step":"learn","usd":0.774},{"hours":0.271,"step":"plan","usd":2.7992},{"hours":0.271,"step":"implement","usd":0.8991},{"hours":0.271,"step":"learn","usd":0.8352},{"hours":0.321,"step":"plan","usd":3.4535},{"hours":0.321,"step":"implement","usd":1.0408},{"hours":0.321,"step":"learn","usd":0.8999},{"hours":0.367,"step":"plan","usd":3.9615},{"hours":0.367,"step":"implement","usd":1.1718},{"hours":0.367,"step":"learn","usd":0.9611},{"hours":0.41,"step":"plan","usd":4.4332},{"hours":0.41,"step":"implement","usd":1.3122},{"hours":0.41,"step":"learn","usd":1.0259},{"hours":0.459,"step":"plan","usd":4.9382},{"hours":0.459,"step":"implement","usd":1.4781},{"hours":0.459,"step":"learn","usd":1.0931}]},"dimensions":[{"name":"PMD","baseline":71.4,"current":100,"delta":28.6,"margin":0.5,"series":[71.4,86.2,100,100,100,100]},{"name":"Graph Engine","baseline":100,"current":100,"delta":0,"margin":0.5,"series":[100,100,100,100,100,100]},{"name":"Tests passing","baseline":100,"current":100,"delta":0,"margin":0,"series":[100,100,100,100,100,100]},{"name":"Code coverage","baseline":95.5,"current":98.8,"delta":3.3,"margin":0,"series":[95.5,95.5,95.5,97.7,98.8,98.8]},{"name":"Test run time","baseline":71.5,"current":71.6,"delta":0.1,"margin":3,"series":[71.5,69.4,72.2,70.6,71.1,71.6]},{"name":"Limit headroom","baseline":69.4,"current":59.1,"delta":-10.3,"margin":23.3,"series":[69.4,57.5,75.9,64.6,75.7,59.1]},{"name":"Resource efficiency","baseline":79.5,"current":81.9,"delta":2.4,"margin":1,"series":[79.5,81.4,80.4,79.5,79.2,81.9]}],"rows":[{"iteration":1,"at":"2026-11-13T23:26:03.109Z","outcome":"keep","dryRun":false,"overall":84.3,"current":84.3,"hours":0.062,"minutes":1.7,"focus":["PMD"],"reason":"PMD reports 4 violations: EagerlyLoadedDescribeSObjectResult at line 156 and OneDeclarationPerLine at lines 159, 351 and 373, where each loop declares i and j on one line. Loading the describe in deferred mode in getNameField removes the eager-load finding and avoids loading child relationships. Changing the three indexed loops to for-each loops over the same lists removes the multi-declaration findings. Behaviour and the number of covered lines do not change.","decision":["every focus dimension rose by more than its margin and no other dimension fell by more than its margin"],"learning":"Rewriting indexed loops as for-each and using a DEFERRED describe cleared all PMD findings with no effect on tests or coverage. It also traded a small drop in test run time and limit headroom for a small gain in resource efficiency, so PMD-only cleanups are low-risk but not free on runtime dimensions.","deltas":{"PMD":14.8,"Graph Engine":0,"Tests passing":0,"Code coverage":0,"Test run time":-2.1,"Limit headroom":-11.9,"Resource efficiency":1.9},"patch":"patches/1.patch","run":"runs/1","cost":{"plan":0.2935434,"implement":0.1348082,"learn":0.471652}},{"iteration":2,"at":"2026-11-13T23:27:44.561Z","outcome":"keep","dryRun":false,"overall":89.1,"current":89.1,"hours":0.093,"minutes":1.8,"focus":["PMD"],"reason":"PMD still reports EagerlyLoadedDescribeSObjectResult at fflib_SObjectDescribe.cls:156 even though the call already passes DEFERRED. The likely cause is that the rule only recognises the bare reference SObjectDescribeOptions.DEFERRED, and the Schema. qualifier changes the expression it sees. Writing the argument without the Schema. prefix should let the rule recognise the deferred load and clear the last PMD finding. Behaviour, tests and coverage stay the same.","decision":["every focus dimension rose by more than its margin and no other dimension fell by more than its margin"],"learning":"PMD's EagerlyLoadedDescribeSObjectResult rule only recognises the unqualified `SObjectDescribeOptions.DEFERRED`, so rewriting the `Schema.`-qualified argument cleared the finding with no behaviour, test or coverage change. When a PMD finding persists on code that looks compliant, try the exact spelling the rule matches before restructuring.","deltas":{"PMD":13.8,"Graph Engine":0,"Tests passing":0,"Code coverage":0,"Test run time":2.8,"Limit headroom":18.4,"Resource efficiency":-1},"patch":"patches/2.patch","run":"runs/2","cost":{"plan":0.31621859999999996,"implement":0.114506,"learn":0.0572847}},{"iteration":3,"at":"2026-11-13T23:29:34.540Z","outcome":"discard","dryRun":false,"overall":87.8,"current":89.1,"hours":0.128,"minutes":2.1,"focus":["Limit headroom"],"reason":"Limit headroom (CPU 24.1% in headroomBulkDescribes) is the weakest scored dimension and the main runtime cost. The static getNameField(SObjectType) calls getDescribe() on every field of the type every time it runs, and the test calls it twice per object per round (750 full field scans). NamespacedAttributeMap.keySet(true) also rebuilds a set of about 1,000 global-describe keys with string operations on every call. Caching the name field per SObjectType, cleared by flushCache, and caching the namespace-stripped key set per map instance removes this repeated work. Results are the same because a type's name field and an immutable map's keys never change. The key-set cache is checked against currentNamespace, so the test that changes the namespace still gets fresh results.","decision":["Limit headroom is a focus but rose -0.2, not more than its margin 23.3","PMD fell 7.4, more than its margin 0.5","Resource efficiency fell 1.4, more than its margin 1"],"learning":"Caching name fields and the implied key set added branches (PMD cyclomatic complexity up) without lowering CPU in headroomBulkDescribes, so those repeated scans are not the dominant CPU cost; find the real hotspot before adding caches, and avoid extra branching that costs PMD and resource-efficiency score.","deltas":{"PMD":-7.4,"Graph Engine":0,"Tests passing":0,"Code coverage":0.9,"Test run time":-1.6,"Limit headroom":-0.2,"Resource efficiency":-1.4},"patch":"patches/3.patch","run":"runs/3","cost":{"plan":0.4041848,"implement":0.1646837,"learn":0.0637247}},{"iteration":4,"at":"2026-11-13T23:31:41.057Z","outcome":"keep","dryRun":false,"overall":87.5,"current":87.5,"hours":0.156,"minutes":1.7,"focus":["Code coverage"],"reason":"NamespacedAttributeMap, a private abstract class, has two members that can never run: the no-argument constructor `protected NamespacedAttributeMap() { this(new Map\u003cString, Object>()); }` and the one-argument `protected virtual Object getObject(String name) { return this.getObject(name, true); }`. Neither subclass (FieldsMap, GlobalDescribeMap) uses them: both call super(values), and their get(name) methods call get(name, true), which goes to the two-argument getObject. Tests cannot reach either member. Removing them takes out lines that are never covered, so code coverage rises honestly (about 170/178 to 170/175) with no change in behaviour or runtime.","decision":["every focus dimension rose by more than its margin and no other dimension fell by more than its margin"],"learning":"Deleting unreachable members (no subclass or test calls them) raises coverage honestly by shrinking uncovered lines, with no behaviour change; small drops in headroom, run-time and efficiency scores alongside such a change look like measurement noise, so more dead-code removal in this file is a safe next candidate.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":2.2,"Test run time":-1.6,"Limit headroom":-11.3,"Resource efficiency":-0.9},"patch":"patches/4.patch","run":"runs/4","cost":{"plan":0.3804664,"implement":0.11117049999999998,"learn":0.0581887}},{"iteration":5,"at":"2026-11-13T23:33:20.955Z","outcome":"keep","dryRun":false,"overall":89.3,"current":89.3,"hours":0.187,"minutes":1.9,"focus":["Code coverage"],"reason":"Coverage is 170/174 and no test reaches the 4 uncovered lines. In getDescribe(String), the branch `if (token == null) { result = null; }` assigns null to a variable that is already null, so it is a no-op no test can cover. Removing it leaves only the meaningful `token != null` branch. getDescribe(Schema.DescribeSObjectResult) repeats the cache lookup and constructor fallback of getDescribe(Schema.SObjectType) across two lines, with redundant null-safe operators after an explicit null check. Delegating to the SObjectType overload, which builds the same cache key, removes those duplicate uncovered lines. Behaviour, PMD and runtime stay the same, and coverage rises honestly by deleting dead or duplicate code, not by adding executed lines.","decision":["every focus dimension rose by more than its margin and no other dimension fell by more than its margin"],"learning":"When uncovered lines are unreachable or duplicate another tested path, deleting them or delegating to the covered overload raises coverage, and the lower statement count also improves limit headroom, with PMD and tests untouched. Look for more dead or duplicated branches before attempting riskier restructuring of live logic.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":1.1,"Test run time":0.5,"Limit headroom":11.1,"Resource efficiency":-0.3},"patch":"patches/5.patch","run":"runs/5","cost":{"plan":0.3927834,"implement":0.1197135,"learn":0.0601207}},{"iteration":6,"at":"2026-11-13T23:35:14.927Z","outcome":"discard","dryRun":false,"overall":87.5,"current":89.3,"hours":0.234,"minutes":2.8,"focus":["Resource efficiency"],"reason":"No test can reach the remaining uncovered lines, and covering them would be padding, so this targets CPU in the hot lookup path that fflib_QueryFactory and fflib_SecurityUtils use (resource efficiency is at 79.2). NamespacedAttributeMap.getObject runs on every getField call: it builds and lowercases the namespaced key, then does containsKey followed by get on that key, and lowercases the name again on fallback. containsKey also lowercases twice. Lowercasing the name once and using a single Map.get, with a null check in place of containsKey, removes one map operation and one or two string operations per lookup. Results do not change: the map values (SObjectField/SObjectType tokens) are never null, and currentNamespace is lowercased in the constructor, so currentNamespace + '__' + lowerName equals the old (currentNamespace + '__' + name).toLowerCase() for namespace values tests can match. Cyclomatic complexity does not rise.","decision":["re-measured a close discard and averaged the noisy dimensions over 2 runs (first run {\"PMD\":100,\"Graph Engine\":100,\"Tests passing\":100,\"Code coverage\":98.8,\"Test run time\":70,\"Limit headroom\":60.2,\"Resource efficiency\":80.1})","Resource efficiency is a focus but rose 0.2, not more than its margin 1"],"learning":"Shaving one map operation and a couple of toLowerCase calls from NamespacedAttributeMap lookups left Resource efficiency within noise (+0.2), so micro-optimising string/map work in this hot path is too small to register. Limit headroom swung -12 between runs, so limit and CPU dimensions are noisy. A candidate needs a structural reduction, such as fewer describe calls or fewer cache rebuilds, to show a measurable gain.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":0,"Test run time":-0.4,"Limit headroom":-12,"Resource efficiency":0.2},"patch":"patches/6.patch","run":"runs/6","cost":{"plan":0.5213563999999999,"implement":0.1310389,"learn":0.0630687}},{"iteration":7,"at":"2026-11-13T23:38:02.620Z","outcome":"discard","dryRun":false,"overall":86.7,"current":89.3,"hours":0.271,"minutes":2.2,"focus":["Resource efficiency"],"reason":"The weakest runtime dimensions (resource efficiency 79.2, limit headroom 75.7) are driven by CPU in describe work. Every new fflib_SObjectDescribe instance, including those rebuilt after each flushCache, calls token.getDescribe() in the lazy describe getter. That loads the full describe, child relationships included, which is costly for objects like Account and is used heavily by fflib_QueryFactory and fflib_SecurityUtils through getField/getFields. Loading it with SObjectDescribeOptions.DEFERRED keeps getName, fields, fieldSets and the rest identical, since child relationships load on first access, and removes the eager-load cost. No test compares the wrapped describe with a native one; the only check is getName(). Separately, keySet(true) rebuilds currentNamespace + '__' for each of about 1,000 global-describe keys per call. Building the prefix once before the loop gives the same result with no added branch, so cyclomatic complexity and PMD stay unchanged, unlike the caching tried in #3.","decision":["Resource efficiency is a focus but rose -1.3, not more than its margin 1"],"learning":"Switching the lazy describe to DEFERRED (plus hoisting the keySet prefix) did not improve resource efficiency and worsened limit headroom, so eager child-relationship loading is not the CPU bottleneck in this code. Future attempts should change one thing at a time and target field-map and global-describe construction rather than the describe call options.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":0,"Test run time":-2.7,"Limit headroom":-13.6,"Resource efficiency":-1.3},"patch":"patches/7.patch","run":"runs/7","cost":{"plan":0.49065840000000005,"implement":0.1231694,"learn":0.061194700000000005}},{"iteration":8,"at":"2026-11-13T23:40:15.554Z","outcome":"keep","dryRun":false,"overall":87.3,"current":87.3,"hours":0.321,"minutes":3,"focus":["Resource efficiency"],"reason":"Remaining uncovered lines are live behaviour, so coverage cannot rise honestly; the measurable weakness is CPU in the hot getDescribe(SObjectType).getField path used by fflib_QueryFactory and fflib_SecurityUtils. Every token lookup builds a cache key with String.valueOf(token).toLowerCase(). Keying instanceCache by Schema.SObjectType removes that per-call string work, and getDescribe(String) becomes a one-line delegation (global-describe lookup, then the token overload), removing its duplicate cache-check branch. Behaviour is unchanged: the same instance is returned for String and token lookups, unresolved names still return null, and complexity and statement count fall, so PMD stays clean and coverage edges up honestly.","decision":["every focus dimension rose by more than its margin and no other dimension fell by more than its margin"],"learning":"Replacing string-built cache keys with the SObjectType token and delegating getDescribe(String) to the token overload cut CPU on the hot lookup path without affecting PMD, tests or coverage, but it cost limit headroom, so the String path likely now does an extra global-describe lookup or the token-keyed map uses more of a governor limit. Future efficiency candidates in this class should watch headroom as the likely trade-off.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":0,"Test run time":0.5,"Limit headroom":-16.6,"Resource efficiency":2.7},"patch":"patches/8.patch","run":"runs/8","cost":{"plan":0.6542772000000001,"implement":0.14166060000000003,"learn":0.06462670000000001}},{"iteration":9,"at":"2026-11-13T23:43:14.778Z","outcome":"discard","dryRun":false,"overall":88.8,"current":87.3,"hours":0.367,"minutes":2.8,"focus":["Limit headroom"],"reason":"The static getNameField(SObjectType) rebuilds the full field map on all 750 calls in headroomBulkDescribes (instance and static paths), although fflib_SObjectDescribe already caches that map per type. Iterating the cached getDescribe(sObjectType).getFieldsMap() builds each type's map once per cache flush instead of on every call. It adds no branches, removes the DEFERRED describe call and returns the same name field, so PMD, tests and coverage are unchanged.","decision":["re-measured a close discard and averaged the noisy dimensions over 2 runs (first run {\"PMD\":100,\"Graph Engine\":100,\"Tests passing\":100,\"Code coverage\":98.8,\"Test run time\":70.4,\"Limit headroom\":65.1,\"Resource efficiency\":80})","Limit headroom is a focus but rose 11.1, not more than its margin 23.3","Resource efficiency fell 1.2, more than its margin 1"],"learning":"Removing the repeated per-call field-map rebuild in getNameField gave a real but sub-margin Limit headroom gain, while routing through the cached getFieldsMap() slightly hurt Resource efficiency. A single small describe-path tweak can't clear the noise margin, so future plans should bundle several headroom reductions or pick changes that don't add cache overhead.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":0,"Test run time":0.1,"Limit headroom":11.1,"Resource efficiency":-1.2},"patch":"patches/9.patch","run":"runs/9","cost":{"plan":0.5079750000000001,"implement":0.13104739999999998,"learn":0.0612567}},{"iteration":10,"at":"2026-11-13T23:46:00.274Z","outcome":"discard","dryRun":false,"overall":89.8,"current":87.3,"hours":0.41,"minutes":2.6,"focus":["Limit headroom"],"reason":"Limit headroom (CPU 40.9% in headroomBulkDescribes) is the weakest dimension. Both getNameField paths run the static method, which on every one of 750 calls loads a DEFERRED describe, rebuilds the fields map and values list, and calls getDescribe() on each field until it finds the name field. #9 showed that removing the map rebuild alone gives a real gain that stays under the margin. Moving the whole scan into a lazy instance property on the cached fflib_SObjectDescribe removes the describe, the map rebuild and the repeated field describes. The scan then runs once per type per flushCache (about 40 times instead of 750), with no new static cache and no extra branches in the static method; the added if/for/if goes in a lazy property getter, like the existing ones. A type with no name field re-scans on each call, which matches today's behaviour. The same field is returned, null input still returns null and flushCache still clears it, because it clears instanceCache. Also, keySet(true) concatenates currentNamespace + '__' once per global-describe key (about 1,000 keys) on every call. Building the prefix once before the loop gives an identical result without adding a branch.","decision":["re-measured a close discard and averaged the noisy dimensions over 2 runs (first run {\"PMD\":100,\"Graph Engine\":100,\"Tests passing\":100,\"Code coverage\":99.4,\"Test run time\":73,\"Limit headroom\":72.7,\"Resource efficiency\":82})","Limit headroom is a focus but rose 14.9, not more than its margin 23.3"],"learning":"Caching the name-field scan in a lazy instance property gave a real but sub-margin CPU headroom gain, so a single removal of per-call describe/map work is not enough to clear the margin. Bundle several per-call eliminations, or cut the call pattern in the callers; PMD, coverage and test dimensions stay flat for behaviour-preserving hot-path refactors.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":0.6,"Test run time":2,"Limit headroom":14.9,"Resource efficiency":-0.2},"patch":"patches/10.patch","run":"runs/10","cost":{"plan":0.47172539999999996,"implement":0.14035999999999998,"learn":0.0647347}},{"iteration":11,"at":"2026-11-13T23:48:36.546Z","outcome":"discard","dryRun":false,"overall":89.6,"current":87.3,"hours":0.459,"minutes":2.9,"focus":["Limit headroom"],"reason":"Limit headroom (CPU 40.9% in headroomBulkDescribes) is the weakest dimension. #10 showed that caching the name-field scan gives a real gain of about +15, which is under the 23.3 margin, so this bundles it with the other large repeated cost. GlobalDescribeMap.keySet(true) rebuilds a namespace-stripped set of about 1,000 global-describe keys with removeStartIgnoreCase and a string concatenation per key, on every call (about 38 times per run). (1) A lazy instance property computes the name field once per cached describe instance by scanning the already-cached `fields` map. Both getNameField paths read it. This removes the per-call DEFERRED describe, the map rebuild and the repeated field describes on 750 calls. (2) keySet(true) caches its stripped set per map instance, tagged with the namespace it was built for, and returns a clone. Repeat calls in the same flush window therefore skip the string work, and the result is still a fresh, equal set. The cache rebuilds when currentNamespace changes, so the FieldsMap and GlobalDescribeMap tests that set currentNamespace still get correct results. flushCache still discards both caches, because it drops instanceCache and wrappedGlobalDescribe. Each method gains at most one if, and new fields go beside the existing field declarations, so PMD should stay clean. Tests and coverage are unchanged: the new lines are executed by existing tests, and none of them is padding.","decision":["re-measured a close discard and averaged the noisy dimensions over 2 runs (first run {\"PMD\":100,\"Graph Engine\":100,\"Tests passing\":100,\"Code coverage\":99.4,\"Test run time\":72.5,\"Limit headroom\":72,\"Resource efficiency\":82.9})","Limit headroom is a focus but rose 12.9, not more than its margin 23.3"],"learning":"Memoizing the per-instance name-field scan and the namespace-stripped keySet gave only about +13 Limit headroom (CPU), short of the 23.3 margin, and left PMD, coverage and tests flat, so micro-caches on repeated describe/string work buy roughly half of what is needed. Larger CPU wins must remove far more describe calls (for example, avoiding per-field getDescribe() across all callers), and bundling two caches hides which one produced the gain.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":0.6,"Test run time":1.5,"Limit headroom":12.9,"Resource efficiency":0.5},"patch":"patches/11.patch","run":"runs/11","cost":{"plan":0.5049614,"implement":0.16589279999999998,"learn":0.0672927}}],"retro":{"ascent":"sobject-describe-1","at":"2026-11-13T23:53:30.056Z","base":"440b36c791ff1ddd311bf6799608da98ab4b23c7","head":"1b5082c5d85bfc8b61368809f8650980f2962696","changedTests":[],"step":{"model":"claude-opus-5-5","durationMs":87763,"costUsd":0.581831},"summary":"The ascent changed only fflib_SObjectDescribe.cls. PMD (71.4→100) came from iterations 1–2 (for-each loops, deferred describe with an unqualified enum), coverage (95.5→98.8) from deleting unreachable or duplicate code in iterations 4–5, and resource efficiency (+2.4) from keying instanceCache by SObjectType in iteration 8. Limit headroom fell (73.7→59.1), most likely because getDescribe(String) now always goes through the global describe instead of checking the instance cache first, though this dimension is noisy (about ±12). Behaviour is preserved in single-namespace orgs; the only semantic shift is that namespace-omitted String lookups now return a cached, namespace-preferring instance.","behaviourChanges":[{"code":"B1","title":"getDescribe(String) always resolves through the global describe","detail":"The baseline checked instanceCache by lowercased name and only fell back to wrappedGlobalDescribe on a miss. The evolved code always calls wrappedGlobalDescribe.get(name). After flushCache(), a String lookup of an already-described type now rebuilds Schema.getGlobalDescribe() and the GlobalDescribeMap wrapper, and every String lookup pays the namespaced-key string work. The returned instance is the same; the cost is CPU and heap, and it likely explains the Limit headroom drop (73.7→59.1).","evidence":"fflib_SObjectDescribe.cls:255, :218-226; headroomBulkDescribes test lines 329-335","iterations":[8],"severity":"medium","caughtByTests":false,"proposedTest":"After flushCache(), call getDescribe(Account.SObjectType) then getDescribe('Account') and assert that Limits.getCpuTime() / heap growth stays under a bound, or at least that both calls return the same instance."},{"code":"B2","title":"Namespace-omitted String lookups now hit the cache and consistently prefer the namespaced type","detail":"The baseline cache key was String.valueOf(token).toLowerCase() (for example 'ns__obj__c'), so getDescribe('Obj__c') in namespace ns never hit the cache, built a new instance on every call and overwrote the cache entry. When both an unmanaged Obj__c and a packaged ns__Obj__c existed, the baseline returned whichever matched a cached 'obj__c' key, otherwise the namespaced one. The evolved code always resolves through GlobalDescribeMap.get (namespace-preferred) and returns the cached instance: more consistent, but different.","evidence":"fflib_SObjectDescribe.cls:255, :263, :395-406 (getObject namespace preference); baseline lines removed in the diff at the old :253-264","iterations":[8],"severity":"low","caughtByTests":false,"proposedTest":"Using the existing fakeNamespace technique on a GlobalDescribeMap, or in a namespaced scratch org, assert that getDescribe('Obj__c') === getDescribe(ns__Obj__c.SObjectType) and that repeated String calls return the same instance."},{"code":"B3","title":"getNameField uses a DEFERRED describe with an unqualified enum","detail":"fields.getMap() is identical under DEFERRED, so the returned name field does not change. The unqualified SObjectDescribeOptions reference would resolve to a local class if one with that name were ever added, which is a compile-time risk rather than a runtime one.","evidence":"fflib_SObjectDescribe.cls:156-158","iterations":[1,2],"severity":"low","caughtByTests":true,"proposedTest":"Already covered by getNameField_staticBasics (Account.Name, Contact.Name)."},{"code":"B4","title":"DescribeSObjectResult overload delegates to the token overload","detail":"The baseline looked up getName().toLowerCase(), which equals String.valueOf(token).toLowerCase(), so the delegation is equivalent and also drops redundant null-safe operators. No behaviour change, but instance identity for this overload is not asserted (the test is commented out).","evidence":"fflib_SObjectDescribe.cls:267-274; fflib_SObjectDescribeTest.cls:156,161","iterations":[5],"severity":"low","caughtByTests":false,"proposedTest":"Uncomment the d4/d5 assertions in getAccountDescribes, using === rather than areEqual."}],"patterns":[{"code":"P1","title":"Deleting unreachable members and no-op branches to raise coverage","detail":"The removed no-arg constructor, the one-arg getObject of a private abstract class and the `if (token == null) result = null` branch were all dead. Coverage rose by shrinking the denominator honestly.","evidence":"iterations 4, 5; diff at old :403-412","verdict":"good"},{"code":"P2","title":"Keying the cache by SObjectType instead of a derived string","detail":"Simpler and cheaper, and it removes the namespace-dependent key mismatch, so String and token lookups share one instance.","evidence":"fflib_SObjectDescribe.cls:233-241, :88, :263","verdict":"good"},{"code":"P3","title":"Rewriting code to match PMD's literal pattern","detail":"Dropping the Schema. qualifier only to satisfy the EagerlyLoadedDescribeSObjectResult rule's matcher is benign but tool-driven, and makes the code slightly less explicit than the rest of the file, which uses Schema.-qualified names.","evidence":"fflib_SObjectDescribe.cls:156-158; iteration 2","verdict":"questionable"},{"code":"P4","title":"Collapsing getDescribe(String) into a single delegation","detail":"Cleaner, but it gives up the cheap cache-first path, so String callers now pay a global-describe lookup on every call. A cache-first check by token is not possible without the string key, so this is an explicit trade-off of CPU for simplicity.","evidence":"fflib_SObjectDescribe.cls:255; iteration 8 learning","verdict":"questionable"},{"code":"P5","title":"for-each loops replacing indexed loops","detail":"Equivalent semantics (a null list still throws NullPointerException) and clears the OneDeclarationPerLine finding.","evidence":"fflib_SObjectDescribe.cls:340-342, :362-366; iteration 1","verdict":"good"}],"testGaps":[{"code":"T1","title":"Instance identity across all getDescribe overloads","detail":"Only the String, SObjectType and Schema.SObjectType.Account forms are compared, and with areEqual rather than reference identity; the DescribeSObjectResult and SObject forms are commented out.","proposedTest":"In getAccountDescribes, assert getDescribe('account') === getDescribe(Account.SObjectType.getDescribe()) === getDescribe(new Account()) === getDescribe(Account.SObjectType)."},{"code":"T2","title":"Unknown String name returns null","detail":"The null path now relies on GlobalDescribeMap.get returning null, then on the token overload's null guard. Only blank and null strings are tested.","proposedTest":"Assert getDescribe('NotARealObject__c') == null and getDescribe('NotARealObject__c') does not populate any cache (a follow-up getDescribe(Account.SObjectType) still works)."},{"code":"T3","title":"Mixed-case and namespaced String resolution","detail":"Case-insensitivity and namespace preference in getDescribe(String) are untested now that it delegates entirely to GlobalDescribeMap.","proposedTest":"Assert getDescribe('aCcOuNt') === getDescribe(Account.SObjectType); with gdm.currentNamespace set to a fake namespace, assert namespace-omitted lookups resolve to the namespaced token when both keys exist."},{"code":"T4","title":"Cost of String lookups after flushCache","detail":"No test pins the extra global-describe rebuild that String lookups now trigger.","proposedTest":"After flushCache, prime by token, then measure Limits.getCpuTime() across 100 getDescribe('Account') calls and assert it stays under a threshold derived from the baseline."},{"code":"T5","title":"getNameField on a type without a name field","detail":"The null return when no field has isNameField() is not exercised.","proposedTest":"Pick a standard object without a name field (for example a share or history type such as AccountHistory) and assert getNameField(type) == null."}],"other":[{"code":"X1","title":"Limit headroom delta may be partly noise","detail":"Iteration 6 recorded a -12 swing on Limit headroom between two runs of the same code, so the 14.6-point drop is not entirely attributable to iteration 8. Re-measure before reverting."},{"code":"X2","title":"Unmerged sub-margin wins","detail":"Iterations 9–11 (caching the name field per instance and caching the namespace-stripped keySet) showed real CPU gains of about +11 to +15 headroom but missed the 23.3 margin. They are worth revisiting as a deliberate change outside the climb."},{"code":"X3","title":"Stale doc comment","detail":"The @deprecated note on getDescribe(String) at fflib_SObjectDescribe.cls:243-249 mentions dynamic Type resolution, but the method only uses the global describe map."}]}};
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]);
+const f = (x, d = 2) => x == null ? '–' : x.toFixed(d);
+const signed = (x, d = 1) => (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x).toFixed(d);
+const trend = x => x > 0 ? 'up' : x < 0 ? 'down' : '';
+const s = data.summary, a = data.ascent;
+const OUTCOMES = ['keep', 'discard', 'gated', 'rejected', 'no-change', 'error'];
+const colour = o => css(o === 'no-change' ? '--nochange' : `--${o}`);
+
+document.title = `${a.name} ascent`;
+document.getElementById('title').textContent = `${a.name} ascent`;
+const when = t => new Date(t).toLocaleString();
+document.getElementById('meta').innerHTML = [
+  ['Mode', esc(a.mode) + (a.plannerStreamline ? ' + planner probes' : '')], ['Org', esc(a.targetOrg)], ['Branch', `<code>${esc(a.branch)}</code>`], ['Base', `<code>${esc(a.baseCommit.slice(0, 8))}</code>`],
+  ['Started', esc(when(a.createdAt))], ['Updated', esc(when(a.updatedAt))]
+].map(([k, v]) => `<span><b>${k}:</b> ${v}</span>`).join('');
+
+const icon = d => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const icons = {
+  target: icon('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>'),
+  up: icon('<path d="M12 19V5M5 12l7-7 7 7"/>'),
+  down: icon('<path d="M12 5v14M5 12l7 7 7-7"/>'),
+  trend: icon('<path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/>'),
+  clock: icon('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+  flask: icon('<path d="M9 3h6M10 3v6L4 19a1 1 0 0 0 1 2h14a1 1 0 0 0 1-2L14 9V3"/>'),
+  check: icon('<path d="M5 12l5 5 9-10"/>'),
+  coin: icon('<circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .8-3 2s1.3 1.7 3 2 3 .8 3 2-1.3 2-3 2c-1.4 0-2.5-.5-3-1.5M12 6v2M12 16v2"/>')};
+const scoreBar = (() => {
+  const w = 96, x = v => Math.max(0, Math.min(100, v)) / 100 * w;
+  return `<svg class="graphic" width="${w}" height="44" viewBox="0 0 ${w} 44">
+    <rect x="0" y="18" width="${w}" height="8" rx="4" fill="var(--grid)"/>
+    <rect x="0" y="18" width="${x(s.baseline)}" height="8" rx="4" fill="var(--discard)"/>
+    <rect x="${x(s.baseline)}" y="18" width="${Math.max(0, x(s.current) - x(s.baseline))}" height="8" rx="2" fill="var(--keep)"/>
+    <text x="0" y="42" font-size="10" fill="var(--muted)">0</text>
+    <text x="${w}" y="42" font-size="10" fill="var(--muted)" text-anchor="end">100</text></svg>`;})();
+const gauge = (() => {
+  const r = 40, t = Math.max(-90, Math.min(90, s.angle)) * Math.PI / 180;
+  return `<svg class="graphic" width="56" height="56" viewBox="0 0 56 56">
+    <path d="M ${6 + r} 48 A ${r} ${r} 0 0 0 6 ${48 - r}" fill="none" stroke="var(--grid)" stroke-width="6"/>
+    <line x1="6" y1="48" x2="${6 + r}" y2="48" stroke="var(--grid)" stroke-width="1"/>
+    <line x1="6" y1="48" x2="${6 + r * Math.SQRT1_2}" y2="${48 - r * Math.SQRT1_2}" stroke="var(--grid)" stroke-width="1" stroke-dasharray="2 2"/>
+    <line x1="6" y1="48" x2="${6 + r * Math.cos(t)}" y2="${48 - r * Math.sin(t)}" stroke="var(--keep)" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="6" cy="48" r="3" fill="var(--text)"/></svg>`;})();
+const ring = (() => {
+  const r = 22, c = 2 * Math.PI * r, share = s.iterations ? s.kept / s.iterations : 0;
+  return `<svg class="graphic" width="56" height="56" viewBox="0 0 56 56">
+    <circle cx="28" cy="28" r="${r}" fill="none" stroke="var(--grid)" stroke-width="6"/>
+    <circle cx="28" cy="28" r="${r}" fill="none" stroke="var(--keep)" stroke-width="6" stroke-linecap="round"
+      stroke-dasharray="${share * c} ${c}" transform="rotate(-90 28 28)"/>
+    <text x="28" y="32" font-size="12" font-weight="600" text-anchor="middle" fill="var(--text)">${Math.round(share * 100)}%</text></svg>`;})();
+const STEP_COLOURS = {plan: '--keep', implement: '--gated', learn: '--discard'};
+const costShares = Object.entries(data.cost.byStep).map(([step, v]) => [step, v, data.cost.total ? v / data.cost.total : 0]);
+const pie = (() => {
+  const r = 26, point = t => `${28 + r * Math.sin(t * 2 * Math.PI)} ${28 - r * Math.cos(t * 2 * Math.PI)}`;
+  let from = 0;
+  const slices = costShares.filter(([, , share]) => share > 0).map(([step, , share]) => {
+    const path = share >= 1
+      ? `<circle cx="28" cy="28" r="${r}" fill="var(${STEP_COLOURS[step]})"/>`
+      : `<path d="M28 28 L${point(from)} A${r} ${r} 0 ${share > 0.5 ? 1 : 0} 1 ${point(from + share)} Z" fill="var(${STEP_COLOURS[step]})" stroke="var(--surface)" stroke-width="1.5"/>`;
+    from += share;
+    return path;
+  });
+  return `<svg class="graphic" width="56" height="56" viewBox="0 0 56 56">
+    ${slices.length ? slices.join('') : `<circle cx="28" cy="28" r="${r}" fill="var(--grid)"/>`}</svg>`;})();
+document.getElementById('tiles').innerHTML = `
+  <div class="card">${scoreBar}<div>
+    <div class="label">${icons.target} Gain on baseline</div>
+    <div class="big">${signed(s.gain)} <span style="font-size:16px;color:var(--muted)">pts</span></div>
+    <div class="row">${s.gain >= 0 ? icons.up : icons.down}Current <b>${f(s.current)}</b> from ${f(s.baseline)} baseline</div></div></div>
+  <div class="card">${gauge}<div>
+    <div class="label">${icons.trend} Climb angle</div>
+    <div class="big">${f(s.angle, 1)}°</div>
+    <div class="sub">45° is one point an iteration</div>
+    <div class="row"><b>${f(s.perHour)}</b> pts/hour · <b>${f(s.perIteration)}</b> pts/iteration</div></div></div>
+  <div class="card">${ring}<div>
+    <div class="label">${icons.check} Kept</div>
+    <div class="big">${s.kept} <span style="font-size:16px;color:var(--muted)">of ${s.iterations}</span></div>
+    <div class="row">${icons.clock}<b>${f(s.hours, 1)}</b> hours</div>
+    <div class="row">${icons.flask}<b>${f(s.minutesPerIteration, 1)}</b> min/iteration</div></div></div>
+  <div class="card">${pie}<div>
+    <div class="label">${icons.coin} Total cost</div>
+    <div class="big">$${f(data.cost.total)}</div>
+    ${costShares.map(([step, v, share]) => `<div class="row"><svg width="10" height="10"><rect width="10" height="10" rx="2" fill="var(${STEP_COLOURS[step]})"/></svg>${step} <b>$${f(v)}</b> · ${Math.round(share * 100)}%</div>`).join('')}</div></div>`;
+
+const climb = data.rows.filter(r => !r.dryRun);
+const scored = climb.filter(r => r.overall != null);
+const unscored = climb.filter(r => r.overall == null);
+const steps = [{hours: 0, current: s.baseline}].concat(climb.map(r => ({hours: r.hours, current: r.current})));
+const config = {background: css('--surface'), view: {stroke: null},
+  axis: {labelColor: css('--muted'), titleColor: css('--muted'), gridColor: css('--grid'), domainColor: css('--grid'), tickColor: css('--grid')},
+  legend: {labelColor: css('--text'), titleColor: css('--muted')}};
+const outcome = {field: 'outcome', title: 'Outcome', scale: {domain: OUTCOMES, range: OUTCOMES.map(colour)}};
+const tip = [{field: 'iteration', title: 'Iteration'}, {field: 'outcome', title: 'Outcome'},
+  {field: 'overall', title: 'Score', format: '.2f'}, {field: 'current', title: 'Current kept', format: '.2f'},
+  {field: 'hours', title: 'Hours', format: '.2f'}, {field: 'minutes', title: 'Minutes', format: '.1f'},
+  {field: 'focusText', title: 'Focus'}, {field: 'reason', title: 'Reason'}];
+const withFocus = rows => rows.map(r => ({...r, focusText: r.focus.join(', ')}));
+const lastHours = Math.max(s.hours, ...climb.map(r => r.hours));
+const fiveMinutes = Array.from({length: Math.max(1, Math.ceil(lastHours * 12)) + 1}, (_, i) => i / 12);
+const minutes = 'round(datum.value * 60)';
+const waiting = id => { document.getElementById(id).innerHTML = '<div class="empty">No iterations yet. This chart fills in after the first one finishes.</div>'; };
+const hoursAxis = {field: 'hours', type: 'quantitative', title: 'Time since baseline (h:mm)',
+  scale: {domain: [0, fiveMinutes.at(-1)], nice: false},
+  axis: {values: fiveMinutes, labelExpr: `${minutes} % 15 ? '' : floor(${minutes} / 60) + ':' + pad(${minutes} % 60, 2, '0', 'left')`}};
+const ends = steps.length > 1 && steps.at(-1).current.toFixed(1) !== steps[0].current.toFixed(1)
+  ? [[steps[0], 'left'], [steps.at(-1), 'right']] : [[steps.at(-1), 'left']];
+vegaEmbed('#climb', {$schema: 'https://vega.github.io/schema/vega-lite/5.json', config,
+  vconcat: [
+    {width: 'container', height: 320, layer: [
+      {data: {values: steps}, mark: {type: 'line', interpolate: 'step-after', strokeWidth: 2, color: css('--keep')},
+       encoding: {x: {...hoursAxis, axis: {...hoursAxis.axis, title: null, labels: false}}, y: {field: 'current', type: 'quantitative', title: 'Overall score', scale: {zero: false}}}},
+      {data: {values: s.fit}, mark: {type: 'line', strokeDash: [6, 4], strokeWidth: 2, color: css('--muted'), opacity: 0.3},
+       encoding: {x: {field: 'hours', type: 'quantitative'}, y: {field: 'fit', type: 'quantitative'}}},
+      ...ends.map(([step, align]) => (
+       {data: {values: [step]}, mark: {type: 'text', align, baseline: 'bottom', dy: -6, fontSize: 28, fontWeight: 600, color: css('--text')},
+        encoding: {x: {field: 'hours', type: 'quantitative'}, y: {field: 'current', type: 'quantitative'}, text: {field: 'current', format: '.1f'}}})),
+      {data: {values: withFocus(scored)}, mark: {type: 'point', size: 90, strokeWidth: 2, opacity: 1},
+       encoding: {x: {field: 'hours', type: 'quantitative'}, y: {field: 'overall', type: 'quantitative'},
+                  color: outcome, shape: {field: 'outcome', legend: null},
+                  fill: {condition: {test: "datum.outcome === 'keep'", value: css('--keep')}, value: css('--surface')},
+                  tooltip: tip}}]},
+    {width: 'container', height: 60, data: {values: withFocus(unscored)}, mark: {type: 'tick', thickness: 2, size: 14},
+     encoding: {x: hoursAxis, y: {field: 'outcome', type: 'nominal', title: null, scale: {domain: ['gated', 'rejected', 'no-change', 'error']}},
+                color: {...outcome, legend: null}, tooltip: tip}}
+  ], resolve: {scale: {x: 'shared'}}}, {actions: false});
+const timed = climb.filter(r => r.minutes != null);
+if (!timed.length) waiting('durations');
+else vegaEmbed('#durations', {$schema: 'https://vega.github.io/schema/vega-lite/5.json', width: 'container', height: 200, config,
+  data: {values: withFocus(timed)},
+  mark: {type: 'bar', cornerRadiusTopLeft: 4, cornerRadiusTopRight: 4, width: {expr: "min(40, bandwidth('x') * 0.8)"}},
+  encoding: {x: {field: 'iteration', type: 'ordinal', title: 'Iteration', axis: {labelAngle: 0}},
+             y: {field: 'minutes', type: 'quantitative', title: 'Minutes'},
+             color: outcome, tooltip: tip}}, {actions: false});
+
+const usd = x => `$${x.toFixed(2)}`;
+document.getElementById("cost-title").textContent =
+  `Cumulative agent cost by step: ${usd(data.cost.total)} total (${Object.entries(data.cost.byStep).map(([k, v]) => `${k} ${usd(v)}`).join(", ")}), estimated at list price`;
+const byCost = Object.entries(data.cost.byStep).sort(([, a], [, b]) => b - a).map(([step]) => step);
+if (!data.rows.length) waiting("cost");
+else vegaEmbed("#cost", {$schema: "https://vega.github.io/schema/vega-lite/5.json", width: "container", height: 240, config,
+  data: {values: data.cost.series.map(p => ({...p, rank: byCost.indexOf(p.step)}))},
+  mark: {type: "area", line: {strokeWidth: 2}, opacity: 0.25},
+  encoding: {x: hoursAxis,
+             y: {field: "usd", type: "quantitative", stack: "zero", title: "Cumulative cost (USD)", axis: {format: "$.2f"}},
+             color: {field: "step", title: "Step", scale: {domain: [...byCost].reverse(), range: [...byCost].reverse().map(step => css(STEP_COLOURS[step]))}},
+             order: {field: "rank"},
+             tooltip: [{field: "step", title: "Step"}, {field: "hours", title: "Hours", format: ".2f"}, {field: "usd", title: "Cumulative", format: "$.2f"}]}}, {actions: false});
+
+const spark = series => {
+  const w = 96, h = 24, lo = Math.min(...series), hi = Math.max(...series), span = hi - lo || 1;
+  const pts = series.map((v, i) => [series.length > 1 ? i / (series.length - 1) * w : w / 2, h - 2 - (v - lo) / span * (h - 4)]);
+  const [lx, ly] = pts.at(-1);
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="var(--keep)" stroke-width="1.5"/><circle cx="${lx}" cy="${ly}" r="2.5" fill="var(--keep)"/></svg>`;
+};
+document.getElementById('dimensions').innerHTML = `
+  <tr><th>Dimension</th><th class="num">Baseline</th><th class="num">Current</th><th class="num">Change</th><th class="num">Margin</th><th>Kept iterations</th></tr>
+  ${data.dimensions.map(d => `<tr><td>${esc(d.name)}</td><td class="num">${f(d.baseline, 1)}</td><td class="num">${f(d.current, 1)}</td>
+    <td class="num ${trend(d.delta)}">${signed(d.delta)}</td><td class="num">${d.margin}</td><td>${spark(d.series)}</td></tr>`).join('')}`;
+
+const deltas = r => r.deltas ? Object.entries(r.deltas).filter(([, v]) => v !== 0)
+  .map(([k, v]) => `<div class="deltas">${esc(k)} <span class="${trend(v)}">${signed(v)}</span></div>`).join('') || '<span class="focus">no change</span>' : '';
+const note = (k, v) => v ? `<p><span class="k">${k}</span>${esc(v)}</p>` : '';
+const link = (label, href) => href ? `<div><a href="${esc(href)}">${label}</a></div>` : '';
+document.getElementById('iterations').innerHTML = `
+  <tr><th class="num">#</th><th>Outcome</th><th class="num">Overall</th><th>Changes vs kept</th><th>Plan, decision and learning</th><th>Files</th></tr>
+  ${[...data.rows].reverse().map(r => `<tr>
+    <td class="num">${r.iteration}</td>
+    <td><span class="pill" style="background:${colour(r.outcome)}">${esc(r.outcome)}</span>${r.dryRun ? '<div><span class="tag">dry run</span></div>' : ''}
+      ${r.focus.length ? `<div class="focus" style="margin-top:6px">${esc(r.focus.join(', '))}</div>` : ''}</td>
+    <td class="num">${f(r.overall)}</td>
+    <td>${deltas(r)}</td>
+    <td class="notes">${note('Reason', r.reason)}${note('Decision', r.decision.join('; '))}${note('Learning', r.learning)}</td>
+    <td>${link('patch', r.patch)}${link('run', r.run)}</td></tr>`).join('') || '<tr><td colspan="6" class="focus">No iterations yet.</td></tr>'}`;
+
+if (data.retro) {
+  const r = data.retro;
+  document.getElementById('retro').hidden = false;
+  document.getElementById('retro-meta').innerHTML = [
+    ['Commits', `<code>${esc(r.base.slice(0, 8))}..${esc(r.head.slice(0, 8))}</code>`], ['Written', esc(when(r.at))],
+    ['Tests changed', esc(r.changedTests.join(', ') || 'none')]
+  ].map(([k, v]) => `<span><b>${k}:</b> ${v}</span>`).join('');
+  document.getElementById('retro-summary').textContent = r.summary;
+  const tone = {high: '--rejected', medium: '--gated', low: '--discard', good: '--keep', questionable: '--gated', bad: '--rejected'};
+  const pill = v => `<span class="pill" style="background:${css(tone[v])}">${esc(v)}</span>`;
+  const groups = [
+    ['Behaviour changes', r.behaviourChanges, i => `${pill(i.severity)}<div class="focus" style="margin-top:6px">${i.caughtByTests ? 'caught by tests' : 'not caught by tests'}</div>`,
+      i => note('Evidence', i.evidence) + note('Iterations', i.iterations.join(', ')) + note('Proposed test', i.proposedTest)],
+    ['Patterns', r.patterns, i => pill(i.verdict), i => note('Evidence', i.evidence)],
+    ['Test gaps', r.testGaps, () => '', i => note('Proposed test', i.proposedTest)],
+    ['Other', r.other, () => '', () => '']];
+  document.getElementById('retro-items').innerHTML = `
+    <tr><th>Code</th><th>Kind</th><th>Finding</th></tr>
+    ${groups.flatMap(([kind, items, badge, extra]) => items.map(i => `<tr>
+      <td><b>${esc(i.code)}</b></td><td>${kind}${badge(i) ? `<div style="margin-top:4px">${badge(i)}</div>` : ''}</td>
+      <td class="notes"><p><b>${esc(i.title)}</b></p><p>${esc(i.detail)}</p>${extra(i)}</td></tr>`)).join('')}`;
+}
+</script>
+</body>
+</html>

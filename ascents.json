@@ -351,5 +351,43 @@
     "branch": "ascent/string-builder-2",
     "report": "ascents/string-builder-2/report.html?refresh=off",
     "retro": "ascents/string-builder-2/retro.json"
+  },
+  {
+    "name": "sobject-describe-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_SObjectDescribe.cls"
+    ],
+    "startedAt": "2026-11-13T23:23:59.604Z",
+    "iterations": 11,
+    "kept": 5,
+    "baseline": {
+      "overall": 83.9,
+      "scores": {
+        "PMD": 71.4,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 95.5,
+        "Test run time": 71.5,
+        "Limit headroom": 69.4,
+        "Resource efficiency": 79.5
+      }
+    },
+    "best": {
+      "overall": 89.3,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 98.8,
+        "Test run time": 71.1,
+        "Limit headroom": 75.7,
+        "Resource efficiency": 79.2
+      },
+      "iteration": 5,
+      "commit": "b1f718c0c56e8b5456119a1409aa12a2d02bf153"
+    },
+    "branch": "ascent/sobject-describe-1",
+    "report": "ascents/sobject-describe-1/report.html?refresh=off",
+    "retro": "ascents/sobject-describe-1/retro.json"
   }
 ]

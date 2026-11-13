@@ -1,0 +1,150 @@
+{
+  "ascent": "sobject-describe-1",
+  "at": "2026-11-13T23:53:30.056Z",
+  "base": "440b36c791ff1ddd311bf6799608da98ab4b23c7",
+  "head": "1b5082c5d85bfc8b61368809f8650980f2962696",
+  "changedTests": [],
+  "step": {
+    "model": "claude-opus-5-5",
+    "durationMs": 87763,
+    "costUsd": 0.581831
+  },
+  "summary": "The ascent changed only fflib_SObjectDescribe.cls. PMD (71.4→100) came from iterations 1–2 (for-each loops, deferred describe with an unqualified enum), coverage (95.5→98.8) from deleting unreachable or duplicate code in iterations 4–5, and resource efficiency (+2.4) from keying instanceCache by SObjectType in iteration 8. Limit headroom fell (73.7→59.1), most likely because getDescribe(String) now always goes through the global describe instead of checking the instance cache first, though this dimension is noisy (about ±12). Behaviour is preserved in single-namespace orgs; the only semantic shift is that namespace-omitted String lookups now return a cached, namespace-preferring instance.",
+  "behaviourChanges": [
+    {
+      "code": "B1",
+      "title": "getDescribe(String) always resolves through the global describe",
+      "detail": "The baseline checked instanceCache by lowercased name and only fell back to wrappedGlobalDescribe on a miss. The evolved code always calls wrappedGlobalDescribe.get(name). After flushCache(), a String lookup of an already-described type now rebuilds Schema.getGlobalDescribe() and the GlobalDescribeMap wrapper, and every String lookup pays the namespaced-key string work. The returned instance is the same; the cost is CPU and heap, and it likely explains the Limit headroom drop (73.7→59.1).",
+      "evidence": "fflib_SObjectDescribe.cls:255, :218-226; headroomBulkDescribes test lines 329-335",
+      "iterations": [
+        8
+      ],
+      "severity": "medium",
+      "caughtByTests": false,
+      "proposedTest": "After flushCache(), call getDescribe(Account.SObjectType) then getDescribe('Account') and assert that Limits.getCpuTime() / heap growth stays under a bound, or at least that both calls return the same instance."
+    },
+    {
+      "code": "B2",
+      "title": "Namespace-omitted String lookups now hit the cache and consistently prefer the namespaced type",
+      "detail": "The baseline cache key was String.valueOf(token).toLowerCase() (for example 'ns__obj__c'), so getDescribe('Obj__c') in namespace ns never hit the cache, built a new instance on every call and overwrote the cache entry. When both an unmanaged Obj__c and a packaged ns__Obj__c existed, the baseline returned whichever matched a cached 'obj__c' key, otherwise the namespaced one. The evolved code always resolves through GlobalDescribeMap.get (namespace-preferred) and returns the cached instance: more consistent, but different.",
+      "evidence": "fflib_SObjectDescribe.cls:255, :263, :395-406 (getObject namespace preference); baseline lines removed in the diff at the old :253-264",
+      "iterations": [
+        8
+      ],
+      "severity": "low",
+      "caughtByTests": false,
+      "proposedTest": "Using the existing fakeNamespace technique on a GlobalDescribeMap, or in a namespaced scratch org, assert that getDescribe('Obj__c') === getDescribe(ns__Obj__c.SObjectType) and that repeated String calls return the same instance."
+    },
+    {
+      "code": "B3",
+      "title": "getNameField uses a DEFERRED describe with an unqualified enum",
+      "detail": "fields.getMap() is identical under DEFERRED, so the returned name field does not change. The unqualified SObjectDescribeOptions reference would resolve to a local class if one with that name were ever added, which is a compile-time risk rather than a runtime one.",
+      "evidence": "fflib_SObjectDescribe.cls:156-158",
+      "iterations": [
+        1,
+        2
+      ],
+      "severity": "low",
+      "caughtByTests": true,
+      "proposedTest": "Already covered by getNameField_staticBasics (Account.Name, Contact.Name)."
+    },
+    {
+      "code": "B4",
+      "title": "DescribeSObjectResult overload delegates to the token overload",
+      "detail": "The baseline looked up getName().toLowerCase(), which equals String.valueOf(token).toLowerCase(), so the delegation is equivalent and also drops redundant null-safe operators. No behaviour change, but instance identity for this overload is not asserted (the test is commented out).",
+      "evidence": "fflib_SObjectDescribe.cls:267-274; fflib_SObjectDescribeTest.cls:156,161",
+      "iterations": [
+        5
+      ],
+      "severity": "low",
+      "caughtByTests": false,
+      "proposedTest": "Uncomment the d4/d5 assertions in getAccountDescribes, using === rather than areEqual."
+    }
+  ],
+  "patterns": [
+    {
+      "code": "P1",
+      "title": "Deleting unreachable members and no-op branches to raise coverage",
+      "detail": "The removed no-arg constructor, the one-arg getObject of a private abstract class and the `if (token == null) result = null` branch were all dead. Coverage rose by shrinking the denominator honestly.",
+      "evidence": "iterations 4, 5; diff at old :403-412",
+      "verdict": "good"
+    },
+    {
+      "code": "P2",
+      "title": "Keying the cache by SObjectType instead of a derived string",
+      "detail": "Simpler and cheaper, and it removes the namespace-dependent key mismatch, so String and token lookups share one instance.",
+      "evidence": "fflib_SObjectDescribe.cls:233-241, :88, :263",
+      "verdict": "good"
+    },
+    {
+      "code": "P3",
+      "title": "Rewriting code to match PMD's literal pattern",
+      "detail": "Dropping the Schema. qualifier only to satisfy the EagerlyLoadedDescribeSObjectResult rule's matcher is benign but tool-driven, and makes the code slightly less explicit than the rest of the file, which uses Schema.-qualified names.",
+      "evidence": "fflib_SObjectDescribe.cls:156-158; iteration 2",
+      "verdict": "questionable"
+    },
+    {
+      "code": "P4",
+      "title": "Collapsing getDescribe(String) into a single delegation",
+      "detail": "Cleaner, but it gives up the cheap cache-first path, so String callers now pay a global-describe lookup on every call. A cache-first check by token is not possible without the string key, so this is an explicit trade-off of CPU for simplicity.",
+      "evidence": "fflib_SObjectDescribe.cls:255; iteration 8 learning",
+      "verdict": "questionable"
+    },
+    {
+      "code": "P5",
+      "title": "for-each loops replacing indexed loops",
+      "detail": "Equivalent semantics (a null list still throws NullPointerException) and clears the OneDeclarationPerLine finding.",
+      "evidence": "fflib_SObjectDescribe.cls:340-342, :362-366; iteration 1",
+      "verdict": "good"
+    }
+  ],
+  "testGaps": [
+    {
+      "code": "T1",
+      "title": "Instance identity across all getDescribe overloads",
+      "detail": "Only the String, SObjectType and Schema.SObjectType.Account forms are compared, and with areEqual rather than reference identity; the DescribeSObjectResult and SObject forms are commented out.",
+      "proposedTest": "In getAccountDescribes, assert getDescribe('account') === getDescribe(Account.SObjectType.getDescribe()) === getDescribe(new Account()) === getDescribe(Account.SObjectType)."
+    },
+    {
+      "code": "T2",
+      "title": "Unknown String name returns null",
+      "detail": "The null path now relies on GlobalDescribeMap.get returning null, then on the token overload's null guard. Only blank and null strings are tested.",
+      "proposedTest": "Assert getDescribe('NotARealObject__c') == null and getDescribe('NotARealObject__c') does not populate any cache (a follow-up getDescribe(Account.SObjectType) still works)."
+    },
+    {
+      "code": "T3",
+      "title": "Mixed-case and namespaced String resolution",
+      "detail": "Case-insensitivity and namespace preference in getDescribe(String) are untested now that it delegates entirely to GlobalDescribeMap.",
+      "proposedTest": "Assert getDescribe('aCcOuNt') === getDescribe(Account.SObjectType); with gdm.currentNamespace set to a fake namespace, assert namespace-omitted lookups resolve to the namespaced token when both keys exist."
+    },
+    {
+      "code": "T4",
+      "title": "Cost of String lookups after flushCache",
+      "detail": "No test pins the extra global-describe rebuild that String lookups now trigger.",
+      "proposedTest": "After flushCache, prime by token, then measure Limits.getCpuTime() across 100 getDescribe('Account') calls and assert it stays under a threshold derived from the baseline."
+    },
+    {
+      "code": "T5",
+      "title": "getNameField on a type without a name field",
+      "detail": "The null return when no field has isNameField() is not exercised.",
+      "proposedTest": "Pick a standard object without a name field (for example a share or history type such as AccountHistory) and assert getNameField(type) == null."
+    }
+  ],
+  "other": [
+    {
+      "code": "X1",
+      "title": "Limit headroom delta may be partly noise",
+      "detail": "Iteration 6 recorded a -12 swing on Limit headroom between two runs of the same code, so the 14.6-point drop is not entirely attributable to iteration 8. Re-measure before reverting."
+    },
+    {
+      "code": "X2",
+      "title": "Unmerged sub-margin wins",
+      "detail": "Iterations 9–11 (caching the name field per instance and caching the namespace-stripped keySet) showed real CPU gains of about +11 to +15 headroom but missed the 23.3 margin. They are worth revisiting as a deliberate change outside the climb."
+    },
+    {
+      "code": "X3",
+      "title": "Stale doc comment",
+      "detail": "The @deprecated note on getDescribe(String) at fflib_SObjectDescribe.cls:243-249 mentions dynamic Type resolution, but the method only uses the global describe map."
+    }
+  ]
+}
