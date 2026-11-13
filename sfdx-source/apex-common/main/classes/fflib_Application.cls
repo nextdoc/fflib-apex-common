@@ -411,6 +411,7 @@ public inherited sharing virtual class fflib_Application {
       fflib_Application.SelectorFactory selectorFactory,
       Map<Object, Type> constructorTypeByObject
     ) {
+      this();
       init(selectorFactory, constructorTypeByObject);
     }
 
@@ -428,11 +429,9 @@ public inherited sharing virtual class fflib_Application {
       fflib_Application.SelectorFactory selectorFactory,
       Map<SObjectType, Type> sObjectByDomainConstructorType
     ) {
-      this();
-      m_selectorFactory = selectorFactory;
-      init(
-        selectorFactory,
-        getConstructorTypeByObject(sObjectByDomainConstructorType)
+      this(selectorFactory, new Map<Object, Type>());
+      this.constructorTypeByObject = getConstructorTypeByObject(
+        sObjectByDomainConstructorType
       );
     }
 
