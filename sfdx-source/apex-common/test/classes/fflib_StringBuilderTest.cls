@@ -100,6 +100,58 @@ private with sharing class fflib_StringBuilderTest
 		system.assert(fieldSet.contains('AnnualRevenue'));
 	}
 
+	@IsTest
+	static void headroomBulkBuilders()
+	{
+		Integer rounds = 1300;
+		List<Schema.SObjectField> allFields = Schema.SObjectType.Account.fields.getMap().values();
+		List<List<Schema.SObjectField>> fieldLists = new List<List<Schema.SObjectField>>();
+		for (Integer size : new List<Integer> { 1, 5, 20, allFields.size() })
+		{
+			List<Schema.SObjectField> fields = new List<Schema.SObjectField>();
+			for (Integer i = 0; i < size; i++)
+			{
+				fields.add(allFields[Math.mod(i * 7, allFields.size())]);
+			}
+			fieldLists.add(fields);
+		}
+		List<String> words = new List<String>();
+		for (Integer i = 0; i < 60; i++)
+		{
+			words.add(Math.mod(i, 5) == 0 ? '' : 'word' + Math.mod(i, 17));
+		}
+		List<String> prefixes = new List<String> { '', 'Parent.', 'Owner.Manager.' };
+		List<String> delimiters = new List<String> { ',', ', ', ' AND ' };
+
+		Integer total = 0;
+		Test.startTest();
+		for (Integer r = 0; r < rounds; r++)
+		{
+			for (List<Schema.SObjectField> fields : fieldLists)
+			{
+				total += new fflib_StringBuilder.FieldListBuilder(fields).getStringValue().length();
+				total += new fflib_StringBuilder.MultiCurrencyFieldListBuilder(fields).getStringValue(prefixes[Math.mod(r, 3)]).length();
+			}
+			fflib_StringBuilder sb = new fflib_StringBuilder();
+			for (String word : words)
+			{
+				sb.add(word);
+			}
+			sb.add(words);
+			total += sb.getStringValue().length();
+			fflib_StringBuilder.CommaDelimitedListBuilder delimited = new fflib_StringBuilder.CommaDelimitedListBuilder(words);
+			delimited.setDelimiter(delimiters[Math.mod(r, 3)]);
+			for (Integer i = 0; i < 20; i++)
+			{
+				delimited.add(words[i]);
+			}
+			total += delimited.getStringValue(prefixes[Math.mod(r + 1, 3)]).length();
+		}
+		Test.stopTest();
+
+		System.assert(total > rounds * allFields.size(), 'Expected output from every builder');
+	}
+
 	static testMethod void testMultiCurrencyFieldListBuilder()
 	{
 		List<Schema.SObjectField> fields = new List<Schema.SObjectField> { Account.Name, Account.Id, Account.AccountNumber, Account.AnnualRevenue };
