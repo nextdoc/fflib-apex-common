@@ -882,5 +882,128 @@
         }
       ]
     }
+  },
+  {
+    "name": "sobject-domain-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_SObjectDomain.cls",
+      "sfdx-source/apex-common/main/classes/fflib_ISObjectDomain.cls"
+    ],
+    "branch": "ascent/sobject-domain-1",
+    "report": "ascents/sobject-domain-1/report.html?refresh=off",
+    "retro": {
+      "ascent": "sobject-domain-1",
+      "at": "2026-11-13T01:45:01.707Z",
+      "base": "e8f3ab60e9388e5f90b5ddfe57322407712db344",
+      "head": "e495f52f8ae7dd4cc63b24b5d4a6a120fe308bba",
+      "changedTests": [],
+      "step": {
+        "model": "claude-opus-5-5",
+        "durationMs": 49654,
+        "costUsd": 0.547651
+      },
+      "summary": "Only fflib_SObjectDomain.cls changed, and the evolved code behaves the same as the baseline. PMD went from 17 to 100 because all missing-brace violations were cleared (iterations 2, 4, 6, 8, 9, 11, 13), with redundant else removed after branches that already return (iterations 11, 13), so the checks keep their original order and still stop at the first match. Limit headroom went from 55 to 67.4 almost entirely because of iteration 15: getChangedRecords now reads the ExistingRecords getter once and uses the typed newRecord.Id. Coverage, Graph Engine and Resource efficiency did not move; Resource efficiency is measured on test classes that never run this class, so it could not reflect these edits.",
+      "behaviourChanges": [
+        {
+          "code": "B1",
+          "title": "ExistingRecords lazy getter now runs even when Records is empty",
+          "detail": "Both getChangedRecords overloads read this.ExistingRecords once before the loop. In the baseline the getter ran only inside the loop, so a domain with no records never triggered the lazy load from Test.Database.oldRecords or Trigger.oldMap. The evolved code loads and caches the map on the first getChangedRecords call even with zero records. The value is the same as any later read would give, so the visible result (an empty list) does not change. Only the timing of the first load and caching changes, which a subclass could see only if it reads the private cache or changes Test.Database between calls.",
+          "evidence": "fflib_SObjectDomain.cls:61-71, :337, :362",
+          "iterations": [
+            15
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Build a domain with an empty list, call getChangedRecords, then call Test.Database.onUpdate with an old map. Assert that ExistingRecords reflects whatever caching behaviour is intended."
+        },
+        {
+          "code": "B2",
+          "title": "Typed newRecord.Id replaces dynamic get('Id') with a cast",
+          "detail": "For any SObject, including generic SObject, .Id and (Id) get('Id') return the same value, and both return null for an unsaved record. A null Id still fails containsKey and the record is skipped. This is equivalent; listed for completeness.",
+          "evidence": "fflib_SObjectDomain.cls:339, :364",
+          "iterations": [
+            15
+          ],
+          "severity": "low",
+          "caughtByTests": true,
+          "proposedTest": "Add an unsaved record (no Id) to Records and assert it is not returned as changed."
+        },
+        {
+          "code": "B3",
+          "title": "Trigger dispatch moved from if/else-if to braced ifs that return early",
+          "detail": "Each branch returns straight after its handler, and the after branch is reached only when isBefore is false, so it is equivalent to the baseline even if more than one operation flag is true. With no flag set, domainObject is still null and throws the same null-pointer error at :481 as before. The isEnabled rewrite falls through to return true exactly as the baseline did.",
+          "evidence": "fflib_SObjectDomain.cls:496-524, :718-742",
+          "iterations": [
+            11,
+            13
+          ],
+          "severity": "low",
+          "caughtByTests": true,
+          "proposedTest": "Through Test.Database or a direct triggerHandler call, set isBefore together with isUndelete and assert that no handler runs. Set isInsert and isUpdate together and assert that only the insert handler runs."
+        }
+      ],
+      "patterns": [
+        {
+          "code": "P1",
+          "title": "Braces on every if/for body",
+          "detail": "Reduces the risk of dangling-statement bugs and cleared every PMD brace violation without changing logic.",
+          "evidence": "iterations 2, 4, 6, 8, 9",
+          "verdict": "good"
+        },
+        {
+          "code": "P2",
+          "title": "Removing else after branches that return, to satisfy PMD",
+          "detail": "Correct in both places only because every branch returns, so the checks still stop at the first match. The early-return dispatch reads less symmetrically than an else-if chain, and the safety depends on the return lines staying. Iteration 12, which dropped else without returning, shows how easily a later edit could break that.",
+          "evidence": "fflib_SObjectDomain.cls:496-524; iterations 11, 12, 13",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P3",
+          "title": "Reading a property getter into a local before the loop",
+          "detail": "Cuts repeated getter calls in a loop that runs once per record, with the same result because the getter only fills itself once.",
+          "evidence": "fflib_SObjectDomain.cls:337, :362; iteration 15",
+          "verdict": "good"
+        },
+        {
+          "code": "P4",
+          "title": "Choosing edits by line count and coverage arithmetic",
+          "detail": "Several plans kept or added lines only to protect the coverage score (for example, rejecting ternaries in iteration 10 and the single-get change in iteration 14). This made the climb favour layout over clarity, although the code that was kept is fine.",
+          "evidence": "iterations 10, 14, 15",
+          "verdict": "questionable"
+        }
+      ],
+      "testGaps": [
+        {
+          "code": "T1",
+          "title": "Dispatch when more than one operation flag is set, or none",
+          "detail": "No test pins the rule that exactly one handler runs, or what happens when no flag is set.",
+          "proposedTest": "Call the triggerHandler path through a test domain that records which handlers ran. Assert that only one runs with isInsert and isUpdate both true, and that a null-pointer error or a defined error is raised when all flags are false."
+        },
+        {
+          "code": "T2",
+          "title": "getChangedRecords edge cases",
+          "detail": "The tests cover only the normal case where every record is in the old map. Not covered: a null old map, a new record missing from the old map, and an unsaved record with no Id.",
+          "proposedTest": "With ExistingRecords null, assert an empty result. With one new record whose Id is not in the old map, assert it is excluded. With an unsaved record, assert it is excluded."
+        },
+        {
+          "code": "T3",
+          "title": "isEnabled for every combination",
+          "detail": "Disabling each individual event is not systematically tested, so a reordering or dropped return in isEnabled could go unnoticed.",
+          "proposedTest": "For each of the 7 before/after and operation combinations, disable only that event and assert that its handler is skipped while the others still run."
+        }
+      ],
+      "other": [
+        {
+          "code": "X1",
+          "title": "Resource efficiency cannot see this class",
+          "detail": "fflib_SObjectSelectorTest and fflib_ApplicationTest never run fflib_SObjectDomain, yet changes on that dimension decided several discards (iterations 3, 5). Those discards were noise rather than evidence about the edits."
+        },
+        {
+          "code": "X2",
+          "title": "triggerHandler is at its NcssCount limit",
+          "detail": "Iteration 16 showed that adding any statement to triggerHandler triggers a PMD NcssCount violation. Future work there should first move logic out into helper methods."
+        }
+      ]
+    }
   }
 ]
