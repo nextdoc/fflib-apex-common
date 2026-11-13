@@ -524,11 +524,12 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
     fflib_SObjectDomain domain
   ) {
     List<fflib_SObjectDomain> domains = TriggerStateByClass.get(domainClass);
-    if (domains == null)
+    if (domains == null) {
       TriggerStateByClass.put(
         domainClass,
         domains = new List<fflib_SObjectDomain>()
       );
+    }
     domains.add(domain);
   }
 
@@ -540,8 +541,9 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
     List<SObject> records
   ) {
     List<fflib_SObjectDomain> domains = TriggerStateByClass.get(domainClass);
-    if (domains == null || domains.size() == 0)
+    if (domains == null || domains.size() == 0) {
       return null;
+    }
     fflib_SObjectDomain domain = domains.remove(domains.size() - 1);
 
     domain.setObjects(records);
