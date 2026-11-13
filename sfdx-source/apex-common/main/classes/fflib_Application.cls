@@ -69,11 +69,9 @@ public inherited sharing virtual class fflib_Application {
      **/
     @NamespaceAccessible
     public virtual fflib_ISObjectUnitOfWork newInstance() {
-      // Mock?
-      if (m_mockUow != null) {
-        return m_mockUow;
-      }
-      return new fflib_SObjectUnitOfWork(m_objectTypes);
+      return m_mockUow != null
+        ? m_mockUow
+        : (fflib_ISObjectUnitOfWork) new fflib_SObjectUnitOfWork(m_objectTypes);
     }
 
     /**
@@ -85,11 +83,12 @@ public inherited sharing virtual class fflib_Application {
     public virtual fflib_ISObjectUnitOfWork newInstance(
       fflib_SObjectUnitOfWork.IDML dml
     ) {
-      // Mock?
-      if (m_mockUow != null) {
-        return m_mockUow;
-      }
-      return new fflib_SObjectUnitOfWork(m_objectTypes, dml);
+      return m_mockUow != null
+        ? m_mockUow
+        : (fflib_ISObjectUnitOfWork) new fflib_SObjectUnitOfWork(
+            m_objectTypes,
+            dml
+          );
     }
 
     /**
@@ -104,11 +103,9 @@ public inherited sharing virtual class fflib_Application {
     public virtual fflib_ISObjectUnitOfWork newInstance(
       List<SObjectType> objectTypes
     ) {
-      // Mock?
-      if (m_mockUow != null) {
-        return m_mockUow;
-      }
-      return new fflib_SObjectUnitOfWork(objectTypes);
+      return m_mockUow != null
+        ? m_mockUow
+        : (fflib_ISObjectUnitOfWork) new fflib_SObjectUnitOfWork(objectTypes);
     }
 
     /**
@@ -124,11 +121,12 @@ public inherited sharing virtual class fflib_Application {
       List<SObjectType> objectTypes,
       fflib_SObjectUnitOfWork.IDML dml
     ) {
-      // Mock?
-      if (m_mockUow != null) {
-        return m_mockUow;
-      }
-      return new fflib_SObjectUnitOfWork(objectTypes, dml);
+      return m_mockUow != null
+        ? m_mockUow
+        : (fflib_ISObjectUnitOfWork) new fflib_SObjectUnitOfWork(
+            objectTypes,
+            dml
+          );
     }
 
     @TestVisible
