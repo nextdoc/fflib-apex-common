@@ -502,4 +502,68 @@ private with sharing class fflib_SObjectDomainTest
 			super(records);
 		}
 	}
+
+	@IsTest
+	private static void headroomBulkTriggerDispatch()
+	{
+		Integer rounds = 105;
+		List<String> ratings = new List<String> { 'Hot', 'Warm', 'Cold', null };
+		List<Account> oldAccounts = new List<Account>();
+		List<Account> newAccounts = new List<Account>();
+		for (Integer i = 0; i < 200; i++) {
+			Id accountId = fflib_SObjectsTest.generateTestRecordId(Account.SObjectType);
+			oldAccounts.add(new Account(Id = accountId, Name = 'Headroom ' + i, AnnualRevenue = 1000 * Math.mod(i, 17), Rating = ratings[Math.mod(i, 4)], Industry = 'Energy'));
+			newAccounts.add(new Account(Id = accountId, Name = Math.mod(i, 5) == 0 ? 'Renamed ' + i : 'Headroom ' + i, AnnualRevenue = 1000 * Math.mod(i, 17) + (Math.mod(i, 3) == 0 ? 1 : 0), Rating = ratings[Math.mod(i + Math.mod(i, 7), 4)], Industry = 'Energy'));
+		}
+		Map<Id, SObject> oldById = new Map<Id, SObject>(oldAccounts);
+		Map<Id, Account> newById = new Map<Id, Account>(newAccounts);
+		HEADROOM_CHANGED = 0;
+
+		Test.startTest();
+		for (Integer r = 0; r < rounds; r++) {
+			fflib_SObjectDomain.Test.Database.onInsert(newAccounts);
+			fflib_SObjectDomain.triggerHandler(HeadroomDomainConstructor.class);
+			fflib_SObjectDomain.Test.Database.onUpdate(newAccounts, oldById);
+			fflib_SObjectDomain.triggerHandler(HeadroomDomainConstructor.class);
+			fflib_SObjectDomain.Test.Database.onDelete(newById);
+			fflib_SObjectDomain.triggerHandler(HeadroomDomainConstructor.class);
+			fflib_SObjectDomain.Errors.clearAll();
+		}
+		Test.stopTest();
+
+		System.assert(HEADROOM_CHANGED > 0, 'Expected changed records');
+	}
+
+	private static Integer HEADROOM_CHANGED = 0;
+
+	public with sharing class HeadroomDomain extends fflib_SObjectDomain
+	{
+		public HeadroomDomain(List<SObject> records)
+		{
+			super(records);
+		}
+
+		public override void onValidate()
+		{
+			for (Account record : (List<Account>) Records) {
+				if (record.Rating == null) {
+					error('Rating required', record, Account.Rating);
+				}
+			}
+		}
+
+		public override void onAfterUpdate(Map<Id, SObject> existingRecords)
+		{
+			HEADROOM_CHANGED += getChangedRecords(new Set<Schema.SObjectField> { Account.Industry, Account.AnnualRevenue, Account.Rating, Account.Name }).size();
+			HEADROOM_CHANGED += getChangedRecords(new Set<String> { 'Industry', 'Name', 'Rating' }).size();
+		}
+	}
+
+	public with sharing class HeadroomDomainConstructor implements fflib_SObjectDomain.IConstructable
+	{
+		public fflib_SObjectDomain construct(List<SObject> records)
+		{
+			return new HeadroomDomain(records);
+		}
+	}
 }
