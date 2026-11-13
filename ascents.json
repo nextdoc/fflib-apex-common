@@ -313,5 +313,44 @@
     "branch": "ascent/sobjects-2",
     "report": "ascents/sobjects-2/report.html?refresh=off",
     "retro": "ascents/sobjects-2/retro.json"
+  },
+  {
+    "name": "objects-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_Objects.cls",
+      "sfdx-source/apex-common/main/classes/fflib_IObjects.cls"
+    ],
+    "startedAt": "2026-11-13T05:48:30.851Z",
+    "iterations": 5,
+    "kept": 2,
+    "baseline": {
+      "overall": 79.3,
+      "scores": {
+        "PMD": 51,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 90.5,
+        "Test run time": 74.9,
+        "Limit headroom": 57.6,
+        "Resource efficiency": 80.9
+      }
+    },
+    "best": {
+      "overall": 93,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 100,
+        "Test run time": 80.1,
+        "Limit headroom": 90,
+        "Resource efficiency": 80.9
+      },
+      "iteration": 2,
+      "commit": "be85edb05b3bfd1bd8178ed718556363364c603a"
+    },
+    "branch": "ascent/objects-1",
+    "report": "ascents/objects-1/report.html?refresh=off",
+    "retro": "ascents/objects-1/retro.json"
   }
 ]

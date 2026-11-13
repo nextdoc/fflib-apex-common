@@ -1,0 +1,134 @@
+{
+  "ascent": "objects-1",
+  "at": "2026-11-13T06:03:20.071Z",
+  "base": "4c7400071ec7f0b3416b232a78887d00c8ccc0cf",
+  "head": "be85edb05b3bfd1bd8178ed718556363364c603a",
+  "changedTests": [],
+  "step": {
+    "model": "claude-opus-5-5",
+    "durationMs": 74496,
+    "costUsd": 0.4473462
+  },
+  "summary": "Only fflib_Objects.cls changed. Iteration 1 drove PMD (51→100) by adding braces and Limit headroom (57.6→90) by replacing a linear list search per value with a Set lookup. Iteration 2 drove Code coverage (90.5→100) by folding the null-guard returns onto one line, which hides untested lines rather than testing them. Resource efficiency barely moved because fflib_SObjects never calls the changed methods (fflib_SObjectsTest fell 1.0 and fflib_SObjectDomainTest rose 1.0, both noise), and results for normal inputs are unchanged.",
+  "behaviourChanges": [
+    {
+      "code": "B1",
+      "title": "Membership now uses hashCode plus equals instead of equals only",
+      "detail": "The baseline matched values with List.contains, which uses only equals(). The evolved code uses Set.containsAll and retainAll, which bucket by hashCode() first. Objects that override equals without a matching hashCode, or whose hashCode is inconsistent, can stop matching. SObjects and plain objects (compared by reference) behave the same.",
+      "evidence": "sfdx-source/apex-common/main/classes/fflib_Objects.cls:61,66,84-88; the test DTO overrides neither method (fflib_ObjectsTest.cls:250)",
+      "iterations": [
+        1,
+        2
+      ],
+      "severity": "medium",
+      "caughtByTests": false,
+      "proposedTest": "Add a value class that overrides equals and hashCode by a key field, build a domain from instances, and check containsAll and containsNot with distinct but equal instances."
+    },
+    {
+      "code": "B2",
+      "title": "Null internal list combined with an empty input now throws",
+      "detail": "A subclass can null the list through setObjects(null). The baseline then returned true for containsAll(empty set) and containsNot(empty set) because the loop never ran. Now new Set<Object>(null) and retainAll(null) most likely throw. With a non-empty input, both versions already threw.",
+      "evidence": "fflib_Objects.cls:61,66,86,106",
+      "iterations": [
+        2
+      ],
+      "severity": "low",
+      "caughtByTests": false,
+      "proposedTest": "In a test subclass that calls setObjects(null), assert what containsAll(new Set<Object>()) and containsNot(new Set<Object>()) should do."
+    },
+    {
+      "code": "B3",
+      "title": "No early exit and an allocation sized to the domain on every call",
+      "detail": "The baseline containsAll stopped at the first missing value and allocated nothing. Now every call copies the whole object list into a new Set, and containsNot(List) copies its input twice. Frequent small checks against large domains now cost more heap and CPU per call, though cost stays linear.",
+      "evidence": "fflib_Objects.cls:61,66,76,85",
+      "iterations": [
+        1,
+        2
+      ],
+      "severity": "low",
+      "caughtByTests": false,
+      "proposedTest": "Add a headroom test with a 10k-element domain that calls containsAll with a single missing value many times, and check Limits.getHeapSize and Limits.getCpuTime."
+    }
+  ],
+  "patterns": [
+    {
+      "code": "P1",
+      "title": "Braces on every if",
+      "detail": "Cleared all 12 PMD findings with no change in behaviour.",
+      "evidence": "iteration 1",
+      "verdict": "good"
+    },
+    {
+      "code": "P2",
+      "title": "Native Set operations instead of per-value loops",
+      "detail": "Clearer code and a faster bulk case, but it quietly changes how equality is checked.",
+      "evidence": "fflib_Objects.cls:61,66,84-88",
+      "verdict": "good"
+    },
+    {
+      "code": "P3",
+      "title": "Guards folded into one-line boolean returns to raise coverage",
+      "detail": "The null branches are still untested. Coverage rose only because they now share a line with tested code.",
+      "evidence": "iteration 2; fflib_Objects.cls:61,66,76,81",
+      "verdict": "questionable"
+    },
+    {
+      "code": "P4",
+      "title": "Defensive copy in containsNone",
+      "detail": "retainAll runs on a copy, so the caller's Set is never changed.",
+      "evidence": "fflib_Objects.cls:85; iteration 3 discarded the version that dropped the copy",
+      "verdict": "good"
+    },
+    {
+      "code": "P5",
+      "title": "Duplicated body instead of delegating",
+      "detail": "containsAll(List) repeats the containsAll(Set) one-liner instead of calling it. Harmless while neither method is virtual.",
+      "evidence": "fflib_Objects.cls:61,66",
+      "verdict": "questionable"
+    }
+  ],
+  "testGaps": [
+    {
+      "code": "T1",
+      "title": "Null inputs",
+      "detail": "No test passes null to containsAll or containsNot, so the expected results (false and true) are not pinned down.",
+      "proposedTest": "Assert that containsAll((List<Object>) null) and containsAll((Set<Object>) null) return false, and that containsNot((List<Object>) null) and containsNot((Set<Object>) null) return true."
+    },
+    {
+      "code": "T2",
+      "title": "Empty inputs and small mixed cases",
+      "detail": "No test uses an empty list or Set, an empty domain, or a small mix of present and absent values.",
+      "proposedTest": "Assert that containsAll(empty) is true, containsNot(empty) is true, containsAll([A, D]) is false, containsNot([A, D]) is false, and that an empty domain gives containsAll([A]) false and containsNot([A]) true."
+    },
+    {
+      "code": "T3",
+      "title": "Custom equals and hashCode",
+      "detail": "Hashing changes behaviour for value objects, and nothing tests it.",
+      "proposedTest": "Build a domain of value objects that override equals and hashCode, then check contains, containsAll and containsNot with equal but distinct instances."
+    },
+    {
+      "code": "T4",
+      "title": "Null internal list",
+      "detail": "What happens after setObjects(null) is not defined anywhere.",
+      "proposedTest": "In a subclass that calls setObjects(null), assert the expected exception or result for each containment method with empty and non-empty inputs."
+    },
+    {
+      "code": "T5",
+      "title": "Caller's input is left unchanged",
+      "detail": "No test checks that containsNot(Set) leaves its argument untouched.",
+      "proposedTest": "Call containsNot(s) on a domain that partly overlaps s, then assert that s.size() and its contents are unchanged."
+    }
+  ],
+  "other": [
+    {
+      "code": "X1",
+      "title": "Score movement in untouched classes is noise",
+      "detail": "fflib_SObjects never calls containsAll or containsNot (its only contains call is on a local Set, fflib_SObjects.cls:330), so the shifts in the two test classes' Resource efficiency and the Test run time rise from 74.9 to 80.1 are probably run-to-run noise."
+    },
+    {
+      "code": "X2",
+      "title": "Lessons from the discarded iterations",
+      "detail": "Iterations 3-5 show that one-off allocation trims and caches layered beside the existing check don't register, and that the cache cost PMD and coverage. Further gains would have to come from changes that remove per-element work in fflib_SObjects."
+    }
+  ]
+}
