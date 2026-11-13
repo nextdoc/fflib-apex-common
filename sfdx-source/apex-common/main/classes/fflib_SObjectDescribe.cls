@@ -153,12 +153,14 @@ public inherited sharing class fflib_SObjectDescribe {
     if (sObjectType == null) {
       return null;
     }
-    List<Schema.SObjectField> sObjectFields = sObjectType.getDescribe()
+    List<Schema.SObjectField> sObjectFields = sObjectType.getDescribe(
+        Schema.SObjectDescribeOptions.DEFERRED
+      )
       .fields.getMap()
       .values();
-    for (Integer i = 0, j = sObjectFields.size(); i < j; i++) {
-      if (sObjectFields[i].getDescribe().isNameField()) {
-        return sObjectFields[i];
+    for (Schema.SObjectField sObjectField : sObjectFields) {
+      if (sObjectField.getDescribe().isNameField()) {
+        return sObjectField;
       }
     }
     return null;
@@ -348,8 +350,8 @@ public inherited sharing class fflib_SObjectDescribe {
       selectedField
     );
     List<String> result = new List<String>();
-    for (Integer i = 0, j = picklistValues.size(); i < j; i++) {
-      result.add(picklistValues[i].getLabel());
+    for (Schema.PicklistEntry picklistEntry : picklistValues) {
+      result.add(picklistEntry.getLabel());
     }
     return result;
   }
@@ -370,8 +372,8 @@ public inherited sharing class fflib_SObjectDescribe {
     }
 
     List<Schema.PicklistEntry> picklistEntries = getPicklistValues(sObjField);
-    for (Integer i = 0, j = picklistEntries.size(); i < j; i++) {
-      if (picklistEntries[i].getValue().equalsIgnoreCase(value)) {
+    for (Schema.PicklistEntry picklistEntry : picklistEntries) {
+      if (picklistEntry.getValue().equalsIgnoreCase(value)) {
         return true;
       }
     }
