@@ -225,6 +225,9 @@ public inherited sharing virtual class fflib_Application {
     protected Map<SObjectType, fflib_ISObjectSelector> m_sObjectByMockSelector;
     @NamespaceAccessible
     protected Map<SObjectType, Set<Id>> m_validatedIdsBySObjectType = new Map<SObjectType, Set<Id>>();
+    private List<SObject> m_lastRelatedRecords;
+    private SObjectField m_lastRelationshipField;
+    private Set<Id> m_lastRelatedIds;
 
     /**
      * Constructs a simple Selector Factory
@@ -346,14 +349,22 @@ public inherited sharing virtual class fflib_Application {
       List<SObject> relatedRecords,
       SObjectField relationshipField
     ) {
-      Set<Id> relatedIds = new Set<Id>();
-      for (SObject relatedRecord : relatedRecords) {
-        Id relatedId = (Id) relatedRecord.get(relationshipField);
-        if (relatedId != null) {
-          relatedIds.add(relatedId);
+      if (
+        relationshipField != m_lastRelationshipField ||
+        relatedRecords != m_lastRelatedRecords
+      ) {
+        Set<Id> relatedIds = new Set<Id>();
+        for (SObject relatedRecord : relatedRecords) {
+          Id relatedId = (Id) relatedRecord.get(relationshipField);
+          if (relatedId != null) {
+            relatedIds.add(relatedId);
+          }
         }
+        m_lastRelatedIds = relatedIds;
+        m_lastRelatedRecords = relatedRecords.deepClone(true, true, true);
+        m_lastRelationshipField = relationshipField;
       }
-      return selectById(relatedIds);
+      return selectById(m_lastRelatedIds.clone());
     }
 
     @TestVisible
