@@ -53,7 +53,7 @@ public virtual inherited sharing class fflib_SObjects extends fflib_Objects impl
   public fflib_SObjects(List<SObject> records, Schema.SObjectType sObjectType) {
     super(records);
     this.sObjectDescribe = sObjectType.getDescribe(
-      Schema.SObjectDescribeOptions.DEFERRED
+      SObjectDescribeOptions.DEFERRED
     );
   }
 
