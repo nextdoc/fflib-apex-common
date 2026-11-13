@@ -410,9 +410,7 @@ public inherited sharing virtual class fflib_Application {
       fflib_Application.SelectorFactory selectorFactory,
       Map<Object, Type> constructorTypeByObject
     ) {
-      m_selectorFactory = selectorFactory;
-      this.constructorTypeByObject = constructorTypeByObject;
-      this.mockDomainByObject = new Map<Object, fflib_IDomain>();
+      init(selectorFactory, constructorTypeByObject);
     }
 
     /**
@@ -430,9 +428,18 @@ public inherited sharing virtual class fflib_Application {
       Map<SObjectType, Type> sObjectByDomainConstructorType
     ) {
       m_selectorFactory = selectorFactory;
-      this.constructorTypeByObject = getConstructorTypeByObject(
-        sObjectByDomainConstructorType
+      init(
+        selectorFactory,
+        getConstructorTypeByObject(sObjectByDomainConstructorType)
       );
+    }
+
+    private void init(
+      fflib_Application.SelectorFactory selectorFactory,
+      Map<Object, Type> constructorTypeByObject
+    ) {
+      m_selectorFactory = selectorFactory;
+      this.constructorTypeByObject = constructorTypeByObject;
       this.mockDomainByObject = new Map<Object, fflib_IDomain>();
     }
 
@@ -489,17 +496,13 @@ public inherited sharing virtual class fflib_Application {
       Object domainConstructor = domainConstructorClass.newInstance();
 
       // for backwards compatibility
-      if (domainConstructor instanceof fflib_SObjectDomain.IConstructable2) {
-        return (fflib_IDomain) ((fflib_SObjectDomain.IConstructable2) domainConstructor)
-          .construct((List<SObject>) objects, (SObjectType) objectType);
-      } else if (
-        domainConstructor instanceof fflib_SObjectDomain.IConstructable
-      ) {
-        return (fflib_IDomain) ((fflib_SObjectDomain.IConstructable) domainConstructor)
-          .construct((List<SObject>) objects);
-      }
-
-      return ((fflib_IDomainConstructor) domainConstructor).construct(objects);
+      return domainConstructor instanceof fflib_SObjectDomain.IConstructable2
+        ? (fflib_IDomain) ((fflib_SObjectDomain.IConstructable2) domainConstructor)
+            .construct((List<SObject>) objects, (SObjectType) objectType)
+        : domainConstructor instanceof fflib_SObjectDomain.IConstructable
+            ? (fflib_IDomain) ((fflib_SObjectDomain.IConstructable) domainConstructor)
+                .construct((List<SObject>) objects)
+            : ((fflib_IDomainConstructor) domainConstructor).construct(objects);
     }
 
     /**
