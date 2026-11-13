@@ -223,6 +223,8 @@ public inherited sharing virtual class fflib_Application {
     protected Map<SObjectType, Type> m_sObjectBySelectorType;
     @NamespaceAccessible
     protected Map<SObjectType, fflib_ISObjectSelector> m_sObjectByMockSelector;
+    @NamespaceAccessible
+    protected Map<Set<Id>, SObjectType> m_sObjectTypeByValidatedIds = new Map<Set<Id>, SObjectType>();
 
     /**
      * Constructs a simple Selector Factory
@@ -285,6 +287,22 @@ public inherited sharing virtual class fflib_Application {
       }
 
       // Determine SObjectType
+      SObjectType domainSObjectType = m_sObjectTypeByValidatedIds.get(
+        recordIds
+      );
+      if (domainSObjectType == null) {
+        domainSObjectType = resolveSObjectType(recordIds);
+        if (m_sObjectTypeByValidatedIds.size() >= 16) {
+          m_sObjectTypeByValidatedIds.clear();
+        }
+        m_sObjectTypeByValidatedIds.put(recordIds.clone(), domainSObjectType);
+      }
+
+      // Construct Selector class and query by Id for the records
+      return newInstance(domainSObjectType).selectSObjectsById(recordIds);
+    }
+
+    private SObjectType resolveSObjectType(Set<Id> recordIds) {
       SObjectType domainSObjectType = new List<Id>(recordIds)[0]
         .getSObjectType();
       for (Id recordId : recordIds) {
@@ -294,9 +312,7 @@ public inherited sharing virtual class fflib_Application {
           );
         }
       }
-
-      // Construct Selector class and query by Id for the records
-      return newInstance(domainSObjectType).selectSObjectsById(recordIds);
+      return domainSObjectType;
     }
 
     /**
