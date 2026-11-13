@@ -1005,5 +1005,128 @@
         }
       ]
     }
+  },
+  {
+    "name": "sobjects-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_SObjects.cls",
+      "sfdx-source/apex-common/main/classes/fflib_ISObjects.cls"
+    ],
+    "branch": "ascent/sobjects-1",
+    "report": "ascents/sobjects-1/report.html?refresh=off",
+    "retro": {
+      "ascent": "sobjects-1",
+      "at": "2026-11-13T03:28:43.368Z",
+      "base": "ba778d52170f047de9cacff115085f73f36641f8",
+      "head": "dc90fd3295a85bbf03b1e2d88c843d43a30184ce",
+      "changedTests": [],
+      "step": {
+        "model": "claude-opus-5-5",
+        "durationMs": 71790,
+        "costUsd": 0.5425652
+      },
+      "summary": "Only fflib_SObjects.cls changed, so it drove every score movement. The PMD rise (35.2→64.1) is real, from for-each loops, braced ifs and a deferred describe. The headroom (+3.5) and resource-efficiency (+1.9) gains are within the noise the climb itself measured (about 6 and about 3.6 points), and iteration 4's own headroom delta was −1.4. Every behavioural change traced is equivalent to the baseline, but several equivalences rest on platform semantics that no test pins down.",
+      "behaviourChanges": [
+        {
+          "code": "B1",
+          "title": "Blank checks no longer use String.valueOf",
+          "detail": "The four blank-check methods now treat a value as blank if it is null or a String that isBlank, and treat any other non-null value as not blank. The baseline converted every value with String.valueOf first. The results match because no standard field type converts to blank text (Decimal 0 gives '0', false gives 'false', Blob gives 'Blob[n]', and Date, Id and Address convert to non-empty text). Whitespace-only strings are blank in both versions.",
+          "evidence": "fflib_SObjects.cls:350-357, 377-383, 420-424, 447-453",
+          "iterations": [
+            4
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Assert that the blank and not-blank selectors treat ShippingCountry='   ' as blank and NumberOfEmployees=0, AnnualRevenue=0 and a Boolean false field as not blank."
+        },
+        {
+          "code": "B2",
+          "title": "sObjectDescribe is built with SObjectDescribeOptions.DEFERRED",
+          "detail": "The public sObjectDescribe property now loads child relationships on first access instead of at construction. Results are the same and permission checks in fflib_SObjectDomain are unaffected. Code that reads getChildRelationships() through the domain now pays that cost at the point of the call.",
+          "evidence": "fflib_SObjects.cls:32, 55-57; fflib_SObjectDomain.cls:252-299",
+          "iterations": [
+            7
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Assert that new fflib_SObjects(records, Account.SObjectType).sObjectDescribe.getChildRelationships() is non-empty and equals Account.SObjectType.getDescribe().getChildRelationships().size()."
+        },
+        {
+          "code": "B3",
+          "title": "Indexed loops replaced by for-each",
+          "detail": "A for-each loop throws if the list changes during iteration, where the indexed loop did not. None of the converted loops changes the list, although an overridden error() in a subclass could in theory. A null element still throws a NullPointerException in both versions.",
+          "evidence": "fflib_SObjects.cls:97, 111, 132, 348, 374, 418, 444, 475",
+          "iterations": [
+            4,
+            6
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Assert that setFieldValue and clearFields update every record across a 200-record list. addError coverage at fflib_SObjectsTest.cls:321-322 should also assert that each record has errors."
+        }
+      ],
+      "patterns": [
+        {
+          "code": "P1",
+          "title": "Loop style chosen by benchmark exposure",
+          "detail": "Loops in methods the headroom test calls kept the indexed header, and loops it never calls became for-each. The class now has inconsistent loop styles and 7 PMD findings left for reasons tied to noisy measurements, not to the code.",
+          "evidence": "Iterations 6, 8, 9; fflib_SObjects.cls:199, 223, 262, 281, 314, 492, 518",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P2",
+          "title": "Blank-check condition repeated four times",
+          "detail": "The null / instanceof String / isBlank test is copied into four methods, twice in negated form. A private static isBlankValue(Object) helper would be clearer and less error-prone.",
+          "evidence": "fflib_SObjects.cls:350-454",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P3",
+          "title": "Braces added to single-statement ifs",
+          "detail": "This is a style-only fix that removes the IfStmtsMustUseBraces findings.",
+          "evidence": "fflib_SObjects.cls:386-388, 456-458",
+          "verdict": "good"
+        },
+        {
+          "code": "P4",
+          "title": "Deferred describe",
+          "detail": "This uses the platform's recommended describe option with no change to semantics.",
+          "evidence": "fflib_SObjects.cls:55-57",
+          "verdict": "good"
+        }
+      ],
+      "testGaps": [
+        {
+          "code": "T1",
+          "title": "Whitespace-only and non-String typed values in blank checks",
+          "detail": "The tests use only null, '' and a positive Integer. Whether '   ', 0, false, Dates and Ids count as blank is not pinned down.",
+          "proposedTest": "A table-driven test that runs the four blank selectors over records with ShippingCountry='  ', NumberOfEmployees=0, AnnualRevenue=0.0 and an Id field, asserting the same classification the String.valueOf logic gave."
+        },
+        {
+          "code": "T2",
+          "title": "Child relationships through the deferred describe",
+          "detail": "No test reads child relationships from the sObjectDescribe property.",
+          "proposedTest": "Assert that domain.sObjectDescribe.getChildRelationships() matches an eager describe for Account."
+        },
+        {
+          "code": "T3",
+          "title": "addError and clearFields effects per record",
+          "detail": "Bulk addError is called in the tests, but each record's errors are not asserted.",
+          "proposedTest": "After addError, assert that record.getErrors().size()==1 for each record, and that clearFields nulls the field on every record."
+        }
+      ],
+      "other": [
+        {
+          "code": "X1",
+          "title": "Runtime scores are not attributable",
+          "detail": "Iteration 10 changed only an annotation and still moved Resource efficiency by 3.6 and Test run time by 2.7. Iterations 3 and 11 showed headroom moving about 6 points from noise. Several discards (2, 3, 5, 8, 9) were probably noise, and the final headroom and efficiency gains should not be credited to the code. Running each runtime measurement several times and judging by the median would make future climbs trustworthy."
+        },
+        {
+          "code": "X2",
+          "title": "Remaining PMD debt",
+          "detail": "Seven OneDeclarationPerLine findings remain in the indexed loops. Converting them to for-each, as already done elsewhere in the class, is probably safe once noise is controlled."
+        }
+      ]
+    }
   }
 ]

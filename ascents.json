@@ -235,5 +235,44 @@
     "branch": "ascent/sobject-domain-1",
     "report": "ascents/sobject-domain-1/report.html?refresh=off",
     "retro": "ascents/sobject-domain-1/retro.json"
+  },
+  {
+    "name": "sobjects-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_SObjects.cls",
+      "sfdx-source/apex-common/main/classes/fflib_ISObjects.cls"
+    ],
+    "startedAt": "2026-11-13T03:03:00.488Z",
+    "iterations": 12,
+    "kept": 3,
+    "baseline": {
+      "overall": 79.7,
+      "scores": {
+        "PMD": 35.2,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 100,
+        "Test run time": 82,
+        "Limit headroom": 59.8,
+        "Resource efficiency": 80.9
+      }
+    },
+    "best": {
+      "overall": 84.7,
+      "scores": {
+        "PMD": 64.1,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 100,
+        "Test run time": 82.5,
+        "Limit headroom": 63.3,
+        "Resource efficiency": 82.8
+      },
+      "iteration": 7,
+      "commit": "dc90fd3295a85bbf03b1e2d88c843d43a30184ce"
+    },
+    "branch": "ascent/sobjects-1",
+    "report": "ascents/sobjects-1/report.html?refresh=off",
+    "retro": "ascents/sobjects-1/retro.json"
   }
 ]
