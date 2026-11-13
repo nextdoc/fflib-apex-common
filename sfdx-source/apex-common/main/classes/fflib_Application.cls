@@ -31,7 +31,7 @@
  **/
 @NamespaceAccessible
 @SuppressWarnings(
-  'PMD.EmptyStatementBlock, PMD.CognitiveComplexity, PMD.ClassNamingConventions, PMD.FieldNamingConventions, PMD.ApexDoc'
+  'PMD.EmptyStatementBlock, PMD.CognitiveComplexity, PMD.ClassNamingConventions, PMD.FieldNamingConventions, PMD.ApexDoc, PMD.AvoidDebugStatements'
 )
 public inherited sharing virtual class fflib_Application {
   /**
