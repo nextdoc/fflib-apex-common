@@ -58,26 +58,12 @@ public virtual inherited sharing class fflib_Objects implements fflib_IObjects {
 
   @NamespaceAccessible
   public Boolean containsAll(List<Object> values) {
-    if (values == null) {
-      return false;
-    }
-
-    return containsAll(new Set<Object>(values));
+    return values != null && new Set<Object>(getObjects()).containsAll(values);
   }
 
   @NamespaceAccessible
   public Boolean containsAll(Set<Object> values) {
-    if (values == null) {
-      return false;
-    }
-
-    Set<Object> lookup = new Set<Object>(getObjects());
-    for (Object value : values) {
-      if (!lookup.contains(value)) {
-        return false;
-      }
-    }
-    return true;
+    return values != null && new Set<Object>(getObjects()).containsAll(values);
   }
 
   @NamespaceAccessible
@@ -87,26 +73,18 @@ public virtual inherited sharing class fflib_Objects implements fflib_IObjects {
 
   @NamespaceAccessible
   public Boolean containsNot(List<Object> values) {
-    if (values == null) {
-      return true;
-    }
-
-    return containsNot(new Set<Object>(values));
+    return values == null || containsNone(new Set<Object>(values));
   }
 
   @NamespaceAccessible
   public Boolean containsNot(Set<Object> values) {
-    if (values == null) {
-      return true;
-    }
+    return values == null || containsNone(values);
+  }
 
-    Set<Object> lookup = new Set<Object>(getObjects());
-    for (Object value : values) {
-      if (lookup.contains(value)) {
-        return false;
-      }
-    }
-    return true;
+  private Boolean containsNone(Set<Object> values) {
+    Set<Object> overlap = new Set<Object>(values);
+    overlap.retainAll(getObjects());
+    return overlap.isEmpty();
   }
 
   @NamespaceAccessible
