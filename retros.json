@@ -1128,5 +1128,109 @@
         }
       ]
     }
+  },
+  {
+    "name": "sobjects-2",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_SObjects.cls",
+      "sfdx-source/apex-common/main/classes/fflib_ISObjects.cls"
+    ],
+    "branch": "ascent/sobjects-2",
+    "report": "ascents/sobjects-2/report.html?refresh=off",
+    "retro": {
+      "ascent": "sobjects-2",
+      "at": "2026-11-13T04:22:41.784Z",
+      "base": "2b20aea86a1f5604765f6959d2a0bed8293b1157",
+      "head": "6717c6e8ab2d5ca5a1f465d750afae81cda201ee",
+      "changedTests": [],
+      "step": {
+        "model": "claude-opus-5-5",
+        "durationMs": 33734,
+        "costUsd": 0.3528502
+      },
+      "summary": "Only iterations 1 and 2 were kept, both PMD-only cleanups in fflib_SObjects.cls (the only class climbed), which drove PMD from 35.2 to 100. Behaviour is effectively unchanged: the hoisted loop bound matches the old `j = records.size()`, the added braces change nothing, and the DEFERRED describe only changes when child-relationship metadata is loaded. Every other score held or moved within noise; fflib_SObjectsTest.headroomBulkFieldOperations headroom (60.1→58.8) and fflib_SObjectDomainTest resource efficiency (80.9→78.3) dipped slightly, and iterations 3-5, which targeted headroom, were all discarded.",
+      "behaviourChanges": [
+        {
+          "code": "B1",
+          "title": "Constructor describe switched to SObjectDescribeOptions.DEFERRED",
+          "detail": "sObjectDescribe is a public property. Consumers that read child relationships or other heavy describe data from it now trigger lazy loading instead of reading pre-loaded data. The values are identical, so only when the describe cost is paid changes. Within the repo only getSObjectType() reads it.",
+          "evidence": "sfdx-source/apex-common/main/classes/fflib_SObjects.cls:32, :55-57, :86",
+          "iterations": [
+            1,
+            2
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Construct fflib_SObjects over Account and assert sObjectDescribe.getChildRelationships() is non-empty and equals Account.SObjectType.getDescribe().getChildRelationships().size()."
+        },
+        {
+          "code": "B2",
+          "title": "Loop bound read once before the loop",
+          "detail": "Equivalent to the baseline, which also captured records.size() once in `j`. If a subclass's getRecords() returned a list that grows during the loop, both versions would ignore the added records, so there is no new risk.",
+          "evidence": "fflib_SObjects.cls:97-98, :113-114, :497-498 and the other loop headers",
+          "iterations": [
+            1
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "No test needed; behaviour is identical to the baseline."
+        }
+      ],
+      "patterns": [
+        {
+          "code": "P1",
+          "title": "Hoisted recordCount local for indexed loops",
+          "detail": "Clears OneDeclarationPerLine and keeps the same CPU profile as the baseline.",
+          "evidence": "fflib_SObjects.cls loop headers, iteration 1",
+          "verdict": "good"
+        },
+        {
+          "code": "P2",
+          "title": "Braces on all if statements",
+          "detail": "Removes the dangling-statement hazard and changes no behaviour.",
+          "evidence": "fflib_SObjects.cls:363-365, :395-397, :461-463",
+          "verdict": "good"
+        },
+        {
+          "code": "P3",
+          "title": "Spelling change made only to satisfy PMD",
+          "detail": "The Schema. qualifier was dropped only because the PMD rule matches source text. It is harmless but cosmetic, and other qualified spellings elsewhere could be flagged again.",
+          "evidence": "iteration 2, fflib_SObjects.cls:55-57",
+          "verdict": "questionable"
+        }
+      ],
+      "testGaps": [
+        {
+          "code": "T1",
+          "title": "Contents of the public sObjectDescribe are not tested",
+          "detail": "No test checks that the describe exposed through the property is complete after the switch to DEFERRED.",
+          "proposedTest": "Assert sObjectDescribe.getName(), fields.getMap().size() and getChildRelationships().size() match a full Account describe."
+        },
+        {
+          "code": "T2",
+          "title": "Blank checks on non-String fields",
+          "detail": "The getRecordsWith*BlankFieldValues methods rely on String.valueOf for Number, Boolean and Date fields. Iteration 3 nearly rewrote this logic, so it is the most likely place for a future regression.",
+          "proposedTest": "Use records with null, 0 and false values in NumberOfEmployees and a checkbox field, and assert each of the four methods' results, including that 0 and false count as not blank."
+        },
+        {
+          "code": "T3",
+          "title": "setFieldValueByMap with null values map or key mapped to null",
+          "detail": "Iteration 3 depended on the semantics of `if (values?.containsKey(...))` when values is null, but the tests do not pin this down.",
+          "proposedTest": "Assert that a null map throws a NullPointerException, and that a key mapped to null sets the field to null."
+        }
+      ],
+      "other": [
+        {
+          "code": "X1",
+          "title": "Inconsistent headroom baseline",
+          "detail": "The top-level Limit headroom baseline is 57.3, but its only headroom test scored 60.1 at baseline, so the reported +1.5 is really a -1.3. Check how the baseline is aggregated before trusting headroom deltas."
+        },
+        {
+          "code": "X2",
+          "title": "Learnings from the discarded headroom attempts",
+          "detail": "Iterations 3-5 showed that CPU in headroomBulkFieldOperations is dominated by SObject get/put calls and allocations. Loop restructuring, cached casts and post-hoc Set.remove calls did not help or made it worse. Future work should cut the number of field accesses or passes."
+        }
+      ]
+    }
   }
 ]

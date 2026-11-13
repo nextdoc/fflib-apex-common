@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ascent report</title>
+<script src="https://cdn.jsdelivr.net/npm/vega@5.30.0/build/vega.min.js" integrity="sha384-em7CHpJd+SsMugVFf6TY7AKQcLWMcbPhD84hmNK8o6WFDkK+2uHSUQRVQV1/w827" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5.21.0/build/vega-lite.min.js" integrity="sha384-GhkD6ks9/zgY1m5EFOUZWz/vMVMUFF/92DL61RZc+B42J8osL+jNufKv68bNHHZ2" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6.26.0/build/vega-embed.min.js" integrity="sha384-TqXb8su49m5OnEpKGO8m+VrgHesrUxyP22HgpXi4hnh1Hm43dXroiSYemNf5D8lv" crossorigin="anonymous"></script>
+<style>
+:root{--surface:#fcfcfb;--text:#0b0b0b;--muted:#52514e;--grid:#e6e5e0;--keep:#2a78d6;--discard:#8f8e89;--gated:#c26a1b;--rejected:#b8433a;--nochange:#b5b4ae;--error:#8e2a8e;--up:#1f7a3d;--down:#b8433a}
+@media (prefers-color-scheme:dark){:root{--surface:#1a1a19;--text:#fff;--muted:#c3c2b7;--grid:#383835;--keep:#3987e5;--discard:#8f8e89;--gated:#e08a3c;--rejected:#e0675d;--nochange:#5e5d59;--error:#c565c5;--up:#4cc176;--down:#e0675d}}
+body{margin:0;padding:24px 16px;background:var(--surface);color:var(--text);font:14px/1.4 system-ui,sans-serif}
+main{max-width:1280px;margin:0 auto}
+h1{font-size:20px;margin:0 0 4px}
+.meta{color:var(--muted);font-size:13px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:4px 16px}
+.meta b{color:var(--text);font-weight:600}
+code{font:12px ui-monospace,monospace}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin-bottom:24px}
+.card{border:1px solid var(--grid);border-radius:10px;padding:14px 16px;display:flex;gap:16px;align-items:center}
+.card svg.graphic{flex:none}
+.card > div{min-width:0}
+.card .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:6px}
+.card .big{font-size:28px;font-weight:600;line-height:1.1}
+.card .sub{color:var(--muted);font-size:13px;margin-top:4px}
+.card .row{margin-top:4px;font-size:13px}
+.card .row svg{vertical-align:-3px;margin-right:6px;color:var(--muted)}
+.card .row svg[width="10"]{vertical-align:-1px}
+h2{font-size:14px;color:var(--muted);font-weight:600;margin:28px 0 8px}
+.chart{width:100%}
+.empty{color:var(--muted);padding:32px 16px;text-align:center;border:1px dashed var(--grid);border-radius:8px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{color:var(--muted);font-weight:600;text-align:left;font-size:12px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--grid);vertical-align:top}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.up{color:var(--up)}.down{color:var(--down)}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:500;color:#fff;white-space:nowrap}
+.tag{display:inline-block;margin-top:4px;padding:0 6px;border:1px solid var(--grid);border-radius:4px;font-size:11px;color:var(--muted)}
+.focus{color:var(--muted);font-size:12px}
+.notes p{margin:0 0 6px}.notes p:last-child{margin:0}
+.notes .k{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-right:6px}
+.deltas{white-space:nowrap}
+a{color:var(--keep)}
+.refresh{position:fixed;top:12px;right:16px;color:var(--muted);font-size:12px;display:flex;align-items:center;gap:6px;background:var(--surface);padding:2px 6px;border-radius:6px}
+</style>
+</head>
+<body><main>
+<label class="refresh"><input type="checkbox" id="refresh"> Refresh every minute</label>
+<script>
+// The setting lives in the query string so it survives the reload, including from a file:// URL.
+{
+  const box = document.getElementById('refresh');
+  box.checked = new URLSearchParams(location.search).get('refresh') !== 'off';
+  if (box.checked) setTimeout(() => location.reload(), 60000);
+  box.onchange = () => { location.search = box.checked ? '' : '?refresh=off'; };
+}
+</script>
+<h1 id="title"></h1>
+<div class="meta" id="meta"></div>
+<div class="tiles" id="tiles"></div>
+<h2>Overall score by hours since baseline: current kept (line), fitted climb (dashed)</h2>
+<div class="chart" id="climb"></div>
+<h2>Minutes per iteration</h2>
+<div class="chart" id="durations"></div>
+<h2>Dimensions</h2>
+<div class="scroll"><table id="dimensions"></table></div>
+<h2>Iterations</h2>
+<div class="scroll"><table id="iterations"></table></div>
+<h2 id="cost-title">Cumulative agent cost by step</h2>
+<div class="chart" id="cost"></div>
+<section id="retro" hidden>
+<h2>Retrospective (first pass, agent generated)</h2>
+<p class="meta" id="retro-meta"></p>
+<p id="retro-summary"></p>
+<div class="scroll"><table id="retro-items"></table></div>
+</section>
+</main>
+<script>
+const data = {"ascent":{"name":"sobjects-2","mode":"deploy","plannerStreamline":false,"targetOrg":"fflib-apex-common","branch":"ascent/sobjects-2","baseCommit":"79cea5851321ee013b7bb66ff43b7fb21c46d1d6","createdAt":"2026-11-13T04:07:50.330Z","updatedAt":"2026-11-13T04:21:55.010Z"},"summary":{"baseline":79.3,"current":88.2,"gain":8.9,"iterations":5,"kept":2,"hours":0.23,"perHour":32.31,"perIteration":1.78,"angle":60.7,"minutesPerIteration":2.4,"fit":[{"hours":0.023400000000000004,"fit":83.35},{"hours":0.2106,"fit":89.39}]},"cost":{"total":3.18,"byStep":{"plan":2,"implement":0.88,"learn":0.3},"series":[{"hours":0,"step":"plan","usd":0},{"hours":0,"step":"implement","usd":0},{"hours":0,"step":"learn","usd":0},{"hours":0.066,"step":"plan","usd":0.3216},{"hours":0.066,"step":"implement","usd":0.1848},{"hours":0.066,"step":"learn","usd":0.0668},{"hours":0.099,"step":"plan","usd":0.7034},{"hours":0.099,"step":"implement","usd":0.289},{"hours":0.099,"step":"learn","usd":0.1091},{"hours":0.141,"step":"plan","usd":1.1081},{"hours":0.141,"step":"implement","usd":0.4554},{"hours":0.141,"step":"learn","usd":0.1626},{"hours":0.186,"step":"plan","usd":1.548},{"hours":0.186,"step":"implement","usd":0.6297},{"hours":0.186,"step":"learn","usd":0.227},{"hours":0.234,"step":"plan","usd":2.0045},{"hours":0.234,"step":"implement","usd":0.8751},{"hours":0.234,"step":"learn","usd":0.2995}]},"dimensions":[{"name":"PMD","baseline":35.2,"current":100,"delta":64.8,"margin":0.5,"series":[35.2,86.2,100]},{"name":"Graph Engine","baseline":100,"current":100,"delta":0,"margin":0.5,"series":[100,100,100]},{"name":"Tests passing","baseline":100,"current":100,"delta":0,"margin":0,"series":[100,100,100]},{"name":"Code coverage","baseline":100,"current":100,"delta":0,"margin":0,"series":[100,100,100]},{"name":"Test run time","baseline":81.4,"current":80,"delta":-1.4,"margin":3,"series":[81.4,81.4,80]},{"name":"Limit headroom","baseline":57.3,"current":58.8,"delta":1.5,"margin":9.9,"series":[57.3,59.8,58.8]},{"name":"Resource efficiency","baseline":80.9,"current":78.3,"delta":-2.6,"margin":3.6,"series":[80.9,80.9,78.3]}],"rows":[{"iteration":1,"at":"2026-11-13T04:09:47.705Z","outcome":"keep","dryRun":false,"overall":86.9,"current":86.9,"hours":0.066,"minutes":2,"focus":["PMD"],"reason":"PMD scores 35.2 with 22 violations, all in fflib_SObjects.cls: 16 OneDeclarationPerLine from indexed loop headers declaring 'i' and 'j' together, 6 brace violations on 3 braceless if statements, and 1 EagerlyLoadedDescribeSObjectResult. Hoisting the loop bound keeps the indexed loops' CPU profile, adding braces changes no behaviour, and the deferred describe drops the eager child-relationship load (sObjectDescribe is only used for getSObjectType()). This should remove all 22 violations without affecting tests, coverage or headroom.","decision":["every focus dimension rose by more than its margin and no other dimension fell by more than its margin"],"learning":"Syntax-only fixes (one declaration per line, added braces) clear PMD findings in bulk without moving tests, coverage or runtime, so a file's PMD violations can be cleared in a single low-risk iteration; the only non-PMD gain came from the deferred describe, which trims eager schema loading and so lifts limit headroom.","deltas":{"PMD":51,"Graph Engine":0,"Tests passing":0,"Code coverage":0,"Test run time":0,"Limit headroom":2.5,"Resource efficiency":0},"patch":"patches/1.patch","run":"runs/1","cost":{"plan":0.32163600000000003,"implement":0.1848312,"learn":0.0668049}},{"iteration":2,"at":"2026-11-13T04:11:48.251Z","outcome":"keep","dryRun":false,"overall":88.2,"current":88.2,"hours":0.099,"minutes":2,"focus":["PMD"],"reason":"The only PMD finding left is EagerlyLoadedDescribeSObjectResult at fflib_SObjects.cls:55. The call already uses DEFERRED but writes it as Schema.SObjectDescribeOptions.DEFERRED, and the rule's pattern most likely only accepts the unqualified SObjectDescribeOptions.DEFERRED. Removing the Schema. prefix makes the call recognisably deferred, which clears the last violation. Behaviour is unchanged because Schema is the implicit namespace, so tests, coverage, runtime and headroom are unaffected.","decision":["every focus dimension rose by more than its margin and no other dimension fell by more than its margin"],"learning":"PMD rules like EagerlyLoadedDescribeSObjectResult pattern-match source text, so a behavior-neutral spelling change (unqualified SObjectDescribeOptions.DEFERRED) can clear a finding on its own; the small runtime, headroom and resource dips after an edit with no code-path change are likely noise, not a real cost.","deltas":{"PMD":13.8,"Graph Engine":0,"Tests passing":0,"Code coverage":0,"Test run time":-1.4,"Limit headroom":-1,"Resource efficiency":-2.6},"patch":"patches/2.patch","run":"runs/2","cost":{"plan":0.38175760000000003,"implement":0.1041811,"learn":0.0423088}},{"iteration":3,"at":"2026-11-13T04:13:45.892Z","outcome":"discard","dryRun":false,"overall":89.4,"current":88.2,"hours":0.141,"minutes":2.6,"focus":["Limit headroom"],"reason":"Limit headroom (58.8, CPU 41.2% in fflib_SObjectsTest.headroomBulkFieldOperations) is the weakest dimension. The four getRecordsWith*BlankFieldValues methods iterate a Set\u003cSObjectField> with an iterator for every record and call String.valueOf on every field value, which costs 4 methods x 80 rounds x 200 records x 3 fields of the slowest work in the test. Copying the set into a List once per call, looping over it by index, and testing the raw value for null or a blank String (same result: anything non-null that isn't a String always converts to non-blank text) cuts the per-element cost. setFieldValueByMap also does a containsKey followed by a get for every record; one get, with containsKey only as a fallback when the result is null, removes most of the second lookups. All edits keep behaviour identical, so tests and coverage stay unchanged while CPU drops.","decision":["re-measured a close discard and averaged the noisy dimensions over 2 runs (first run {\"PMD\":100,\"Graph Engine\":100,\"Tests passing\":100,\"Code coverage\":100,\"Test run time\":81.7,\"Limit headroom\":63.2,\"Resource efficiency\":79.9})","Limit headroom is a focus but rose 5.3, not more than its margin 9.9"],"learning":"Replacing Set iteration with an indexed List and dropping String.valueOf/containsKey double lookups yielded only a small CPU improvement (under the margin), so per-element overhead isn't the bottleneck in the bulk field test; the cost is dominated by the SObject get/put calls themselves, so future candidates should reduce the number of field accesses or passes rather than shave per-iteration cost.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":0,"Test run time":2,"Limit headroom":5.3,"Resource efficiency":1.6},"patch":"patches/3.patch","run":"runs/3","cost":{"plan":0.40473479999999995,"implement":0.1663889,"learn":0.0534948}},{"iteration":4,"at":"2026-11-13T04:16:19.398Z","outcome":"discard","dryRun":false,"overall":87,"current":88.2,"hours":0.186,"minutes":2.7,"focus":["Limit headroom"],"reason":"Limit headroom (58.8, CPU 41.2% in headroomBulkFieldOperations) is the weakest dimension. Iteration #3 found that trimming the cost of each iteration doesn't get past the margin, so this candidate cuts whole statements and passes instead. (1) getRecords() re-casts the List\u003cObject> to List\u003cSObject> on every call; caching the cast, checked by object identity, removes that repeated cast. (2) getIdFieldValues, getStringFieldValues and getParentIdFieldValues check a branch per record to exclude nulls or blanks. They can add every value and then remove null or blanks once from the small result Set, which gives the same set contents with about 200 fewer conditionals per call. (3) getRecordsWithAllBlankFieldValues and getRecordsWithAllNotBlankFieldValues create a Set iterator and a flag for every record. Filtering a shrinking list one field at a time preserves record order and gives the same result, including when the field set is empty, with 3 field iterations instead of 200 iterator setups. Behaviour is unchanged, so tests and coverage hold while CPU falls.","decision":["Limit headroom is a focus but rose -5.5, not more than its margin 9.9"],"learning":"Replacing per-record branches with post-hoc Set.remove calls, per-field list rebuilds and an identity-checked cast cache added allocations and system calls that cost more CPU than the cheap conditionals they removed. Limit headroom depends on calls and allocations per record, so future candidates should cut record.get, String.valueOf and collection creation instead of branches.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":0,"Test run time":-1.3,"Limit headroom":-5.5,"Resource efficiency":-1.6},"patch":"patches/4.patch","run":"runs/4","cost":{"plan":0.43983819999999996,"implement":0.1743141,"learn":0.0644396}},{"iteration":5,"at":"2026-11-13T04:18:59.539Z","outcome":"discard","dryRun":false,"overall":88.1,"current":88.2,"hours":0.234,"minutes":2.9,"focus":["Limit headroom"],"reason":"Limit headroom (58.8, CPU 41.2% in headroomBulkFieldOperations) is the weakest dimension. Iterations #3 and #4 showed that trimming per-element work, or swapping branches for extra allocations and system calls, can't clear the margin. The cost that's left is statement count: every record loop runs about 14 times per round over 200 records for 80 rounds, and spends three statements per record on the bound check, i++ and records[i]. A for-each loop over the List\u003cSObject> runs natively without those statements. It adds no allocations and keeps the same calls inside the loop, the same order and the same results, so tests, coverage and PMD stay as they are while CPU drops on every pass.","decision":["Limit headroom is a focus but rose -3.7, not more than its margin 9.9"],"learning":"Replacing hoisted-bound indexed loops with for-each loops did not cut CPU and lowered headroom, so loop-control statements are not the bottleneck; the remaining cost is in the per-record get/put calls and allocations, which loop-structure changes cannot reduce. Future plans should target those calls (for example, fewer get/put calls per record or smaller result collections) rather than further loop restructuring.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":0,"Test run time":0.6,"Limit headroom":-3.7,"Resource efficiency":3},"patch":"patches/5.patch","run":"runs/5","cost":{"plan":0.45654720000000004,"implement":0.2454101,"learn":0.07245270000000001}}],"retro":{"ascent":"sobjects-2","at":"2026-11-13T04:22:41.784Z","base":"2b20aea86a1f5604765f6959d2a0bed8293b1157","head":"6717c6e8ab2d5ca5a1f465d750afae81cda201ee","changedTests":[],"step":{"model":"claude-opus-5-5","durationMs":33734,"costUsd":0.3528502},"summary":"Only iterations 1 and 2 were kept, both PMD-only cleanups in fflib_SObjects.cls (the only class climbed), which drove PMD from 35.2 to 100. Behaviour is effectively unchanged: the hoisted loop bound matches the old `j = records.size()`, the added braces change nothing, and the DEFERRED describe only changes when child-relationship metadata is loaded. Every other score held or moved within noise; fflib_SObjectsTest.headroomBulkFieldOperations headroom (60.1→58.8) and fflib_SObjectDomainTest resource efficiency (80.9→78.3) dipped slightly, and iterations 3-5, which targeted headroom, were all discarded.","behaviourChanges":[{"code":"B1","title":"Constructor describe switched to SObjectDescribeOptions.DEFERRED","detail":"sObjectDescribe is a public property. Consumers that read child relationships or other heavy describe data from it now trigger lazy loading instead of reading pre-loaded data. The values are identical, so only when the describe cost is paid changes. Within the repo only getSObjectType() reads it.","evidence":"sfdx-source/apex-common/main/classes/fflib_SObjects.cls:32, :55-57, :86","iterations":[1,2],"severity":"low","caughtByTests":false,"proposedTest":"Construct fflib_SObjects over Account and assert sObjectDescribe.getChildRelationships() is non-empty and equals Account.SObjectType.getDescribe().getChildRelationships().size()."},{"code":"B2","title":"Loop bound read once before the loop","detail":"Equivalent to the baseline, which also captured records.size() once in `j`. If a subclass's getRecords() returned a list that grows during the loop, both versions would ignore the added records, so there is no new risk.","evidence":"fflib_SObjects.cls:97-98, :113-114, :497-498 and the other loop headers","iterations":[1],"severity":"low","caughtByTests":false,"proposedTest":"No test needed; behaviour is identical to the baseline."}],"patterns":[{"code":"P1","title":"Hoisted recordCount local for indexed loops","detail":"Clears OneDeclarationPerLine and keeps the same CPU profile as the baseline.","evidence":"fflib_SObjects.cls loop headers, iteration 1","verdict":"good"},{"code":"P2","title":"Braces on all if statements","detail":"Removes the dangling-statement hazard and changes no behaviour.","evidence":"fflib_SObjects.cls:363-365, :395-397, :461-463","verdict":"good"},{"code":"P3","title":"Spelling change made only to satisfy PMD","detail":"The Schema. qualifier was dropped only because the PMD rule matches source text. It is harmless but cosmetic, and other qualified spellings elsewhere could be flagged again.","evidence":"iteration 2, fflib_SObjects.cls:55-57","verdict":"questionable"}],"testGaps":[{"code":"T1","title":"Contents of the public sObjectDescribe are not tested","detail":"No test checks that the describe exposed through the property is complete after the switch to DEFERRED.","proposedTest":"Assert sObjectDescribe.getName(), fields.getMap().size() and getChildRelationships().size() match a full Account describe."},{"code":"T2","title":"Blank checks on non-String fields","detail":"The getRecordsWith*BlankFieldValues methods rely on String.valueOf for Number, Boolean and Date fields. Iteration 3 nearly rewrote this logic, so it is the most likely place for a future regression.","proposedTest":"Use records with null, 0 and false values in NumberOfEmployees and a checkbox field, and assert each of the four methods' results, including that 0 and false count as not blank."},{"code":"T3","title":"setFieldValueByMap with null values map or key mapped to null","detail":"Iteration 3 depended on the semantics of `if (values?.containsKey(...))` when values is null, but the tests do not pin this down.","proposedTest":"Assert that a null map throws a NullPointerException, and that a key mapped to null sets the field to null."}],"other":[{"code":"X1","title":"Inconsistent headroom baseline","detail":"The top-level Limit headroom baseline is 57.3, but its only headroom test scored 60.1 at baseline, so the reported +1.5 is really a -1.3. Check how the baseline is aggregated before trusting headroom deltas."},{"code":"X2","title":"Learnings from the discarded headroom attempts","detail":"Iterations 3-5 showed that CPU in headroomBulkFieldOperations is dominated by SObject get/put calls and allocations. Loop restructuring, cached casts and post-hoc Set.remove calls did not help or made it worse. Future work should cut the number of field accesses or passes."}]}};
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]);
+const f = (x, d = 2) => x == null ? '–' : x.toFixed(d);
+const signed = (x, d = 1) => (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x).toFixed(d);
+const trend = x => x > 0 ? 'up' : x < 0 ? 'down' : '';
+const s = data.summary, a = data.ascent;
+const OUTCOMES = ['keep', 'discard', 'gated', 'rejected', 'no-change', 'error'];
+const colour = o => css(o === 'no-change' ? '--nochange' : `--${o}`);
+
+document.title = `${a.name} ascent`;
+document.getElementById('title').textContent = `${a.name} ascent`;
+const when = t => new Date(t).toLocaleString();
+document.getElementById('meta').innerHTML = [
+  ['Mode', esc(a.mode) + (a.plannerStreamline ? ' + planner probes' : '')], ['Org', esc(a.targetOrg)], ['Branch', `<code>${esc(a.branch)}</code>`], ['Base', `<code>${esc(a.baseCommit.slice(0, 8))}</code>`],
+  ['Started', esc(when(a.createdAt))], ['Updated', esc(when(a.updatedAt))]
+].map(([k, v]) => `<span><b>${k}:</b> ${v}</span>`).join('');
+
+const icon = d => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const icons = {
+  target: icon('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>'),
+  up: icon('<path d="M12 19V5M5 12l7-7 7 7"/>'),
+  down: icon('<path d="M12 5v14M5 12l7 7 7-7"/>'),
+  trend: icon('<path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/>'),
+  clock: icon('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+  flask: icon('<path d="M9 3h6M10 3v6L4 19a1 1 0 0 0 1 2h14a1 1 0 0 0 1-2L14 9V3"/>'),
+  check: icon('<path d="M5 12l5 5 9-10"/>'),
+  coin: icon('<circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .8-3 2s1.3 1.7 3 2 3 .8 3 2-1.3 2-3 2c-1.4 0-2.5-.5-3-1.5M12 6v2M12 16v2"/>')};
+const scoreBar = (() => {
+  const w = 96, x = v => Math.max(0, Math.min(100, v)) / 100 * w;
+  return `<svg class="graphic" width="${w}" height="44" viewBox="0 0 ${w} 44">
+    <rect x="0" y="18" width="${w}" height="8" rx="4" fill="var(--grid)"/>
+    <rect x="0" y="18" width="${x(s.baseline)}" height="8" rx="4" fill="var(--discard)"/>
+    <rect x="${x(s.baseline)}" y="18" width="${Math.max(0, x(s.current) - x(s.baseline))}" height="8" rx="2" fill="var(--keep)"/>
+    <text x="0" y="42" font-size="10" fill="var(--muted)">0</text>
+    <text x="${w}" y="42" font-size="10" fill="var(--muted)" text-anchor="end">100</text></svg>`;})();
+const gauge = (() => {
+  const r = 40, t = Math.max(-90, Math.min(90, s.angle)) * Math.PI / 180;
+  return `<svg class="graphic" width="56" height="56" viewBox="0 0 56 56">
+    <path d="M ${6 + r} 48 A ${r} ${r} 0 0 0 6 ${48 - r}" fill="none" stroke="var(--grid)" stroke-width="6"/>
+    <line x1="6" y1="48" x2="${6 + r}" y2="48" stroke="var(--grid)" stroke-width="1"/>
+    <line x1="6" y1="48" x2="${6 + r * Math.SQRT1_2}" y2="${48 - r * Math.SQRT1_2}" stroke="var(--grid)" stroke-width="1" stroke-dasharray="2 2"/>
+    <line x1="6" y1="48" x2="${6 + r * Math.cos(t)}" y2="${48 - r * Math.sin(t)}" stroke="var(--keep)" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="6" cy="48" r="3" fill="var(--text)"/></svg>`;})();
+const ring = (() => {
+  const r = 22, c = 2 * Math.PI * r, share = s.iterations ? s.kept / s.iterations : 0;
+  return `<svg class="graphic" width="56" height="56" viewBox="0 0 56 56">
+    <circle cx="28" cy="28" r="${r}" fill="none" stroke="var(--grid)" stroke-width="6"/>
+    <circle cx="28" cy="28" r="${r}" fill="none" stroke="var(--keep)" stroke-width="6" stroke-linecap="round"
+      stroke-dasharray="${share * c} ${c}" transform="rotate(-90 28 28)"/>
+    <text x="28" y="32" font-size="12" font-weight="600" text-anchor="middle" fill="var(--text)">${Math.round(share * 100)}%</text></svg>`;})();
+const STEP_COLOURS = {plan: '--keep', implement: '--gated', learn: '--discard'};
+const costShares = Object.entries(data.cost.byStep).map(([step, v]) => [step, v, data.cost.total ? v / data.cost.total : 0]);
+const pie = (() => {
+  const r = 26, point = t => `${28 + r * Math.sin(t * 2 * Math.PI)} ${28 - r * Math.cos(t * 2 * Math.PI)}`;
+  let from = 0;
+  const slices = costShares.filter(([, , share]) => share > 0).map(([step, , share]) => {
+    const path = share >= 1
+      ? `<circle cx="28" cy="28" r="${r}" fill="var(${STEP_COLOURS[step]})"/>`
+      : `<path d="M28 28 L${point(from)} A${r} ${r} 0 ${share > 0.5 ? 1 : 0} 1 ${point(from + share)} Z" fill="var(${STEP_COLOURS[step]})" stroke="var(--surface)" stroke-width="1.5"/>`;
+    from += share;
+    return path;
+  });
+  return `<svg class="graphic" width="56" height="56" viewBox="0 0 56 56">
+    ${slices.length ? slices.join('') : `<circle cx="28" cy="28" r="${r}" fill="var(--grid)"/>`}</svg>`;})();
+document.getElementById('tiles').innerHTML = `
+  <div class="card">${scoreBar}<div>
+    <div class="label">${icons.target} Gain on baseline</div>
+    <div class="big">${signed(s.gain)} <span style="font-size:16px;color:var(--muted)">pts</span></div>
+    <div class="row">${s.gain >= 0 ? icons.up : icons.down}Current <b>${f(s.current)}</b> from ${f(s.baseline)} baseline</div></div></div>
+  <div class="card">${gauge}<div>
+    <div class="label">${icons.trend} Climb angle</div>
+    <div class="big">${f(s.angle, 1)}°</div>
+    <div class="sub">45° is one point an iteration</div>
+    <div class="row"><b>${f(s.perHour)}</b> pts/hour · <b>${f(s.perIteration)}</b> pts/iteration</div></div></div>
+  <div class="card">${ring}<div>
+    <div class="label">${icons.check} Kept</div>
+    <div class="big">${s.kept} <span style="font-size:16px;color:var(--muted)">of ${s.iterations}</span></div>
+    <div class="row">${icons.clock}<b>${f(s.hours, 1)}</b> hours</div>
+    <div class="row">${icons.flask}<b>${f(s.minutesPerIteration, 1)}</b> min/iteration</div></div></div>
+  <div class="card">${pie}<div>
+    <div class="label">${icons.coin} Total cost</div>
+    <div class="big">$${f(data.cost.total)}</div>
+    ${costShares.map(([step, v, share]) => `<div class="row"><svg width="10" height="10"><rect width="10" height="10" rx="2" fill="var(${STEP_COLOURS[step]})"/></svg>${step} <b>$${f(v)}</b> · ${Math.round(share * 100)}%</div>`).join('')}</div></div>`;
+
+const climb = data.rows.filter(r => !r.dryRun);
+const scored = climb.filter(r => r.overall != null);
+const unscored = climb.filter(r => r.overall == null);
+const steps = [{hours: 0, current: s.baseline}].concat(climb.map(r => ({hours: r.hours, current: r.current})));
+const config = {background: css('--surface'), view: {stroke: null},
+  axis: {labelColor: css('--muted'), titleColor: css('--muted'), gridColor: css('--grid'), domainColor: css('--grid'), tickColor: css('--grid')},
+  legend: {labelColor: css('--text'), titleColor: css('--muted')}};
+const outcome = {field: 'outcome', title: 'Outcome', scale: {domain: OUTCOMES, range: OUTCOMES.map(colour)}};
+const tip = [{field: 'iteration', title: 'Iteration'}, {field: 'outcome', title: 'Outcome'},
+  {field: 'overall', title: 'Score', format: '.2f'}, {field: 'current', title: 'Current kept', format: '.2f'},
+  {field: 'hours', title: 'Hours', format: '.2f'}, {field: 'minutes', title: 'Minutes', format: '.1f'},
+  {field: 'focusText', title: 'Focus'}, {field: 'reason', title: 'Reason'}];
+const withFocus = rows => rows.map(r => ({...r, focusText: r.focus.join(', ')}));
+const lastHours = Math.max(s.hours, ...climb.map(r => r.hours));
+const fiveMinutes = Array.from({length: Math.max(1, Math.ceil(lastHours * 12)) + 1}, (_, i) => i / 12);
+const minutes = 'round(datum.value * 60)';
+const waiting = id => { document.getElementById(id).innerHTML = '<div class="empty">No iterations yet. This chart fills in after the first one finishes.</div>'; };
+const hoursAxis = {field: 'hours', type: 'quantitative', title: 'Time since baseline (h:mm)',
+  scale: {domain: [0, fiveMinutes.at(-1)], nice: false},
+  axis: {values: fiveMinutes, labelExpr: `${minutes} % 15 ? '' : floor(${minutes} / 60) + ':' + pad(${minutes} % 60, 2, '0', 'left')`}};
+const ends = steps.length > 1 && steps.at(-1).current.toFixed(1) !== steps[0].current.toFixed(1)
+  ? [[steps[0], 'left'], [steps.at(-1), 'right']] : [[steps.at(-1), 'left']];
+vegaEmbed('#climb', {$schema: 'https://vega.github.io/schema/vega-lite/5.json', config,
+  vconcat: [
+    {width: 'container', height: 320, layer: [
+      {data: {values: steps}, mark: {type: 'line', interpolate: 'step-after', strokeWidth: 2, color: css('--keep')},
+       encoding: {x: {...hoursAxis, axis: {...hoursAxis.axis, title: null, labels: false}}, y: {field: 'current', type: 'quantitative', title: 'Overall score', scale: {zero: false}}}},
+      {data: {values: s.fit}, mark: {type: 'line', strokeDash: [6, 4], strokeWidth: 2, color: css('--muted'), opacity: 0.3},
+       encoding: {x: {field: 'hours', type: 'quantitative'}, y: {field: 'fit', type: 'quantitative'}}},
+      ...ends.map(([step, align]) => (
+       {data: {values: [step]}, mark: {type: 'text', align, baseline: 'bottom', dy: -6, fontSize: 28, fontWeight: 600, color: css('--text')},
+        encoding: {x: {field: 'hours', type: 'quantitative'}, y: {field: 'current', type: 'quantitative'}, text: {field: 'current', format: '.1f'}}})),
+      {data: {values: withFocus(scored)}, mark: {type: 'point', size: 90, strokeWidth: 2, opacity: 1},
+       encoding: {x: {field: 'hours', type: 'quantitative'}, y: {field: 'overall', type: 'quantitative'},
+                  color: outcome, shape: {field: 'outcome', legend: null},
+                  fill: {condition: {test: "datum.outcome === 'keep'", value: css('--keep')}, value: css('--surface')},
+                  tooltip: tip}}]},
+    {width: 'container', height: 60, data: {values: withFocus(unscored)}, mark: {type: 'tick', thickness: 2, size: 14},
+     encoding: {x: hoursAxis, y: {field: 'outcome', type: 'nominal', title: null, scale: {domain: ['gated', 'rejected', 'no-change', 'error']}},
+                color: {...outcome, legend: null}, tooltip: tip}}
+  ], resolve: {scale: {x: 'shared'}}}, {actions: false});
+const timed = climb.filter(r => r.minutes != null);
+if (!timed.length) waiting('durations');
+else vegaEmbed('#durations', {$schema: 'https://vega.github.io/schema/vega-lite/5.json', width: 'container', height: 200, config,
+  data: {values: withFocus(timed)},
+  mark: {type: 'bar', cornerRadiusTopLeft: 4, cornerRadiusTopRight: 4, width: {expr: "min(40, bandwidth('x') * 0.8)"}},
+  encoding: {x: {field: 'iteration', type: 'ordinal', title: 'Iteration', axis: {labelAngle: 0}},
+             y: {field: 'minutes', type: 'quantitative', title: 'Minutes'},
+             color: outcome, tooltip: tip}}, {actions: false});
+
+const usd = x => `$${x.toFixed(2)}`;
+document.getElementById("cost-title").textContent =
+  `Cumulative agent cost by step: ${usd(data.cost.total)} total (${Object.entries(data.cost.byStep).map(([k, v]) => `${k} ${usd(v)}`).join(", ")}), estimated at list price`;
+const byCost = Object.entries(data.cost.byStep).sort(([, a], [, b]) => b - a).map(([step]) => step);
+if (!data.rows.length) waiting("cost");
+else vegaEmbed("#cost", {$schema: "https://vega.github.io/schema/vega-lite/5.json", width: "container", height: 240, config,
+  data: {values: data.cost.series.map(p => ({...p, rank: byCost.indexOf(p.step)}))},
+  mark: {type: "area", line: {strokeWidth: 2}, opacity: 0.25},
+  encoding: {x: hoursAxis,
+             y: {field: "usd", type: "quantitative", stack: "zero", title: "Cumulative cost (USD)", axis: {format: "$.2f"}},
+             color: {field: "step", title: "Step", scale: {domain: [...byCost].reverse(), range: [...byCost].reverse().map(step => css(STEP_COLOURS[step]))}},
+             order: {field: "rank"},
+             tooltip: [{field: "step", title: "Step"}, {field: "hours", title: "Hours", format: ".2f"}, {field: "usd", title: "Cumulative", format: "$.2f"}]}}, {actions: false});
+
+const spark = series => {
+  const w = 96, h = 24, lo = Math.min(...series), hi = Math.max(...series), span = hi - lo || 1;
+  const pts = series.map((v, i) => [series.length > 1 ? i / (series.length - 1) * w : w / 2, h - 2 - (v - lo) / span * (h - 4)]);
+  const [lx, ly] = pts.at(-1);
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="var(--keep)" stroke-width="1.5"/><circle cx="${lx}" cy="${ly}" r="2.5" fill="var(--keep)"/></svg>`;
+};
+document.getElementById('dimensions').innerHTML = `
+  <tr><th>Dimension</th><th class="num">Baseline</th><th class="num">Current</th><th class="num">Change</th><th class="num">Margin</th><th>Kept iterations</th></tr>
+  ${data.dimensions.map(d => `<tr><td>${esc(d.name)}</td><td class="num">${f(d.baseline, 1)}</td><td class="num">${f(d.current, 1)}</td>
+    <td class="num ${trend(d.delta)}">${signed(d.delta)}</td><td class="num">${d.margin}</td><td>${spark(d.series)}</td></tr>`).join('')}`;
+
+const deltas = r => r.deltas ? Object.entries(r.deltas).filter(([, v]) => v !== 0)
+  .map(([k, v]) => `<div class="deltas">${esc(k)} <span class="${trend(v)}">${signed(v)}</span></div>`).join('') || '<span class="focus">no change</span>' : '';
+const note = (k, v) => v ? `<p><span class="k">${k}</span>${esc(v)}</p>` : '';
+const link = (label, href) => href ? `<div><a href="${esc(href)}">${label}</a></div>` : '';
+document.getElementById('iterations').innerHTML = `
+  <tr><th class="num">#</th><th>Outcome</th><th class="num">Overall</th><th>Changes vs kept</th><th>Plan, decision and learning</th><th>Files</th></tr>
+  ${[...data.rows].reverse().map(r => `<tr>
+    <td class="num">${r.iteration}</td>
+    <td><span class="pill" style="background:${colour(r.outcome)}">${esc(r.outcome)}</span>${r.dryRun ? '<div><span class="tag">dry run</span></div>' : ''}
+      ${r.focus.length ? `<div class="focus" style="margin-top:6px">${esc(r.focus.join(', '))}</div>` : ''}</td>
+    <td class="num">${f(r.overall)}</td>
+    <td>${deltas(r)}</td>
+    <td class="notes">${note('Reason', r.reason)}${note('Decision', r.decision.join('; '))}${note('Learning', r.learning)}</td>
+    <td>${link('patch', r.patch)}${link('run', r.run)}</td></tr>`).join('') || '<tr><td colspan="6" class="focus">No iterations yet.</td></tr>'}`;
+
+if (data.retro) {
+  const r = data.retro;
+  document.getElementById('retro').hidden = false;
+  document.getElementById('retro-meta').innerHTML = [
+    ['Commits', `<code>${esc(r.base.slice(0, 8))}..${esc(r.head.slice(0, 8))}</code>`], ['Written', esc(when(r.at))],
+    ['Tests changed', esc(r.changedTests.join(', ') || 'none')]
+  ].map(([k, v]) => `<span><b>${k}:</b> ${v}</span>`).join('');
+  document.getElementById('retro-summary').textContent = r.summary;
+  const tone = {high: '--rejected', medium: '--gated', low: '--discard', good: '--keep', questionable: '--gated', bad: '--rejected'};
+  const pill = v => `<span class="pill" style="background:${css(tone[v])}">${esc(v)}</span>`;
+  const groups = [
+    ['Behaviour changes', r.behaviourChanges, i => `${pill(i.severity)}<div class="focus" style="margin-top:6px">${i.caughtByTests ? 'caught by tests' : 'not caught by tests'}</div>`,
+      i => note('Evidence', i.evidence) + note('Iterations', i.iterations.join(', ')) + note('Proposed test', i.proposedTest)],
+    ['Patterns', r.patterns, i => pill(i.verdict), i => note('Evidence', i.evidence)],
+    ['Test gaps', r.testGaps, () => '', i => note('Proposed test', i.proposedTest)],
+    ['Other', r.other, () => '', () => '']];
+  document.getElementById('retro-items').innerHTML = `
+    <tr><th>Code</th><th>Kind</th><th>Finding</th></tr>
+    ${groups.flatMap(([kind, items, badge, extra]) => items.map(i => `<tr>
+      <td><b>${esc(i.code)}</b></td><td>${kind}${badge(i) ? `<div style="margin-top:4px">${badge(i)}</div>` : ''}</td>
+      <td class="notes"><p><b>${esc(i.title)}</b></p><p>${esc(i.detail)}</p>${extra(i)}</td></tr>`)).join('')}`;
+}
+</script>
+</body>
+</html>
