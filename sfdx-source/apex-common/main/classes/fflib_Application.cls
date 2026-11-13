@@ -58,6 +58,7 @@ public inherited sharing virtual class fflib_Application {
      **/
     @NamespaceAccessible
     public UnitOfWorkFactory(List<SObjectType> objectTypes) {
+      this();
       m_objectTypes = objectTypes.clone();
     }
 
@@ -167,6 +168,7 @@ public inherited sharing virtual class fflib_Application {
     public ServiceFactory(
       Map<Type, Type> serviceInterfaceTypeByServiceImplType
     ) {
+      this();
       m_serviceInterfaceTypeByServiceImplType = serviceInterfaceTypeByServiceImplType;
       m_serviceInterfaceTypeByMockService = new Map<Type, Object>();
     }
@@ -242,6 +244,7 @@ public inherited sharing virtual class fflib_Application {
      **/
     @NamespaceAccessible
     public SelectorFactory(Map<SObjectType, Type> sObjectBySelectorType) {
+      this();
       m_sObjectBySelectorType = sObjectBySelectorType;
       m_sObjectByMockSelector = new Map<SObjectType, fflib_ISObjectSelector>();
     }
@@ -427,6 +430,7 @@ public inherited sharing virtual class fflib_Application {
       fflib_Application.SelectorFactory selectorFactory,
       Map<SObjectType, Type> sObjectByDomainConstructorType
     ) {
+      this();
       m_selectorFactory = selectorFactory;
       init(
         selectorFactory,
