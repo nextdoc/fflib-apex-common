@@ -58,20 +58,24 @@ public virtual inherited sharing class fflib_Objects implements fflib_IObjects {
 
   @NamespaceAccessible
   public Boolean containsAll(List<Object> values) {
-    if (values == null)
+    if (values == null) {
       return false;
+    }
 
     return containsAll(new Set<Object>(values));
   }
 
   @NamespaceAccessible
   public Boolean containsAll(Set<Object> values) {
-    if (values == null)
+    if (values == null) {
       return false;
+    }
 
+    Set<Object> lookup = new Set<Object>(getObjects());
     for (Object value : values) {
-      if (!getObjects()?.contains(value))
+      if (!lookup.contains(value)) {
         return false;
+      }
     }
     return true;
   }
@@ -83,20 +87,24 @@ public virtual inherited sharing class fflib_Objects implements fflib_IObjects {
 
   @NamespaceAccessible
   public Boolean containsNot(List<Object> values) {
-    if (values == null)
+    if (values == null) {
       return true;
+    }
 
     return containsNot(new Set<Object>(values));
   }
 
   @NamespaceAccessible
   public Boolean containsNot(Set<Object> values) {
-    if (values == null)
+    if (values == null) {
       return true;
+    }
 
+    Set<Object> lookup = new Set<Object>(getObjects());
     for (Object value : values) {
-      if (getObjects()?.contains(value))
+      if (lookup.contains(value)) {
         return false;
+      }
     }
     return true;
   }
