@@ -85,7 +85,7 @@ public inherited sharing class fflib_SObjectDescribe {
       throw new InvalidDescribeException('Invalid SObject type: null');
     }
     this.token = token;
-    instanceCache.put(String.valueOf(token).toLowerCase(), this);
+    instanceCache.put(token, this);
   }
 
   //public instace methods
@@ -230,10 +230,10 @@ public inherited sharing class fflib_SObjectDescribe {
    * to prevent repeatedly re-constructing the same type.
    * These instances are not guaranteed to be, but typically will be, unique per sObject type due to the presence of flushCache.
    */
-  private static Map<String, fflib_SObjectDescribe> instanceCache {
+  private static Map<Schema.SObjectType, fflib_SObjectDescribe> instanceCache {
     get {
       if (instanceCache == null) {
-        instanceCache = new Map<String, fflib_SObjectDescribe>();
+        instanceCache = new Map<Schema.SObjectType, fflib_SObjectDescribe>();
       }
       return instanceCache;
     }
@@ -252,16 +252,7 @@ public inherited sharing class fflib_SObjectDescribe {
     if (String.isBlank(sObjectName)) {
       return null;
     }
-    fflib_SObjectDescribe result = instanceCache.get(sObjectName.toLowerCase());
-    if (result == null) {
-      Schema.SObjectType token = wrappedGlobalDescribe.get(
-        sObjectName.toLowerCase()
-      );
-      if (token != null) {
-        result = new fflib_SObjectDescribe(token);
-      }
-    }
-    return result;
+    return getDescribe(wrappedGlobalDescribe.get(sObjectName));
   }
 
   @NamespaceAccessible
@@ -269,8 +260,7 @@ public inherited sharing class fflib_SObjectDescribe {
     if (token == null) {
       return null;
     }
-    return instanceCache.get(String.valueOf(token).toLowerCase()) ??
-      new fflib_SObjectDescribe(token);
+    return instanceCache.get(token) ?? new fflib_SObjectDescribe(token);
   }
 
   @NamespaceAccessible
