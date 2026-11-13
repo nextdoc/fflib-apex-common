@@ -224,7 +224,7 @@ public inherited sharing virtual class fflib_Application {
     @NamespaceAccessible
     protected Map<SObjectType, fflib_ISObjectSelector> m_sObjectByMockSelector;
     @NamespaceAccessible
-    protected Map<Set<Id>, SObjectType> m_sObjectTypeByValidatedIds = new Map<Set<Id>, SObjectType>();
+    protected Map<SObjectType, Set<Id>> m_validatedIdsBySObjectType = new Map<SObjectType, Set<Id>>();
 
     /**
      * Constructs a simple Selector Factory
@@ -287,19 +287,32 @@ public inherited sharing virtual class fflib_Application {
       }
 
       // Determine SObjectType
-      SObjectType domainSObjectType = m_sObjectTypeByValidatedIds.get(
-        recordIds
-      );
+      SObjectType domainSObjectType = findValidatedSObjectType(recordIds);
       if (domainSObjectType == null) {
         domainSObjectType = resolveSObjectType(recordIds);
-        if (m_sObjectTypeByValidatedIds.size() >= 16) {
-          m_sObjectTypeByValidatedIds.clear();
+        Set<Id> validatedIds = m_validatedIdsBySObjectType.get(
+          domainSObjectType
+        );
+        if (validatedIds == null || validatedIds.size() > 10000) {
+          validatedIds = new Set<Id>();
+          m_validatedIdsBySObjectType.put(domainSObjectType, validatedIds);
         }
-        m_sObjectTypeByValidatedIds.put(recordIds.clone(), domainSObjectType);
+        validatedIds.addAll(recordIds);
       }
 
       // Construct Selector class and query by Id for the records
       return newInstance(domainSObjectType).selectSObjectsById(recordIds);
+    }
+
+    private SObjectType findValidatedSObjectType(Set<Id> recordIds) {
+      for (SObjectType validatedType : m_validatedIdsBySObjectType.keySet()) {
+        if (
+          m_validatedIdsBySObjectType.get(validatedType).containsAll(recordIds)
+        ) {
+          return validatedType;
+        }
+      }
+      return null;
     }
 
     private SObjectType resolveSObjectType(Set<Id> recordIds) {
