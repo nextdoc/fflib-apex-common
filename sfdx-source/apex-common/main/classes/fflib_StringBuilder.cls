@@ -136,13 +136,17 @@ public virtual inherited sharing class fflib_StringBuilder {
       List<Schema.FieldSet> fieldSets
     ) {
       // Create a distinct set of fields (or field paths) to select
-      for (Schema.SObjectField value : values)
+      for (Schema.SObjectField value : values) {
         add(String.valueOf(value)); // Alternative to value.getDescribe().getName()
+      }
 
-      if (fieldSets != null)
-        for (Schema.Fieldset fieldSet : fieldSets)
-          for (Schema.FieldSetMember fieldSetMember : fieldSet.getFields())
+      if (fieldSets != null) {
+        for (Schema.Fieldset fieldSet : fieldSets) {
+          for (Schema.FieldSetMember fieldSetMember : fieldSet.getFields()) {
             add(fieldSetMember.getFieldPath());
+          }
+        }
+      }
     }
   }
 
@@ -164,8 +168,9 @@ public virtual inherited sharing class fflib_StringBuilder {
       super(values, fieldSets);
 
       // Dynamically add CurrencyIsoCode field for multi-currency organisations
-      if (UserInfo.isMultiCurrencyOrganization())
+      if (UserInfo.isMultiCurrencyOrganization()) {
         add('CurrencyIsoCode');
+      }
     }
   }
 }
