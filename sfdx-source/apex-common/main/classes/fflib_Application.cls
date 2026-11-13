@@ -565,13 +565,17 @@ public inherited sharing virtual class fflib_Application {
       SObjectType sType,
       fflib_ISObjectDomain mockDomain
     ) {
-      mockDomainByObject.put((Object) sType, (fflib_IDomain) mockDomain);
+      putMock((Object) sType, (fflib_IDomain) mockDomain);
     }
 
     @TestVisible
     @NamespaceAccessible
     protected virtual void setMock(fflib_IDomain mockDomain) {
-      mockDomainByObject.put(mockDomain.getType(), mockDomain);
+      putMock(mockDomain.getType(), mockDomain);
+    }
+
+    private void putMock(Object key, fflib_IDomain mockDomain) {
+      mockDomainByObject.put(key, mockDomain);
     }
 
     @NamespaceAccessible
