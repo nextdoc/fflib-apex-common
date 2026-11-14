@@ -1537,5 +1537,189 @@
         }
       ]
     }
+  },
+  {
+    "name": "unit-of-work-style-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_SObjectUnitOfWork.cls",
+      "sfdx-source/apex-common/main/classes/fflib_ISObjectUnitOfWork.cls"
+    ],
+    "branch": "ascent/unit-of-work-style-1",
+    "report": "ascents/unit-of-work-style-1/report.html?refresh=off",
+    "retro": {
+      "ascent": "unit-of-work-style-1",
+      "at": "2026-11-14T07:47:19.645Z",
+      "base": "4c873319ebc31da13128ee24ce682108ddba1c82",
+      "head": "d0b63be065d987267241e614f8717cb642fb4b1a",
+      "changedTests": [],
+      "step": {
+        "model": "claude-opus-5-5",
+        "durationMs": 121817,
+        "costUsd": 0.7829123999999998
+      },
+      "summary": "Only fflib_SObjectUnitOfWork changed. It drove PMD 43.9→100 (iteration 1), Code coverage 79.2→80.7 (iterations 3 and 7) and Limit headroom 59.9→71.2 in headroomBulkCommitWork (iterations 6–8). Resource efficiency barely moved: fflib_SObjectUnitOfWorkTest stayed at 94 and fflib_ApplicationTest went 81→80.9, which is noise. Iterations 1, 3, 6 and 8 are behaviour-equivalent apart from edge cases that can't happen in practice. The one real semantic change is iteration 7's per-type 'all resolved' cache in Relationships.resolve(), which makes the unit of work stateful across phases and across repeated commitWork calls.",
+      "behaviourChanges": [
+        {
+          "code": "B1",
+          "title": "Relationships.resolve() skips re-resolution once a pass fully resolves, including on later commitWork calls",
+          "detail": "m_resolvedCount is set after a pass in which every relationship resolved, and it is never reset. Later passes in the same commit (the upsert and update phases) and every pass in a later commitWork on the same instance return early unless new relationships were added. In the baseline, any relationship whose lookup no longer equalled the parent Id was re-written with that Id in each phase. It now differs when (a) a resolved lookup field is changed between phases, e.g. by a custom IDML or an onDMLStarting/onRegisterType subclass hook, or (b) a caller reuses a unit of work, changes a child lookup or resets records after a failed or rolled-back commit, and calls commitWork again: the stale or edited value is kept instead of being overwritten with the parent Id. Incomplete passes (parent Id blank) are not cached, so the out-of-order and partial-failure retry paths still work.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:1037-1051, 856-858, 918",
+          "iterations": [
+            7
+          ],
+          "severity": "medium",
+          "caughtByTests": false,
+          "proposedTest": "Register a new Account and registerNew(opp, Opportunity.AccountId, acc), then commitWork with MockDML. Set opp.AccountId to a different generated Id, clear opp.Id, and commitWork again on the same uow. Assert that the second insert's AccountId equals acc.Id, as in the baseline."
+        },
+        {
+          "code": "B2",
+          "title": "Relationship.resolve now returns success; the completion signal for EmailRelationship and RelationshipByExternalId is always true",
+          "detail": "EmailRelationship.resolve returns true even when relatedTo.Id is blank and WhatId is set to null. Combined with the cache, a second resolveEmailRelationships() in a reused unit of work no longer re-applies WhatId. Within a single commit, behaviour is unchanged.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:1174-1177, 964-966",
+          "iterations": [
+            7
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Reuse a uow across two commitWork calls with registerRelationship(email, opp). Between commits, call email.setWhatId(null) and assert that WhatId equals opp.Id after the second commit."
+        },
+        {
+          "code": "B3",
+          "title": "registerDirty(record, field, parent) no longer re-validates against m_newListByType",
+          "detail": "The baseline validated the type against m_dirtyMapByType and then again against m_newListByType, through registerRelationship. Now only m_dirtyMapByType is checked before m_relationships.get(...). The maps are protected, so a subclass that edits them (e.g. in onRegisterType) so their keys differ now gets a NullPointerException, or a silent add, instead of UnitOfWorkException 'not supported'. With the stock handleRegisterType, the two maps always have the same keys.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:63-79, 289-294, 534-544",
+          "iterations": [
+            8
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "In a derived unit of work, remove a type from m_relationships in onRegisterType. Assert that registerDirty(existing, field, parent) throws UnitOfWorkException rather than NullPointerException, or document that it doesn't."
+        },
+        {
+          "code": "B4",
+          "title": "assertForNonEventSObjectType edge semantics",
+          "detail": "endsWithIgnoreCase('__e') equals the baseline check (Apex string == ignores case) except for the literal string '__e', which is not a real type name. assertForEventSObjectType still uses length/right, so the two helpers are now asymmetric.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:997, 1010",
+          "iterations": [
+            8
+          ],
+          "severity": "low",
+          "caughtByTests": true,
+          "proposedTest": "Call assertForNonEventSObjectType('My_Event__E') and assert it throws, to pin the case-insensitivity."
+        },
+        {
+          "code": "B5",
+          "title": "External-id registerRelationship exception now comes from the shared helper",
+          "detail": "The exception type and message are identical; only the stack frame differs.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:457-460",
+          "iterations": [
+            3
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Call registerRelationship(new Account(), Account.ParentId, Account.Id, 'x') on a uow without Account and assert the 'not supported' message."
+        },
+        {
+          "code": "B6",
+          "title": "DEFERRED describe in name-only lookups",
+          "detail": "getName() is identical under SObjectDescribeOptions.DEFERRED. There is no functional change, and the DEFERRED and eager describe results are not mixed in any one place.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:283, 616, 895, 903, 914, 926, 979, 989",
+          "iterations": [
+            1
+          ],
+          "severity": "low",
+          "caughtByTests": true,
+          "proposedTest": ""
+        }
+      ],
+      "patterns": [
+        {
+          "code": "P1",
+          "title": "Cache invalidation by list size",
+          "detail": "The skip relies on m_relationships being append-only and on resolved lookups never being changed later. Both are unstated invariants, and the cache is never reset between commits.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:1037-1051",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P2",
+          "title": "Side-effecting call kept as the left operand of &&",
+          "detail": "allResolved = relationship.resolve() && allResolved depends on operand order for correctness. It is correct, but easy to break by 'tidying' it.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:1046",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P3",
+          "title": "Adding to Relationships directly after the caller has validated the type",
+          "detail": "This removes a duplicate describe and asserts per call without changing order or messages, as long as the protected maps keep the same keys.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:391-394, 541-543",
+          "verdict": "good"
+        },
+        {
+          "code": "P4",
+          "title": "Reusing assertForSupportedSObjectType instead of a copied throw",
+          "detail": "Removes duplicated code with an identical message.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:458",
+          "verdict": "good"
+        },
+        {
+          "code": "P5",
+          "title": "Partial DEFERRED adoption",
+          "detail": "Commit loops and handleRegisterType use DEFERRED, but the register methods (385, 411, 457, 501, 542) and the delete and recycle-bin loops (945, 957) still use the eager getDescribe(), presumably because PMD's rule misses the chained form. This is inconsistent style.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:385, 945, 957",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P6",
+          "title": "Asymmetric event-type helpers",
+          "detail": "One helper uses endsWithIgnoreCase and the other uses length/right.",
+          "evidence": "fflib_SObjectUnitOfWork.cls:997, 1010",
+          "verdict": "questionable"
+        }
+      ],
+      "testGaps": [
+        {
+          "code": "T1",
+          "title": "Reusing a unit of work across commits",
+          "detail": "No test calls commitWork twice on one instance, so the persistent m_resolvedCount is untested.",
+          "proposedTest": "Commit twice with MockDML, changing the child lookup in between. Assert that the parent Id is re-applied."
+        },
+        {
+          "code": "T2",
+          "title": "Lookup changed between the insert and update phases",
+          "detail": "No test changes a resolved field during commit, e.g. a custom IDML whose dmlInsert or dmlUpsert alters child lookups. The baseline re-resolved such fields in the update phase.",
+          "proposedTest": "Use a custom IDML that nulls Opportunity.AccountId in dmlInsert for a dirty Opportunity registered with registerDirty(opp, AccountId, acc) when Opportunity is ordered after Account. Assert the updated record's AccountId."
+        },
+        {
+          "code": "T3",
+          "title": "Parent supplied by the upsert phase",
+          "detail": "The cache is reached from the upsert phase, but no test has a dirty child whose parent only gets its Id from upsert.",
+          "proposedTest": "registerUpsert a new Account, registerDirty(existingOpp, Opportunity.AccountId, account) and commit. Assert the updated opp's AccountId equals account.Id."
+        },
+        {
+          "code": "T4",
+          "title": "External-id relationship path",
+          "detail": "No test calls registerRelationship(record, field, externalIdField, value) or RelationshipByExternalId.resolve/isResolved.",
+          "proposedTest": "Use a custom object with an external-id field, or a test-only stub, and assert putSObject is populated and an unsupported type throws."
+        },
+        {
+          "code": "T5",
+          "title": "headroomBulkCommitWork correctness",
+          "detail": "The bulk test measures limits but its correctness assertions weren't checked here. Ensure it asserts that resolved lookups appear on inserted and updated records at volume.",
+          "proposedTest": "After the bulk commit, assert every Task.WhoId equals its Contact Id and every dirty Opportunity.AccountId equals its Account Id."
+        }
+      ],
+      "other": [
+        {
+          "code": "X1",
+          "title": "Rejected ideas worth not retrying",
+          "detail": "Iteration 5 showed that the isResolved() guard is behaviour-bearing: tests failed when it was removed. Iteration 12 showed that dereferencing a map result guarded only by a throw-only helper triggers an SFGE ApexNullPointerException. Iteration 10 failed to compile because a new private field was placed directly under @NamespaceAccessible."
+        },
+        {
+          "code": "X2",
+          "title": "Headroom gains are near the noise floor",
+          "detail": "Iterations 7 and 8 were kept on the overall margin while their focus gain (5.0 and 4.4) was below the 5-point margin, after re-measuring. Their headroom benefit is real but modest and may not reproduce."
+        }
+      ]
+    }
   }
 ]

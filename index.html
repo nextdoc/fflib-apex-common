@@ -72,6 +72,15 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
   <p>The same code, scored from the same test and analyzer run as the map above, but with PMD run without the four brace rules (<code>IfStmtsMustUseBraces</code>, <code>IfElseStmtsMustUseBraces</code>, <code>ForLoopsMustUseBraces</code>, <code>WhileLoopsMustUseBraces</code>), which flag fflib's choice to leave braces out of one-line bodies. This removes 198 of the 229 PMD violations. Six of the ten groups reach a PMD score of 100. SObjects, Unit of work and SObject describe stay lower because of <code>OneDeclarationPerLine</code> and <code>EagerlyLoadedDescribeSObjectResult</code>.</p>
   <iframe class="map-frame" src="map/after-style.html" title="Scored map of fflib-apex-common without the PMD brace rules"></iframe>
 
+  <h2>Ascents adjusted for style</h2>
+  <p>The same groups climbed again with the four brace rules left out of PMD, from the lowest scoring group on the map above. They are running now, and each appears here when it is done.</p>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>Ascent</th><th>Classes</th><th>Iterations</th><th>Before</th><th>Change</th><th>After</th><th>Links</th></tr></thead>
+      <tbody id="ascents-style"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
   <h2>Data</h2>
   <p><a href="ascents.json">ascents.json</a> lists every ascent with its scores and links. <a href="retros.json">retros.json</a> collects every ascent's retrospective (behaviour changes, patterns, test gaps) in one file.</p>
 </main>
@@ -89,9 +98,9 @@ for (const mapFrame of document.querySelectorAll(".map-frame")) {
   else mapFrame.addEventListener("load", fitMap);
 }
 const gainPct =(a) => (a.best.overall - a.baseline.overall) / a.baseline.overall * 100;
-fetch("ascents.json").then((r) => r.json()).then((list) => {
+const rows = (list) => {
   const maxGain = Math.max(...list.map(gainPct));
-  document.getElementById("ascents").innerHTML = list.map((a) => `
+  return list.length === 0 ? '<tr><td colspan="7" class="muted">None yet.</td></tr>' : list.map((a) => `
     <tr>
       <td>${esc(a.name)}<br><span class="muted">${esc(a.startedAt.slice(0, 10))}</span></td>
       <td>${a.app.map((p) => esc(p.split("/").pop().replace(/\.cls$/, ""))).join("<br>")}</td>
@@ -101,7 +110,14 @@ fetch("ascents.json").then((r) => r.json()).then((list) => {
       <td class="num up">${a.best.overall.toFixed(1)}</td>
       <td><a href="${esc(a.report)}">Report</a> · <a href="${repo}/tree/${esc(a.branch)}">Branch</a>${a.retro ? ` · <a href="${esc(a.retro)}">Retro JSON</a>` : ""}</td>
     </tr>`).join("");
-}).catch(() => { document.getElementById("ascents").innerHTML = '<tr><td colspan="7">Could not load ascents.json</td></tr>'; });
+};
+const styled = (a) => (a.excludedPmdRules ?? []).length > 0;
+fetch("ascents.json").then((r) => r.json()).then((list) => {
+  document.getElementById("ascents").innerHTML = rows(list.filter((a) => !styled(a)));
+  document.getElementById("ascents-style").innerHTML = rows(list.filter(styled));
+}).catch(() => {
+  for (const id of ["ascents", "ascents-style"]) document.getElementById(id).innerHTML = '<tr><td colspan="7">Could not load ascents.json</td></tr>';
+});
 </script>
 </body>
 </html>

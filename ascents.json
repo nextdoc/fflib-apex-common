@@ -389,5 +389,50 @@
     "branch": "ascent/sobject-describe-1",
     "report": "ascents/sobject-describe-1/report.html?refresh=off",
     "retro": "ascents/sobject-describe-1/retro.json"
+  },
+  {
+    "name": "unit-of-work-style-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_SObjectUnitOfWork.cls",
+      "sfdx-source/apex-common/main/classes/fflib_ISObjectUnitOfWork.cls"
+    ],
+    "startedAt": "2026-11-14T07:11:05.685Z",
+    "iterations": 12,
+    "kept": 5,
+    "baseline": {
+      "overall": 79.1,
+      "scores": {
+        "PMD": 43.9,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 79.2,
+        "Test run time": 80.8,
+        "Limit headroom": 62.4,
+        "Resource efficiency": 87.5
+      }
+    },
+    "best": {
+      "overall": 88.9,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 80.7,
+        "Test run time": 82.1,
+        "Limit headroom": 71.9,
+        "Resource efficiency": 87.3
+      },
+      "iteration": 8,
+      "commit": "d0b63be065d987267241e614f8717cb642fb4b1a"
+    },
+    "branch": "ascent/unit-of-work-style-1",
+    "excludedPmdRules": [
+      "IfStmtsMustUseBraces",
+      "IfElseStmtsMustUseBraces",
+      "ForLoopsMustUseBraces",
+      "WhileLoopsMustUseBraces"
+    ],
+    "report": "ascents/unit-of-work-style-1/report.html?refresh=off",
+    "retro": "ascents/unit-of-work-style-1/retro.json"
   }
 ]
