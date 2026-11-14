@@ -389,7 +389,9 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
 
     m_newListByType.get(sObjectType).add(record);
     if (relatedToParentRecord != null && relatedToParentField != null)
-      registerRelationship(record, relatedToParentField, relatedToParentRecord);
+      m_relationships
+        .get(sObjectType)
+        .add(record, relatedToParentField, relatedToParentRecord);
   }
 
   /**
