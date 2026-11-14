@@ -795,5 +795,50 @@
     ],
     "report": "ascents/string-builder-style-1/report.html?refresh=off",
     "retro": "ascents/string-builder-style-1/retro.json"
+  },
+  {
+    "name": "objects-style-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_Objects.cls",
+      "sfdx-source/apex-common/main/classes/fflib_IObjects.cls"
+    ],
+    "startedAt": "2026-11-14T10:46:39.118Z",
+    "iterations": 8,
+    "kept": 4,
+    "baseline": {
+      "overall": 86.2,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 90.5,
+        "Test run time": 74.2,
+        "Limit headroom": 58.3,
+        "Resource efficiency": 80.5
+      }
+    },
+    "best": {
+      "overall": 93.8,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 97.3,
+        "Test run time": 80.4,
+        "Limit headroom": 97.5,
+        "Resource efficiency": 81.1
+      },
+      "iteration": 5,
+      "commit": "4d64d2364961ad14abb24d8144d7a41750d36307"
+    },
+    "branch": "ascent/objects-style-1",
+    "excludedPmdRules": [
+      "IfStmtsMustUseBraces",
+      "IfElseStmtsMustUseBraces",
+      "ForLoopsMustUseBraces",
+      "WhileLoopsMustUseBraces"
+    ],
+    "report": "ascents/objects-style-1/report.html?refresh=off",
+    "retro": "ascents/objects-style-1/retro.json"
   }
 ]
