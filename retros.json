@@ -1866,5 +1866,108 @@
         }
       ]
     }
+  },
+  {
+    "name": "sobjects-style-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_SObjects.cls",
+      "sfdx-source/apex-common/main/classes/fflib_ISObjects.cls"
+    ],
+    "branch": "ascent/sobjects-style-1",
+    "report": "ascents/sobjects-style-1/report.html?refresh=off",
+    "retro": {
+      "ascent": "sobjects-style-1",
+      "at": "2026-11-14T08:22:32.568Z",
+      "base": "565e18ee28b5a93aa8deb4037e2eb6a9d2792176",
+      "head": "04e420b28542d951ff3881d31a07f1e0ee6655a0",
+      "changedTests": [],
+      "step": {
+        "model": "claude-opus-5-5",
+        "durationMs": 52485,
+        "costUsd": 0.4457932
+      },
+      "summary": "Only iteration 1 was kept. It turned 15 indexed loops in fflib_SObjects.cls into for-each loops and made the constructor's describe DEFERRED, which took PMD from 42.4 to 100 with no suppressions. Limit headroom (-1.0) and Resource efficiency (-1.0) fell slightly, within noise, so the expected CPU gain did not happen. Iterations 2-4 targeted CPU, none beat its noise margin, and all were discarded. Behaviour is unchanged on every tested path; the remaining differences are edge cases no test runs: a list modified during a loop, and the deferred describe exposed through a public property.",
+      "behaviourChanges": [
+        {
+          "code": "B1",
+          "title": "For-each loops throw if the record list is modified during iteration",
+          "detail": "The old loops cached the size in j and read records[i], so if a callee added to or removed from the list behind getRecords() mid-loop, the loop still finished (it skipped appended items or failed with an out-of-bounds error on removal). Apex for-each throws System.FinalException 'Cannot modify a collection while it is being iterated' instead. Library code never mutates the list inside these loops. A subclass could, though: it can override getRecords() to return a shared list, or override the virtual hooks such as error() or the addError overloads to touch domain records. Element order and null elements behave the same as before.",
+          "evidence": "fflib_SObjects.cls:97,111,132,199,223,261,280,313,346,369,408,430,456,473,498",
+          "iterations": [
+            1
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "In fflib_SObjectsTest, write a subclass whose getRecords() returns a shared list and whose error() override appends a record to that list. Call addError('x') and assert the outcome you want (either an explicit FinalException or a successful finish), so this behaviour is pinned down."
+        },
+        {
+          "code": "B2",
+          "title": "Public sObjectDescribe now holds a deferred DescribeSObjectResult",
+          "detail": "sObjectDescribe is a public @NamespaceAccessible property, and it now holds a result created with SObjectDescribeOptions.DEFERRED. Child relationships load on first access instead of up front. Subscribers and subclasses that call getChildRelationships() still get the same data, but the describe cost moves to that first call. Identity or equality comparisons against a default getDescribe() result are not guaranteed to hold. Inside the repo, only fflib_SObjectDomain reads it (isCreateable/isUpdateable/isDeletable/isUndeletable/getName at fflib_SObjectDomain.cls:252-299) plus getSObjectType(), and none of these depend on the option.",
+          "evidence": "fflib_SObjects.cls:32,55-57,86; fflib_SObjectDomain.cls:252-299",
+          "iterations": [
+            1
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Construct fflib_SObjects(new List<Account>(), Account.SObjectType) and assert that sObjectDescribe.getChildRelationships() is non-empty and matches Account.SObjectType.getDescribe().getChildRelationships().size(). Also assert that getSObjectType() == Account.SObjectType."
+        }
+      ],
+      "patterns": [
+        {
+          "code": "P1",
+          "title": "Indexed loops with comma declarations replaced by for-each",
+          "detail": "Cleaner and idiomatic. It clears OneDeclarationPerLine without suppressions. The loop variable names (record/current) match the old locals, which keeps the diff minimal.",
+          "evidence": "fflib_SObjects.cls:97-500, iteration 1",
+          "verdict": "good"
+        },
+        {
+          "code": "P2",
+          "title": "DEFERRED describe in the domain constructor",
+          "detail": "It clears EagerlyLoadedDescribeSObjectResult and costs nothing on the paths the library uses. It did not lower CPU, and iteration 4 found the describe call is already cheap.",
+          "evidence": "fflib_SObjects.cls:55-57, iterations 1 and 4",
+          "verdict": "good"
+        },
+        {
+          "code": "P3",
+          "title": "Discarding the micro-optimisations",
+          "detail": "Iterations 2 and 3 would have added null short-circuits, Set-to-List copies, and a get-then-containsKey rewrite of setFieldValueByMap. Iteration 4 would have added a lazy describe property and a duplicate state field. Each added complexity or a subtle change to null handling for no measured gain, and discarding them kept the class simpler.",
+          "evidence": "iterations 2, 3, 4",
+          "verdict": "good"
+        }
+      ],
+      "testGaps": [
+        {
+          "code": "T1",
+          "title": "CRUD-denied paths of fflib_SObjectDomain on the deferred describe",
+          "detail": "The trigger CRUD checks read SObjectDescribe.isCreateable()/getName() and so on. It is not clear the tests cover the denied branch as a user without object permission.",
+          "proposedTest": "Use System.runAs with a Minimum Access user and EnforcingTriggerCRUDSecurity enabled. Call handleBeforeInsert/Update/Delete/Undelete and assert a DomainException whose message contains the object name."
+        },
+        {
+          "code": "T2",
+          "title": "Mutating the list during iteration",
+          "detail": "Nothing tests a callee that modifies the record list during addError, clearFields or setFieldValue.",
+          "proposedTest": "See the first behaviour change: a subclass whose override appends to the shared list during addError, with the expected outcome asserted."
+        },
+        {
+          "code": "T3",
+          "title": "Null element in the records list",
+          "detail": "The old and new loops both throw NullPointerException on a null element, but no test pins this down.",
+          "proposedTest": "new fflib_SObjects(new List<Account>{ null }, Account.SObjectType).getIdFieldValues(Account.Id) should throw NullPointerException."
+        }
+      ],
+      "other": [
+        {
+          "code": "X1",
+          "title": "Baseline aggregate scores don't match the per-test values",
+          "detail": "Each dimension has only one contributor, so the score should equal its per-test value. The baseline reports Limit headroom 57.3 against a per-test 59.8, and Resource efficiency 82.3 against a per-test 82.8. The evolved scores match their per-test values. This suggests the baseline aggregates come from a different run, which makes the reported deltas less reliable."
+        },
+        {
+          "code": "X2",
+          "title": "CPU in the headroom test is dominated by platform calls",
+          "detail": "Iterations 2-4 found that the cost is in record.get/put/contains and in dispatch work, not in loop form or describe calls. Further headroom gains would mean making fewer calls or visiting fewer records, which the current API contract may not allow."
+        }
+      ]
+    }
   }
 ]
