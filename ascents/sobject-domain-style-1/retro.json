@@ -1,0 +1,156 @@
+{
+  "ascent": "sobject-domain-style-1",
+  "at": "2026-11-14T10:28:58.525Z",
+  "base": "5e16c9d7244958f552ae3b398c12b33b550119ab",
+  "head": "1a2d88673662c2b6455c59efdbafc6fef4338192",
+  "changedTests": [],
+  "step": {
+    "model": "claude-opus-5-5",
+    "durationMs": 63028,
+    "costUsd": 0.5018894
+  },
+  "summary": "The ascent changed only fflib_SObjectDomain, and iteration 3, the only kept iteration, drove every score change: Limit headroom rose from 55.2 to 72.4 because the per-record work in getChangedRecords was cut and the constructor Type lookup is now cached. Resource efficiency rose slightly in fflib_SObjectSelectorTest (+3.0) and fflib_ApplicationTest (+1.0), but neither test class runs the changed code paths, so this is probably noise. Coverage was flat (+0.2) and Test run time rose only 1.5. For realistic trigger input the behaviour is the same as the baseline. The only differences are in degenerate cases: a null field set, and a call where all four event flags are false.",
+  "behaviourChanges": [
+    {
+      "code": "B1",
+      "title": "Null field set now throws even when nothing would be compared",
+      "detail": "Both getChangedRecords overloads now copy the set up front with new List<String>(fieldNames) or new List<Schema.SObjectField>(fieldTokens). A null set now throws a NullPointerException on every call. The baseline only touched the set inside the loop, after a matching old record was found. It therefore returned an empty list when ExistingRecords was null, when Records was empty, or when no record had an old version.",
+      "evidence": "sfdx-source/apex-common/main/classes/fflib_SObjectDomain.cls:338, :367-369",
+      "iterations": [
+        3
+      ],
+      "severity": "low",
+      "caughtByTests": false,
+      "proposedTest": "Build a domain with no ExistingRecords, call getChangedRecords((Set<String>) null) and assert that the result is an empty list, or assert the exception if the new behaviour is accepted."
+    },
+    {
+      "code": "B2",
+      "title": "Construct chain collapsed: an all-false event state now builds a domain",
+      "detail": "The baseline built the domain only when isInsert, isUpdate, isDelete or isUndelete was true. Otherwise domainObject stayed null and the next line, domainObject.Configuration, threw a NullPointerException. The evolved code always calls construct(domainRecords), using newRecords when isDelete is false. Real Trigger contexts and the MockDatabase always set one of the four flags, so this is only reachable through the private overload.",
+      "evidence": "fflib_SObjectDomain.cls:463-483",
+      "iterations": [
+        3
+      ],
+      "severity": "low",
+      "caughtByTests": false,
+      "proposedTest": "Not reachable through the public API. Document it as accepted rather than testing it."
+    },
+    {
+      "code": "B3",
+      "title": "Constructor Type cached for the whole transaction",
+      "detail": "The Type found with Type.forName is stored in a static Map<Type, Type> keyed by domain class. Resolution still runs in the same class context, so the result is the same. A null result (no Constructor inner class) is stored as null, so the cache check misses and resolution runs again, and newInstance still fails as in the baseline. The map lives for the transaction, and its memory cost is negligible.",
+      "evidence": "fflib_SObjectDomain.cls:104, :115, :472-479",
+      "iterations": [
+        3
+      ],
+      "severity": "low",
+      "caughtByTests": false,
+      "proposedTest": "Dispatch through a domain class that has no Constructor inner class twice, and assert that both calls throw the same exception."
+    },
+    {
+      "code": "B4",
+      "title": "Id read and single map lookup replace get('Id') plus containsKey/get",
+      "detail": "newRecord.Id is equivalent to (Id) newRecord.get('Id') for any SObject. One existingById?.get(...) with a null check is equivalent to the baseline's null/containsKey/get sequence, because ExistingRecords maps Ids to non-null records. A null entry in Records still throws a NullPointerException. Taking a snapshot of the field set as a List does not change the result. With 200-record trigger batches, CPU now drops roughly in proportion to records × fields.",
+      "evidence": "fflib_SObjectDomain.cls:336-354, :365-385",
+      "iterations": [
+        3
+      ],
+      "severity": "low",
+      "caughtByTests": true,
+      "proposedTest": "Already covered for the case where every record has an old version, by itShouldReturnTheChangedRecordsBy* (fflib_SObjectDomainTest.cls:235, :273). See testGaps for the missing cases."
+    },
+    {
+      "code": "B5",
+      "title": "oldRecordsMap.values() now evaluated once per delete dispatch",
+      "detail": "domainRecords is computed at the top of the private triggerHandler, so values() runs once per delete dispatch instead of up to twice. The before phase was previously evaluated lazily in the construct chain. Both versions fail the same way when isDelete is true and oldRecordsMap is null.",
+      "evidence": "fflib_SObjectDomain.cls:463-469",
+      "iterations": [
+        3
+      ],
+      "severity": "low",
+      "caughtByTests": true,
+      "proposedTest": "Covered by the existing delete-dispatch tests."
+    }
+  ],
+  "patterns": [
+    {
+      "code": "P1",
+      "title": "Hoisting property getters and lookups out of hot loops",
+      "detail": "ExistingRecords and Records are read into locals once, and one map get is checked for null instead of containsKey followed by get. This is the right kind of change for CPU-bound bulk trigger code, and it keeps the code readable.",
+      "evidence": "fflib_SObjectDomain.cls:336-344",
+      "verdict": "good"
+    },
+    {
+      "code": "P2",
+      "title": "Indexed loops over a List copy of a Set",
+      "detail": "Copying the Set to a List and using index-based loops with cached sizes adds 4-5 lines per method, and the two overloads are almost identical. The cost is readability and duplication for a small per-call gain.",
+      "evidence": "fflib_SObjectDomain.cls:338-353, :367-384",
+      "verdict": "questionable"
+    },
+    {
+      "code": "P3",
+      "title": "Static Type-resolution cache",
+      "detail": "A lazily filled Map<Type, Type> is a common and safe pattern. The new field has no doc comment, unlike the neighbouring TriggerStateByClass and TriggerEventByClass, which both have one.",
+      "evidence": "fflib_SObjectDomain.cls:97-104",
+      "verdict": "good"
+    },
+    {
+      "code": "P4",
+      "title": "Collapsing redundant if/else-if construct chain",
+      "detail": "Three of the four branches were identical, so computing domainRecords once is a real simplification. As a side effect, the code no longer fails fast when no event flag is set.",
+      "evidence": "fflib_SObjectDomain.cls:483",
+      "verdict": "good"
+    },
+    {
+      "code": "P5",
+      "title": "Removal of explanatory comment on break",
+      "detail": "The comment `// prevents the records from being added multiple times` was dropped with no behaviour reason. This is a small loss of intent for the next reader.",
+      "evidence": "fflib_SObjectDomain.cls:351, :382",
+      "verdict": "questionable"
+    }
+  ],
+  "testGaps": [
+    {
+      "code": "T1",
+      "title": "Records with no old version",
+      "detail": "In both unit tests every new record has an entry in ExistingRecords, so the continue path is only covered by luck through other tests.",
+      "proposedTest": "Add a new record whose Id is missing from ExistingRecords, change one of its fields, and assert it is not returned by either overload."
+    },
+    {
+      "code": "T2",
+      "title": "Missing ExistingRecords",
+      "detail": "When ExistingRecords resolves to null (outside a trigger, with no mock data), the code must return an empty list. Nothing tests this.",
+      "proposedTest": "Build a domain outside a trigger with no mock database records, call both overloads with a valid field set, and assert the result is empty."
+    },
+    {
+      "code": "T3",
+      "title": "Empty or null field set",
+      "detail": "No test covers an empty field set (which should return empty) or a null field set (where the behaviour changed).",
+      "proposedTest": "Assert that an empty Set returns an empty list. Then call with null and assert the exception that is now expected."
+    },
+    {
+      "code": "T4",
+      "title": "Headroom test barely checks correctness",
+      "detail": "headroomBulkTriggerDispatch only asserts HEADROOM_CHANGED > 0, so a wrong change-detection count would still pass.",
+      "proposedTest": "Compute the expected changed count from the generated data (records with i%5==0, i%3==0, or a different rating index) and assert HEADROOM_CHANGED equals expected * rounds for each overload."
+    },
+    {
+      "code": "T5",
+      "title": "Repeated dispatch through the constructor cache",
+      "detail": "No test checks that a second dispatch of the same class, or dispatches of two different classes, each get the correct constructor type from the cache.",
+      "proposedTest": "Dispatch class A, then class B, then class A, and assert that each dispatch built an instance of the correct domain type."
+    }
+  ],
+  "other": [
+    {
+      "code": "X1",
+      "title": "Resource efficiency changes are probably noise",
+      "detail": "fflib_ApplicationTest and fflib_SObjectSelectorTest do not exercise getChangedRecords or the triggerHandler dispatch in bulk. Their +1.0 and +3.0 are best treated as measurement noise, not a gain from this change."
+    },
+    {
+      "code": "X2",
+      "title": "Discarded iterations confirm where the cost lies",
+      "detail": "Iterations 4-6 (final static fields, a single get in getTriggerEvent, hoisting values() into the mock path, reading by token instead of by name) did not move headroom at all. This confirms that the cost is the per-record loop work in getChangedRecords, not the per-dispatch overhead."
+    }
+  ]
+}
