@@ -11,6 +11,7 @@ body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 syste
 main { max-width: 880px; margin: 0 auto; padding: 40px 16px 64px; }
 h1 { font-size: 28px; margin: 0 0 8px; }
 h2 { font-size: 19px; margin: 40px 0 12px; }
+h3 { font-size: 16px; margin: 24px 0 8px; }
 p { margin: 0 0 12px; }
 a { color: var(--accent); }
 .muted { color: var(--muted); }
@@ -34,6 +35,7 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
   <ol>
     <li>Explore the map below to see how the library is grouped and how each group scored before any ascent.</li>
     <li>Explore the ascents for each group. Each ascent's report shows every change the agent tried and why it was kept or discarded, and its retrospective sums up the behaviour changes and patterns.</li>
+    <li>To do: compare the <a href="#map">out of the box map</a> and its ascents with the <a href="#map-style">map adjusted for style</a> and its ascents, which are running now.</li>
     <li>Read the <a href="summary.html">summary</a> of what all the ascents taught us, both about fflib itself and about how to climb better.</li>
   </ol>
   <p>Highlights for the fflib authors (<a href="summary.html#fflib">read the fflib findings</a>):</p>
@@ -46,7 +48,7 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
   </ul>
   <p>Caveats:</p>
   <ul>
-    <li>PMD ran with Salesforce Code Analyzer's default rules and settings. fflib often leaves out braces, which is a valid style choice, and PMD can be configured not to flag it.</li>
+    <li>PMD ran with Salesforce Code Analyzer's default rules and settings. fflib often leaves out braces, which is a valid style choice, and PMD can be configured not to flag it. The <a href="#map-style">map adjusted for style</a> shows the scores without the brace rules.</li>
     <li>The headroom tests that measure performance were written for these climbs and are not part of fflib. They repeat the same input many times, so the performance findings reflect those tests, not real workloads.</li>
     <li>Each ascent ran in one scratch org, and the governor limit headroom score varies by about ±12 between runs, so small performance differences are within noise.</li>
     <li>No anchoring was done. Anchoring means adding tests that fix the expected behaviour before the agent changes the code. We are not fflib's maintainers or authors, so we did not presume what the correct behaviour or the right tests are.</li>
@@ -54,9 +56,9 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
   </ul>
   <p>If you are a coding agent, use the retrospective JSON files: one per ascent, linked in the table, or all of them in <a href="retros.json">retros.json</a>.</p>
 
-  <h2>Map</h2>
-  <p>The library grouped by area, sized by lines of code and coloured by score.</p>
-  <iframe class="map-frame" id="map-frame" src="map/after.html" title="Scored map of fflib-apex-common"></iframe>
+  <h2 id="map">Map</h2>
+  <p>The library grouped by area, sized by lines of code and coloured by score. Scored before any ascent, with Salesforce Code Analyzer's default PMD rules, as the ascents were scored.</p>
+  <iframe class="map-frame" src="map/after.html" title="Scored map of fflib-apex-common with default PMD rules"></iframe>
 
   <h2>Ascents</h2>
   <div class="wrap">
@@ -66,21 +68,26 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
     </table>
   </div>
 
+  <h2 id="map-style">Map adjusted for style</h2>
+  <p>The same code, scored from the same test and analyzer run as the map above, but with PMD run without the four brace rules (<code>IfStmtsMustUseBraces</code>, <code>IfElseStmtsMustUseBraces</code>, <code>ForLoopsMustUseBraces</code>, <code>WhileLoopsMustUseBraces</code>), which flag fflib's choice to leave braces out of one-line bodies. This removes 198 of the 229 PMD violations. Six of the ten groups reach a PMD score of 100. SObjects, Unit of work and SObject describe stay lower because of <code>OneDeclarationPerLine</code> and <code>EagerlyLoadedDescribeSObjectResult</code>.</p>
+  <iframe class="map-frame" src="map/after-style.html" title="Scored map of fflib-apex-common without the PMD brace rules"></iframe>
+
   <h2>Data</h2>
   <p><a href="ascents.json">ascents.json</a> lists every ascent with its scores and links. <a href="retros.json">retros.json</a> collects every ascent's retrospective (behaviour changes, patterns, test gaps) in one file.</p>
 </main>
 <script>
 const repo = "https://github.com/nextdoc/fflib-apex-common";
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-const mapFrame = document.getElementById("map-frame");
-const fitMap = () => {
-  const doc = mapFrame.contentDocument;
-  const fit = () => { mapFrame.style.height = doc.documentElement.scrollHeight + "px"; };
-  new ResizeObserver(fit).observe(doc.body);
-  fit();
-};
-if (mapFrame.contentDocument?.readyState === "complete" && mapFrame.contentDocument.URL !== "about:blank") fitMap();
-else mapFrame.addEventListener("load", fitMap);
+for (const mapFrame of document.querySelectorAll(".map-frame")) {
+  const fitMap = () => {
+    const doc = mapFrame.contentDocument;
+    const fit = () => { mapFrame.style.height = doc.documentElement.scrollHeight + "px"; };
+    new ResizeObserver(fit).observe(doc.body);
+    fit();
+  };
+  if (mapFrame.contentDocument?.readyState === "complete" && mapFrame.contentDocument.URL !== "about:blank") fitMap();
+  else mapFrame.addEventListener("load", fitMap);
+}
 const gainPct =(a) => (a.best.overall - a.baseline.overall) / a.baseline.overall * 100;
 fetch("ascents.json").then((r) => r.json()).then((list) => {
   const maxGain = Math.max(...list.map(gainPct));

@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Apex map</title>
+<script src="https://cdn.jsdelivr.net/npm/vega@5.30.0/build/vega.min.js" integrity="sha384-em7CHpJd+SsMugVFf6TY7AKQcLWMcbPhD84hmNK8o6WFDkK+2uHSUQRVQV1/w827" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6.26.0/build/vega-embed.min.js" integrity="sha384-TqXb8su49m5OnEpKGO8m+VrgHesrUxyP22HgpXi4hnh1Hm43dXroiSYemNf5D8lv" crossorigin="anonymous"></script>
+<style>
+:root{--surface:#fcfcfb;--text:#0b0b0b;--muted:#52514e;--grid:#e6e5e0;--unscored:#b5b4ae;--low:#b8433a;--mid:#d9a425;--high:#1f7a3d}
+@media (prefers-color-scheme:dark){:root{--surface:#1a1a19;--text:#fff;--muted:#c3c2b7;--grid:#383835;--unscored:#5e5d59;--low:#e0675d;--mid:#e0b43c;--high:#4cc176}}
+body{margin:0;padding:24px 16px;background:var(--surface);color:var(--text);font:14px/1.4 system-ui,sans-serif}
+main{max-width:1280px;margin:0 auto}
+h1{font-size:20px;margin:0 0 4px}
+.meta{color:var(--muted);font-size:13px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:4px 16px}
+.meta b{color:var(--text);font-weight:600}
+code{font:12px ui-monospace,monospace}
+#map{width:100%;position:relative}
+h2{font-size:16px;margin:24px 0 8px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:4px 8px;border-bottom:1px solid var(--grid)}
+td.n,th.n{text-align:right}
+.wrap{overflow-x:auto}
+#tip{position:fixed;z-index:10;display:none;max-width:360px;padding:10px 12px;background:var(--surface);color:var(--text);border:1px solid var(--grid);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.18);font-size:12px;pointer-events:none}
+#tip h3{font-size:14px;margin:0 0 2px}
+#tip p{color:var(--muted);margin:0 0 8px}
+#tip table{font-size:12px}
+#tip th,#tip td{padding:2px 6px 2px 0;vertical-align:top}
+#tip th{color:var(--muted);font-weight:500;white-space:nowrap}
+#tip .dims{margin-top:8px}
+#tip .dims th{color:var(--text);font-weight:600}
+#tip .bar{display:inline-block;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle}
+#tip .skipped{color:var(--muted)}
+.head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 16px}
+.filter{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}
+.filter .pill{margin:0}
+.clear{font:inherit;font-size:12px;color:var(--text);background:none;border:1px solid var(--grid);border-radius:4px;padding:1px 8px;cursor:pointer}
+.pill{display:inline-block;margin:0 4px 4px 0;padding:0 8px;border:0;border-radius:999px;background:var(--pill-light);color:#111;font:11px/18px system-ui,sans-serif;white-space:nowrap;cursor:pointer}
+@media (prefers-color-scheme:dark){.pill{background:var(--pill-dark);color:#fff}}
+.pills{position:absolute;overflow:hidden;pointer-events:none}
+.pills .pill{pointer-events:auto}
+.faded{opacity:.15}
+.hide{margin-left:auto;display:flex;align-items:center;gap:4px;cursor:pointer}
+.hide[hidden]{display:none}
+</style>
+</head>
+<body>
+<main>
+<div class="head"><h1>Apex map</h1><div class="filter" id="filter"></div></div>
+<div class="meta" id="meta"></div>
+<div id="map"></div>
+<div id="tip" role="tooltip"></div>
+<h2>Unmapped classes</h2>
+<div class="wrap" id="unmapped"></div>
+</main>
+<script>
+const data = {"source":"target/map/fflib-style/map.json","approved":true,"scored":true,"groups":[{"id":"application","name":"Application factories","description":"Configures and creates the unit of work, services, selectors and domains for an application.","classes":["fflib_Application","fflib_IDomain","fflib_IDomainConstructor","fflib_IDomainFactory","fflib_ISelectorFactory","fflib_IServiceFactory","fflib_IUnitOfWorkFactory"],"tests":["fflib_ApplicationTest"],"fixtures":[],"lines":{"classes":652,"tests":709},"score":{"overall":96,"dimensions":{"PMD":92.6,"Graph Engine":96.2,"Tests passing":100,"Code coverage":88.1,"Test run time":99.4,"Resource efficiency":100},"skipped":["Limit headroom"],"classes":["fflib_Application","fflib_IDomain","fflib_IDomainConstructor","fflib_IDomainFactory","fflib_ISelectorFactory","fflib_IServiceFactory","fflib_IUnitOfWorkFactory"],"tests":["fflib_ApplicationTest"],"run":"target/map/fflib-style/runs/application","scoredAt":"2026-11-14T07:02:03.596Z"},"changed":false},{"id":"objects","name":"Objects","description":"Domain base class for a typed list of any objects.","classes":["fflib_Objects","fflib_IObjects"],"tests":["fflib_ObjectsTest"],"fixtures":[],"lines":{"classes":195,"tests":236},"score":{"overall":99.1,"dimensions":{"PMD":100,"Graph Engine":100,"Tests passing":100,"Code coverage":94.6,"Test run time":99.8,"Resource efficiency":100},"skipped":["Limit headroom"],"classes":["fflib_Objects","fflib_IObjects"],"tests":["fflib_ObjectsTest"],"run":"target/map/fflib-style/runs/objects","scoredAt":"2026-11-14T07:02:03.596Z"},"changed":false},{"id":"sobjects","name":"SObjects","description":"Domain base class for a list of records, with field getters, setters and filters.","classes":["fflib_SObjects","fflib_ISObjects"],"tests":["fflib_SObjectsTest"],"fixtures":[],"lines":{"classes":630,"tests":505},"score":{"overall":90.2,"dimensions":{"PMD":42.4,"Graph Engine":100,"Tests passing":100,"Code coverage":99.5,"Test run time":99.5,"Resource efficiency":100},"skipped":["Limit headroom"],"classes":["fflib_SObjects","fflib_ISObjects"],"tests":["fflib_SObjectsTest"],"run":"target/map/fflib-style/runs/sobjects","scoredAt":"2026-11-14T07:02:03.597Z"},"changed":false},{"id":"sobject-domain","name":"SObject domain","description":"Trigger handler base class that dispatches trigger events to domain methods.","classes":["fflib_SObjectDomain","fflib_ISObjectDomain"],"tests":["fflib_SObjectDomainTest"],"fixtures":[],"lines":{"classes":1149,"tests":499},"score":{"overall":98.4,"dimensions":{"PMD":100,"Graph Engine":100,"Tests passing":100,"Code coverage":91.3,"Test run time":99.3,"Resource efficiency":100},"skipped":["Limit headroom"],"classes":["fflib_SObjectDomain","fflib_ISObjectDomain"],"tests":["fflib_SObjectDomainTest"],"run":"target/map/fflib-style/runs/sobject-domain","scoredAt":"2026-11-14T07:02:03.597Z"},"changed":false},{"id":"sobject-selector","name":"SObject selector","description":"Selector base class that builds and runs SOQL queries for one SObject type.","classes":["fflib_SObjectSelector","fflib_ISObjectSelector"],"tests":["fflib_SObjectSelectorTest"],"fixtures":[],"lines":{"classes":626,"tests":839},"score":{"overall":94,"dimensions":{"PMD":100,"Graph Engine":100,"Tests passing":100,"Code coverage":76.2,"Test run time":88.7,"Resource efficiency":98.8},"skipped":["Limit headroom"],"classes":["fflib_SObjectSelector","fflib_ISObjectSelector"],"tests":["fflib_SObjectSelectorTest"],"run":"target/map/fflib-style/runs/sobject-selector","scoredAt":"2026-11-14T07:02:03.597Z"},"changed":false},{"id":"unit-of-work","name":"Unit of work","description":"Collects record inserts, updates, deletes and relationships, then commits them in dependency order.","classes":["fflib_SObjectUnitOfWork","fflib_ISObjectUnitOfWork"],"tests":["fflib_SObjectUnitOfWorkTest"],"fixtures":[],"lines":{"classes":1271,"tests":1062},"score":{"overall":86,"dimensions":{"PMD":43.9,"Graph Engine":100,"Tests passing":100,"Code coverage":81.1,"Test run time":96.9,"Resource efficiency":94},"skipped":["Limit headroom"],"classes":["fflib_SObjectUnitOfWork","fflib_ISObjectUnitOfWork"],"tests":["fflib_SObjectUnitOfWorkTest"],"run":"target/map/fflib-style/runs/unit-of-work","scoredAt":"2026-11-14T07:02:03.597Z"},"changed":false},{"id":"query-factory","name":"Query factory","description":"Builds SOQL strings with fields, conditions, ordering and subqueries.","classes":["fflib_QueryFactory"],"tests":["fflib_QueryFactoryTest"],"fixtures":[],"lines":{"classes":846,"tests":701},"score":{"overall":91.6,"dimensions":{"PMD":86.2,"Graph Engine":75.8,"Tests passing":100,"Code coverage":90.7,"Test run time":97.2,"Resource efficiency":100},"skipped":["Limit headroom"],"classes":["fflib_QueryFactory"],"tests":["fflib_QueryFactoryTest"],"run":"target/map/fflib-style/runs/query-factory","scoredAt":"2026-11-14T07:02:03.598Z"},"changed":false},{"id":"sobject-describe","name":"SObject describe","description":"Caches SObject and field describe results.","classes":["fflib_SObjectDescribe"],"tests":["fflib_SObjectDescribeTest"],"fixtures":[],"lines":{"classes":459,"tests":302},"score":{"overall":94.2,"dimensions":{"PMD":71.4,"Graph Engine":100,"Tests passing":100,"Code coverage":94.5,"Test run time":99.1,"Resource efficiency":100},"skipped":["Limit headroom"],"classes":["fflib_SObjectDescribe"],"tests":["fflib_SObjectDescribeTest"],"run":"target/map/fflib-style/runs/sobject-describe","scoredAt":"2026-11-14T07:02:03.598Z"},"changed":false},{"id":"security-utils","name":"Security utils","description":"Checks object CRUD and field FLS access and throws on denial.","classes":["fflib_SecurityUtils"],"tests":["fflib_SecurityUtilsTest"],"fixtures":[],"lines":{"classes":344,"tests":363},"score":{"overall":89.8,"dimensions":{"PMD":100,"Graph Engine":61,"Tests passing":100,"Code coverage":96.4,"Test run time":81.2,"Resource efficiency":100},"skipped":["Limit headroom"],"classes":["fflib_SecurityUtils"],"tests":["fflib_SecurityUtilsTest"],"run":"target/map/fflib-style/runs/security-utils","scoredAt":"2026-11-14T07:02:03.598Z"},"changed":false},{"id":"string-builder","name":"String builder","description":"Builds delimited strings and SOQL field lists.","classes":["fflib_StringBuilder"],"tests":["fflib_StringBuilderTest"],"fixtures":[],"lines":{"classes":159,"tests":156},"score":{"overall":98.8,"dimensions":{"PMD":100,"Graph Engine":100,"Tests passing":100,"Code coverage":92.7,"Test run time":99.9,"Resource efficiency":100},"skipped":["Limit headroom"],"classes":["fflib_StringBuilder"],"tests":["fflib_StringBuilderTest"],"run":"target/map/fflib-style/runs/string-builder","scoredAt":"2026-11-14T07:02:03.598Z"},"changed":false}],"unmapped":[]};
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
+
+const groups = data.groups.map(g => ({id: g.id, name: g.name, description: g.description || '', classes: g.classes.join(', '), tests: [...g.tests, ...g.fixtures].join(', '),
+  tags: Object.entries(g.tags || {}).map(([facet, value]) => ({facet, value, key: `${facet}=${value}`})),
+  tagKeys: Object.entries(g.tags || {}).map(([facet, value]) => `${facet}=${value}`), appLines: g.lines.classes, testLines: g.lines.tests, size: g.lines.classes + g.lines.tests, score: g.score ? g.score.overall : null,
+  dimensions: g.score ? g.score.dimensions : {}, skipped: g.score ? g.score.skipped : [], gate: g.score && g.score.gate, changed: g.changed}));
+const byId = Object.fromEntries(groups.map(g => [g.id, g]));
+const scores = groups.filter(g => g.score != null).map(g => g.score);
+const total = groups.reduce((n, g) => n + g.size, 0);
+const unmappedLines = data.unmapped.reduce((n, u) => n + u.lines, 0);
+
+document.getElementById('meta').innerHTML = [
+  `<span><b>Source:</b> <code>${esc(data.source)}</code></span>`,
+  `<span><b>Groups:</b> ${groups.length}</span>`,
+  `<span><b>Mapped lines:</b> ${total}</span>`,
+  `<span><b>Unmapped lines:</b> ${unmappedLines}</span>`,
+  ...(data.scored ? [`<span><b>Scored:</b> ${scores.length} of ${groups.length}</span>`] : []),
+  `<span><b>Approved:</b> ${data.approved ? 'yes' : 'no'}</span>`,
+  `<label class="hide" id="hide" hidden><input type="checkbox" id="hide-filtered"> Hide filtered groups</label>`].join('');
+
+document.getElementById('unmapped').innerHTML = data.unmapped.length === 0 ? '<p>Every class is mapped.</p>' :
+  '<table><thead><tr><th>Class</th><th>Path</th><th>Kind</th><th class="n">Lines</th><th>Reason</th></tr></thead><tbody>' +
+  data.unmapped.map(u => `<tr><td>${esc(u.name)}</td><td><code>${esc(u.path)}</code></td><td>${u.kind}</td><td class="n">${u.lines}</td><td>${esc(u.reason)}</td></tr>`).join('') +
+  '</tbody></table>';
+
+const low = scores.length ? Math.min(...scores) : 0;
+const one = n => n.toFixed(1);
+const colour = vega.scale('linear')().domain([0, 50, 100]).range([css('--low'), css('--mid'), css('--high')]).interpolate(vega.interpolate('hcl'));
+
+const row = (label, value) => `<tr><th>${label}</th><td>${value}</td></tr>`;
+
+// Golden-angle hue steps keep every tag's colour distinct.
+const hue = Object.fromEntries([...new Set(groups.flatMap(g => g.tagKeys))].sort().map((k, i) => [k, Math.round(i * 137.508) % 360]));
+const pill = t => `<button type="button" class="pill" data-tag="${esc(t.key)}" title="${esc(t.facet)}: ${esc(t.value)}"
+  style="--pill-light:hsl(${hue[t.key]} 70% 85%);--pill-dark:hsl(${hue[t.key]} 45% 32%)">${esc(t.value)}</button>`;
+
+function dimensionTable(g) {
+  const scored = Object.entries(g.dimensions).map(([name, score]) =>
+    `<tr><td>${esc(name)}</td><td class="n">${one(score)}</td><td><span class="bar" style="width:${Math.max(2, score * 0.8)}px;background:${colour(score)}"></span></td></tr>`);
+  const skipped = g.skipped.map(name => `<tr class="skipped"><td>${esc(name)}</td><td class="n">skipped</td><td>weight 0</td></tr>`);
+  return `<table class="dims"><thead><tr><th>Dimension</th><th class="n">Score</th><th></th></tr></thead><tbody>${[...scored, ...skipped].join('')}</tbody></table>`;
+}
+
+function tipHtml(g) {
+  const rows = [row('Id', `<code>${esc(g.id)}</code>`), row('Classes', esc(g.classes)), row('Tests', esc(g.tests) || 'none'),
+    row('Lines', `${g.appLines} class, ${g.testLines} test`), ...g.tags.map(t => row(esc(t.facet), pill(t)))];
+  if (g.score != null) rows.push(row('Overall', `<b>${one(g.score)}</b>, the weighted mean of the dimensions`));
+  else if (data.scored) rows.push(row('Overall', 'unscored'));
+  if (g.gate) rows.push(row('Gate', esc(g.gate)));
+  if (g.changed) rows.push(row('Changed', 'classes or tests differ from the ones scored'));
+  return `<h3>${esc(g.name)}</h3>${g.description ? `<p>${esc(g.description)}</p>` : ''}<table>${rows.join('')}</table>${g.score != null ? dimensionTable(g) : ''}`;
+}
+
+const tip = document.getElementById('tip');
+function showTip(handler, event, item, id) {
+  if (id == null || !byId[id]) { tip.style.display = 'none'; return; }
+  tip.innerHTML = tipHtml(byId[id]);
+  tip.style.display = 'block';
+  const x = event.clientX + 14, y = event.clientY + 14;
+  tip.style.left = Math.max(8, Math.min(x, innerWidth - tip.offsetWidth - 8)) + 'px';
+  tip.style.top = (y + tip.offsetHeight > innerHeight - 8 ? event.clientY - tip.offsetHeight - 14 : y) + 'px';
+}
+
+let view, filter = '';
+function drawPills() {
+  const map = document.getElementById('map');
+  map.querySelectorAll('.pills').forEach(el => el.remove());
+  map.insertAdjacentHTML('beforeend', view.data('leaves').map(d =>
+    `<div class="pills${filter !== '' && !d.tagKeys.includes(filter) ? ' faded' : ''}" style="left:${d.x0 + 10}px;top:${d.y0 + 48}px;width:${Math.max(0, d.x1 - d.x0 - 20)}px;height:${Math.max(0, d.y1 - d.y0 - 52)}px">${d.tags.map(pill).join('')}</div>`).join(''));
+}
+async function setFilter(key) {
+  filter = key;
+  const t = groups.flatMap(g => g.tags).find(t => t.key === key);
+  document.getElementById('filter').innerHTML = t ? `Filter: ${pill(t)} <button type="button" class="clear">Clear</button>` : '';
+  document.getElementById('hide').hidden = !t;
+  await view.signal('tagFilter', key).runAsync();
+  drawPills();
+}
+document.getElementById('hide-filtered').addEventListener('change', async event => {
+  await view.signal('hideFiltered', event.target.checked).runAsync();
+  drawPills();
+});
+document.addEventListener('click', event => {
+  const p = event.target.closest('.pill');
+  if (p) setFilter(p.dataset.tag === filter ? '' : p.dataset.tag);
+  else if (event.target.closest('.clear')) setFilter('');
+});
+
+const fade = {opacity: [{test: "tagFilter && indexof(datum.tagKeys, tagFilter) < 0", value: 0.15}, {value: 1}]};
+const width = document.getElementById('map').clientWidth;
+vegaEmbed('#map', {
+  $schema: 'https://vega.github.io/schema/vega/v5.json', width, height: Math.round(Math.min(560, Math.max(320, width * 0.55))), padding: 0,
+  background: css('--surface'), signals: [{name: 'tagFilter', value: ''}, {name: 'hideFiltered', value: false}],
+  data: [{name: 'tree', values: [{id: '_root'}, ...groups.map(g => ({...g, parent: '_root'}))],
+    transform: [{type: 'filter', expr: "datum.id === '_root' || !hideFiltered || !tagFilter || indexof(datum.tagKeys, tagFilter) >= 0"},
+      {type: 'stratify', key: 'id', parentKey: 'parent'},
+      {type: 'treemap', field: 'size', sort: {field: 'value', order: 'descending'}, round: true, method: 'squarify', size: [{signal: 'width'}, {signal: 'height'}]}]},
+    {name: 'leaves', source: 'tree', transform: [{type: 'filter', expr: "datum.id !== '_root'"}]}],
+  scales: [{name: 'colour', type: 'linear', domain: low === 100 ? [99, 100] : [low, (low + 100) / 2, 100], range: [css('--low'), css('--mid'), css('--high')], interpolate: 'hcl'}],
+  marks: [
+    {type: 'rect', from: {data: 'leaves'}, encode: {update: {...fade,
+      x: {field: 'x0'}, y: {field: 'y0'}, x2: {field: 'x1'}, y2: {field: 'y1'}, stroke: {value: css('--surface')}, strokeWidth: {value: 2},
+      fill: [{test: 'datum.score == null', value: css('--unscored')}, {scale: 'colour', field: 'score'}],
+      tooltip: {field: 'id'}}}},
+    {type: 'text', from: {data: 'leaves'}, interactive: false, encode: {update: {...fade,
+      x: {signal: 'datum.x0 + 10'}, y: {signal: 'datum.y0 + 10'}, baseline: {value: 'top'}, fill: {value: '#fff'}, fontSize: {value: 14}, fontWeight: {value: 600},
+      text: {field: 'name'}, limit: {signal: 'datum.x1 - datum.x0 - 20'}}}},
+    {type: 'text', from: {data: 'leaves'}, interactive: false, encode: {update: {...fade,
+      x: {signal: 'datum.x0 + 10'}, y: {signal: 'datum.y0 + 30'}, baseline: {value: 'top'}, fill: {value: '#fff'}, fontSize: {value: 12},
+      text: {signal: "datum.size + ' lines' + (datum.score == null ? '' : ' · score ' + format(datum.score, '.1f'))"}, limit: {signal: 'datum.x1 - datum.x0 - 20'}}}}]
+}, {actions: false, tooltip: showTip}).then(result => {
+  view = result.view;
+  drawPills();
+});
+</script>
+</body>
+</html>
