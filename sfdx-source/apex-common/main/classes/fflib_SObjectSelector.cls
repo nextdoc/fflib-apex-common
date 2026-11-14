@@ -114,6 +114,7 @@ public abstract with sharing class fflib_SObjectSelector implements fflib_ISObje
    **/
   private static String DEFAULT_SORT_FIELD = 'CreatedDate';
   private static String SF_ID_FIELD = 'Id';
+  private static Map<Schema.SObjectType, String> defaultOrderByCache = new Map<Schema.SObjectType, String>();
 
   /**
    * Implement this method to inform the base class of the SObject (custom or standard) to be queried
@@ -219,6 +220,9 @@ public abstract with sharing class fflib_SObjectSelector implements fflib_ISObje
   @NamespaceAccessible
   public virtual String getOrderBy() {
     if (m_orderBy == null) {
+      m_orderBy = defaultOrderByCache.get(getSObjectType());
+    }
+    if (m_orderBy == null) {
       Schema.SObjectField nameField = fflib_SObjectDescribe.getNameField(
         getSObjectType()
       );
@@ -232,6 +236,7 @@ public abstract with sharing class fflib_SObjectSelector implements fflib_ISObje
           ? DEFAULT_SORT_FIELD
           : SF_ID_FIELD;
       }
+      defaultOrderByCache.put(getSObjectType(), m_orderBy);
     }
     return m_orderBy;
   }
