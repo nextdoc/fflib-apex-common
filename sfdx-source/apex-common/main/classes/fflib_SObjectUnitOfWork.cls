@@ -453,13 +453,7 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
   ) {
     // NOTE: Due to the lack of ExternalID references on Standard Objects, this method can not be provided a standardized Unit Test. - Rick Parker
     String sObjectType = record.getSObjectType().getDescribe().getName();
-    if (!m_newListByType.containsKey(sObjectType))
-      throw new UnitOfWorkException(
-        String.format(
-          'SObject type {0} is not supported by this unit of work',
-          new List<String>{ sObjectType }
-        )
-      );
+    assertForSupportedSObjectType(m_newListByType, sObjectType);
     m_relationships.get(sObjectType)
       .add(record, relatedToField, externalIdField, externalId);
   }
