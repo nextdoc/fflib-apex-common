@@ -142,8 +142,9 @@ public inherited sharing class fflib_SecurityUtils {
   @NamespaceAccessible
   public static void checkInsert(SObjectType objType, List<String> fieldNames) {
     checkObjectIsInsertable(objType);
+    Map<String, SObjectField> fields = objType.getDescribe().fields.getMap();
     for (String fieldName : fieldNames) {
-      checkFieldIsInsertable(objType, fieldName);
+      checkFieldIsInsertable(objType, fields.get(fieldName));
     }
   }
 
@@ -171,8 +172,9 @@ public inherited sharing class fflib_SecurityUtils {
   @NamespaceAccessible
   public static void checkRead(SObjectType objType, List<String> fieldNames) {
     checkObjectIsReadable(objType);
+    Map<String, SObjectField> fields = objType.getDescribe().fields.getMap();
     for (String fieldName : fieldNames) {
-      checkFieldIsReadable(objType, fieldName);
+      checkFieldIsReadable(objType, fields.get(fieldName));
     }
   }
 
@@ -200,8 +202,9 @@ public inherited sharing class fflib_SecurityUtils {
   @NamespaceAccessible
   public static void checkUpdate(SObjectType objType, List<String> fieldNames) {
     checkObjectIsUpdateable(objType);
+    Map<String, SObjectField> fields = objType.getDescribe().fields.getMap();
     for (String fieldName : fieldNames) {
-      checkFieldIsUpdateable(objType, fieldName);
+      checkFieldIsUpdateable(objType, fields.get(fieldName));
     }
   }
 
@@ -236,7 +239,7 @@ public inherited sharing class fflib_SecurityUtils {
   ) {
     checkFieldIsInsertable(
       objType,
-      fflib_SObjectDescribe.getDescribe(objType).getField(fieldName)
+      objType.getDescribe().fields.getMap().get(fieldName)
     );
   }
 
@@ -282,7 +285,7 @@ public inherited sharing class fflib_SecurityUtils {
   ) {
     checkFieldIsReadable(
       objType,
-      fflib_SObjectDescribe.getDescribe(objType).getField(fieldName)
+      objType.getDescribe().fields.getMap().get(fieldName)
     );
   }
 
@@ -328,7 +331,7 @@ public inherited sharing class fflib_SecurityUtils {
   ) {
     checkFieldIsUpdateable(
       objType,
-      fflib_SObjectDescribe.getDescribe(objType).getField(fieldName)
+      objType.getDescribe().fields.getMap().get(fieldName)
     );
   }
 
