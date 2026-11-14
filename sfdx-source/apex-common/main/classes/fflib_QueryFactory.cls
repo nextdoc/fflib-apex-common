@@ -107,17 +107,7 @@ public inherited sharing class fflib_QueryFactory {
     if (mFlsEnforcement != FLSEnforcement.NONE || relatedSObjectType != null) {
       return resolveFieldPath(fieldName, relatedSObjectType);
     }
-    Map<String, String> paths = fieldPathCache.get(table);
-    if (paths == null) {
-      paths = new Map<String, String>();
-      fieldPathCache.put(table, paths);
-    }
-    String path = paths.get(fieldName);
-    if (path == null) {
-      path = resolveFieldPath(fieldName, null);
-      paths.put(fieldName, path);
-    }
-    return path;
+    return getCachedPath(getPathCache(table), fieldName);
   }
 
   private String resolveFieldPath(
@@ -226,9 +216,11 @@ public inherited sharing class fflib_QueryFactory {
     return describe == null ? null : describe.getField(fieldName);
   }
 
-  private static Map<Schema.SObjectType, Map<String, Schema.SObjectField>> fieldTokenCache = new Map<Schema.SObjectType, Map<String, Schema.SObjectField>>();
-  private static Map<Schema.SObjectField, String> fieldNameCache = new Map<Schema.SObjectField, String>();
-  private static Map<Schema.SObjectType, Map<String, String>> fieldPathCache = new Map<Schema.SObjectType, Map<String, String>>();
+  private static final Map<Schema.SObjectType, Map<String, Schema.SObjectField>> fieldTokenCache = new Map<Schema.SObjectType, Map<String, Schema.SObjectField>>();
+  private static final Map<Schema.SObjectField, String> fieldNameCache = new Map<Schema.SObjectField, String>();
+  private static final Map<Schema.SObjectType, Map<String, String>> fieldPathCache = new Map<Schema.SObjectType, Map<String, String>>();
+  private static final Map<Schema.SObjectType, Map<String, Schema.ChildRelationship>> childRelationshipCache = new Map<Schema.SObjectType, Map<String, Schema.ChildRelationship>>();
+  private static final Map<Schema.SObjectType, String> tableNameCache = new Map<Schema.SObjectType, String>();
   private static Integer instanceCount = 0;
   private final Integer instanceId = instanceCount++;
 
@@ -258,6 +250,33 @@ public inherited sharing class fflib_QueryFactory {
       fieldNameCache.put(token, name);
     }
     return name;
+  }
+
+  private static Map<String, String> getPathCache(Schema.SObjectType sObjType) {
+    Map<String, String> paths = fieldPathCache.get(sObjType);
+    if (paths == null) {
+      paths = new Map<String, String>();
+      fieldPathCache.put(sObjType, paths);
+    }
+    return paths;
+  }
+
+  private static String getTableName(Schema.SObjectType sObjType) {
+    String name = tableNameCache.get(sObjType);
+    if (name == null) {
+      name = sObjType.getDescribe().getName();
+      tableNameCache.put(sObjType, name);
+    }
+    return name;
+  }
+
+  private String getCachedPath(Map<String, String> paths, String fieldName) {
+    String path = paths.get(fieldName);
+    if (path == null) {
+      path = resolveFieldPath(fieldName, null);
+      paths.put(fieldName, path);
+    }
+    return path;
   }
 
   /**
@@ -400,8 +419,15 @@ public inherited sharing class fflib_QueryFactory {
   }
 
   private fflib_QueryFactory selectStringField(Iterator<String> iter) {
+    if (mFlsEnforcement != FLSEnforcement.NONE) {
+      while (iter.hasNext()) {
+        addField(getFieldPath(iter.next()));
+      }
+      return this;
+    }
+    Map<String, String> paths = getPathCache(table);
     while (iter.hasNext()) {
-      addField(getFieldPath(iter.next()));
+      fields.add(getCachedPath(paths, iter.next()));
     }
     return this;
   }
@@ -751,15 +777,26 @@ public inherited sharing class fflib_QueryFactory {
   private Schema.ChildRelationship getChildRelationship(
     String relationshipName
   ) {
-    for (
-      Schema.ChildRelationship childRow : table.getDescribe()
-        .getChildRelationships()
-    ) {
-      if (childRow.getRelationshipName() == relationshipName) {
-        return childRow;
+    Map<String, Schema.ChildRelationship> byName = childRelationshipCache.get(
+      table
+    );
+    if (byName == null) {
+      byName = new Map<String, Schema.ChildRelationship>();
+      for (
+        Schema.ChildRelationship childRow : table.getDescribe()
+          .getChildRelationships()
+      ) {
+        String name = childRow.getRelationshipName();
+        String key = name == null ? null : name.toLowerCase();
+        if (!byName.containsKey(key)) {
+          byName.put(key, childRow);
+        }
       }
+      childRelationshipCache.put(table, byName);
     }
-    return null;
+    return byName.get(
+      relationshipName == null ? null : relationshipName.toLowerCase()
+    );
   }
 
   /**
@@ -977,7 +1014,7 @@ public inherited sharing class fflib_QueryFactory {
       ' FROM ' +
       (relationship != null
         ? relationship.getRelationshipName()
-        : table.getDescribe().getName());
+        : getTableName(table));
 
     if (conditionExpression != null) {
       result += ' WHERE ' + conditionExpression;
