@@ -101,6 +101,8 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
    **/
   private static Map<Type, TriggerEvent> TriggerEventByClass;
 
+  private static Map<Type, Type> ConstructorTypeByClass;
+
   static {
     Errors = new fflib_SObjectDomain.ErrorFactory();
 
@@ -109,6 +111,8 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
     TriggerStateByClass = new Map<Type, List<fflib_SObjectDomain>>();
 
     TriggerEventByClass = new Map<Type, TriggerEvent>();
+
+    ConstructorTypeByClass = new Map<Type, Type>();
   }
 
   /**
@@ -329,20 +333,22 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
   @NamespaceAccessible
   public List<SObject> getChangedRecords(Set<String> fieldNames) {
     List<SObject> changedRecords = new List<SObject>();
-    for (SObject newRecord : Records) {
-      Id recordId = (Id) newRecord.get('Id');
-      if (
-        this.ExistingRecords == null ||
-        !this.ExistingRecords.containsKey(recordId)
-      ) {
+    Map<Id, SObject> existingById = this.ExistingRecords;
+    List<SObject> newRecords = Records;
+    List<String> fields = new List<String>(fieldNames);
+    Integer fieldCount = fields.size();
+    Integer recordCount = newRecords.size();
+    for (Integer i = 0; i < recordCount; i++) {
+      SObject newRecord = newRecords[i];
+      SObject oldRecord = existingById?.get(newRecord.Id);
+      if (oldRecord == null) {
         continue;
       }
-
-      SObject oldRecord = this.ExistingRecords.get(recordId);
-      for (String fieldName : fieldNames) {
+      for (Integer f = 0; f < fieldCount; f++) {
+        String fieldName = fields[f];
         if (oldRecord.get(fieldName) != newRecord.get(fieldName)) {
           changedRecords.add(newRecord);
-          break; // prevents the records from being added multiple times
+          break;
         }
       }
     }
@@ -356,19 +362,24 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
   @NamespaceAccessible
   public List<SObject> getChangedRecords(Set<Schema.SObjectField> fieldTokens) {
     List<SObject> changedRecords = new List<SObject>();
-    for (SObject newRecord : Records) {
-      Id recordId = (Id) newRecord.get('Id');
-      if (
-        this.ExistingRecords == null ||
-        !this.ExistingRecords.containsKey(recordId)
-      ) {
+    Map<Id, SObject> existingById = this.ExistingRecords;
+    List<SObject> newRecords = Records;
+    List<Schema.SObjectField> fields = new List<Schema.SObjectField>(
+      fieldTokens
+    );
+    Integer fieldCount = fields.size();
+    Integer recordCount = newRecords.size();
+    for (Integer i = 0; i < recordCount; i++) {
+      SObject newRecord = newRecords[i];
+      SObject oldRecord = existingById?.get(newRecord.Id);
+      if (oldRecord == null) {
         continue;
       }
-      SObject oldRecord = this.ExistingRecords.get(recordId);
-      for (Schema.SObjectField fieldToken : fieldTokens) {
+      for (Integer f = 0; f < fieldCount; f++) {
+        Schema.SObjectField fieldToken = fields[f];
         if (oldRecord.get(fieldToken) != newRecord.get(fieldToken)) {
           changedRecords.add(newRecord);
-          break; // prevents the records from being added multiple times
+          break;
         }
       }
     }
@@ -449,30 +460,27 @@ public virtual with sharing class fflib_SObjectDomain extends fflib_SObjects imp
     List<SObject> newRecords,
     Map<Id, SObject> oldRecordsMap
   ) {
+    List<SObject> domainRecords = isDelete
+      ? oldRecordsMap.values()
+      : newRecords;
     // After phase of trigger will reuse prior instance of domain class if ITriggerStateful implemented
     fflib_SObjectDomain domainObject = isBefore
       ? null
-      : popTriggerInstance(
-          domainClass,
-          isDelete ? oldRecordsMap.values() : newRecords
-        );
+      : popTriggerInstance(domainClass, domainRecords);
     if (domainObject == null) {
       // Construct the domain class constructor class
-      String domainClassName = domainClass.getName();
-      Type constructableClass = domainClassName.endsWith('Constructor')
-        ? Type.forName(domainClassName)
-        : Type.forName(domainClassName + '.Constructor');
+      Type constructableClass = ConstructorTypeByClass.get(domainClass);
+      if (constructableClass == null) {
+        String domainClassName = domainClass.getName();
+        constructableClass = domainClassName.endsWith('Constructor')
+          ? Type.forName(domainClassName)
+          : Type.forName(domainClassName + '.Constructor');
+        ConstructorTypeByClass.put(domainClass, constructableClass);
+      }
       IConstructable domainConstructor = (IConstructable) constructableClass.newInstance();
 
       // Construct the domain class with the approprite record set
-      if (isInsert)
-        domainObject = domainConstructor.construct(newRecords);
-      else if (isUpdate)
-        domainObject = domainConstructor.construct(newRecords);
-      else if (isDelete)
-        domainObject = domainConstructor.construct(oldRecordsMap.values());
-      else if (isUndelete)
-        domainObject = domainConstructor.construct(newRecords);
+      domainObject = domainConstructor.construct(domainRecords);
 
       // Should this instance be reused on the next trigger invocation?
       if (domainObject.Configuration.TriggerStateEnabled)
