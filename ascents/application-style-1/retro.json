@@ -1,0 +1,82 @@
+{
+  "ascent": "application-style-1",
+  "at": "2026-11-14T10:04:41.972Z",
+  "base": "ae01c63d2b7915050b14a5eb5fe7f6f378f9210d",
+  "head": "d8b7c6da1c245a6ce17ce81781aa73e3a831b65b",
+  "changedTests": [],
+  "step": {
+    "model": "claude-opus-5-5",
+    "durationMs": 41202,
+    "costUsd": 0.3238126
+  },
+  "summary": "Only iteration 1 was kept: it deleted two System.debug(INFO) developer hints from SelectorFactory.setMock(fflib_ISObjectSelector) and DomainFactory.setMock(fflib_ISObjectDomain) in fflib_Application.cls, which accounts for the whole PMD rise from 92.6 to 100. The Limit headroom rise (57.4 to 64.9) and Test run time rise (90.1 to 90.8) are measurement noise: headroomBulkFactoryCalls never calls setMock, so the deleted lines do not run there, and iterations 2 to 4 show headroom swinging by 2.5 to 6.5 points. Coverage stayed at 90.1 only because the scorer counts each multi-line statement as one line; at 107/119 it would be about 89.9. Functional behaviour is unchanged. The only loss is a diagnostic hint shown when developers mock by instance.",
+  "behaviourChanges": [
+    {
+      "code": "B1",
+      "title": "Mocking hint no longer written to the debug log",
+      "detail": "In the baseline, setMock(fflib_ISObjectSelector) and setMock(fflib_ISObjectDomain) wrote an INFO-level debug message. It warned that the mock must have sObjectType() stubbed, or that the caller should use setMock(SObjectType, mock). The evolved code drops this message. Developers whose mocks return null from sObjectType() now get the mock registered under a null key with no hint, and later see confusing factory errors or real (unmocked) instances. Return values, exceptions, mock registration, sharing, limits and null handling are unchanged. The debug log is very slightly smaller. These methods are @TestVisible and protected, so in practice this only affects test-time diagnostics.",
+      "evidence": "sfdx-source/apex-common/main/classes/fflib_Application.cls:317-319 (SelectorFactory.setMock), ~fflib_Application.cls:480-482 (DomainFactory.setMock); diff hunks @@ -315 and @@ -481",
+      "iterations": [
+        1
+      ],
+      "severity": "low",
+      "caughtByTests": false,
+      "proposedTest": "No functional assertion can observe debug output. Instead, add a test that calls Selector.setMock and Domain.setMock with a mock whose sObjectType() returns null, and pin the resulting behaviour: either a DeveloperException, or that newInstance(Account.SObjectType) does not return the mock. That way the case the hint warned about is defined by a test."
+    }
+  ],
+  "patterns": [
+    {
+      "code": "P1",
+      "title": "Clearing PMD findings by deleting side-effect-only debug statements",
+      "detail": "Deleting debug statements that only print hints is a reasonable way to satisfy AvoidDebugStatements without suppressions, and it cannot change control flow. The trade-off is lost developer guidance. Moving the hint into the ApexDoc on both overloads, or validating that sObjectType() is not null and throwing a DeveloperException, would keep it in a PMD-clean way.",
+      "evidence": "Iteration 1; fflib_Application.cls:317-319",
+      "verdict": "good"
+    },
+    {
+      "code": "P2",
+      "title": "Treating headroom and run-time deltas as caused by the change",
+      "detail": "Iteration 1's learning credits the deletion with 'slightly raised the speed and headroom scores'. The headroom test never reaches setMock, and later iterations show headroom moving by up to 6.5 points with no relevant change. So the scores are noisy within about the 5-point margin, and the learning recorded for future climbs is misleading.",
+      "evidence": "fflib_ApplicationTest.cls:581-614 (no setMock calls); iterations 2-4 deltas of -4.1, -2.5, -6.5",
+      "verdict": "questionable"
+    },
+    {
+      "code": "P3",
+      "title": "Discarding micro-optimisations in the selectById and ServiceFactory hot paths",
+      "detail": "Iterations 2 to 4 would have changed selectById, selectByRelationship and ServiceFactory.newInstance. All were discarded, so the null filtering, the mixed-SObjectType validation and the containsKey-based mock lookup in the baseline are kept. That is the safe outcome: iteration 2's get() != null lookup, for example, would have treated a service mock registered as null differently.",
+      "evidence": "Iterations 2, 3 and 4 (all discarded); fflib_Application.cls:277-312",
+      "verdict": "good"
+    }
+  ],
+  "testGaps": [
+    {
+      "code": "T1",
+      "title": "Mock registered by instance with unstubbed sObjectType()",
+      "detail": "No test covers setMock(instance) where sObjectType() returns null. This was the scenario the deleted hint warned about, and its behaviour is currently undefined by tests.",
+      "proposedTest": "Register a selector mock and a domain mock whose sObjectType() returns null via Selector.setMock and Domain.setMock. Assert what newInstance(Account.SObjectType) returns (the real implementation, not the mock), or assert a DeveloperException if validation is added."
+    },
+    {
+      "code": "T2",
+      "title": "Headroom test does not exercise mock paths",
+      "detail": "headroomBulkFactoryCalls only uses real factories. Mock registration and lookup (m_sObjectByMock..., m_serviceInterfaceTypeByMockService) are not measured, so headroom cannot detect regressions or gains in setMock and its lookups.",
+      "proposedTest": "Add a headroom variant that registers selector, domain and service mocks once. Then call newInstance and selectById in the same bulk loop, and assert that the mocks are returned on every call."
+    },
+    {
+      "code": "T3",
+      "title": "Service mock registered as null",
+      "detail": "ServiceFactory.newInstance uses containsKey, so a mock explicitly registered as null returns null. Nothing pins this, and the discarded iteration 2 would have silently changed it to return the real implementation.",
+      "proposedTest": "Call Service.setMock(IAccountService.class, null) and assert that Service.newInstance(IAccountService.class) returns null. Or decide it should throw, and assert that instead."
+    }
+  ],
+  "other": [
+    {
+      "code": "X1",
+      "title": "Coverage being flat depends on how the scorer counts lines",
+      "detail": "The plan predicted 109/121 going to 107/119 (about 89.9%). The score stayed at 90.1, which implies each multi-line System.debug statement counts as one line, or the rounding absorbed it. This was a zero-margin dimension, so the keep came close to failing."
+    },
+    {
+      "code": "X2",
+      "title": "Scores are too noisy for CPU micro-optimisations",
+      "detail": "Headroom varies by about ±6 points between runs, which is comparable to the 5-point margin. Future ascents on this class should repeat headroom measurements or raise rounds before judging CPU edits. The 'learnings' from iterations 2 to 4 (native copy is cheaper than a loop, string ops cost more than describe calls) may also reflect noise rather than real cost differences."
+    }
+  ]
+}

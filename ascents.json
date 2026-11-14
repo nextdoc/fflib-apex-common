@@ -656,5 +656,55 @@
     ],
     "report": "ascents/sobject-describe-style-1/report.html?refresh=off",
     "retro": "ascents/sobject-describe-style-1/retro.json"
+  },
+  {
+    "name": "application-style-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_Application.cls",
+      "sfdx-source/apex-common/main/classes/fflib_IDomain.cls",
+      "sfdx-source/apex-common/main/classes/fflib_IDomainConstructor.cls",
+      "sfdx-source/apex-common/main/classes/fflib_IDomainFactory.cls",
+      "sfdx-source/apex-common/main/classes/fflib_ISelectorFactory.cls",
+      "sfdx-source/apex-common/main/classes/fflib_IServiceFactory.cls",
+      "sfdx-source/apex-common/main/classes/fflib_IUnitOfWorkFactory.cls"
+    ],
+    "startedAt": "2026-11-14T09:53:23.434Z",
+    "iterations": 4,
+    "kept": 1,
+    "baseline": {
+      "overall": 90.4,
+      "scores": {
+        "PMD": 92.6,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 90.1,
+        "Test run time": 90.1,
+        "Limit headroom": 59.9,
+        "Resource efficiency": 100
+      }
+    },
+    "best": {
+      "overall": 92.3,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 90.1,
+        "Test run time": 90.8,
+        "Limit headroom": 64.9,
+        "Resource efficiency": 100
+      },
+      "iteration": 1,
+      "commit": "d8b7c6da1c245a6ce17ce81781aa73e3a831b65b"
+    },
+    "branch": "ascent/application-style-1",
+    "excludedPmdRules": [
+      "IfStmtsMustUseBraces",
+      "IfElseStmtsMustUseBraces",
+      "ForLoopsMustUseBraces",
+      "WhileLoopsMustUseBraces"
+    ],
+    "report": "ascents/application-style-1/report.html?refresh=off",
+    "retro": "ascents/application-style-1/retro.json"
   }
 ]
