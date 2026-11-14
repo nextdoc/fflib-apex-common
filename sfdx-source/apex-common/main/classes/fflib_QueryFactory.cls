@@ -119,8 +119,7 @@ public inherited sharing class fflib_QueryFactory {
 
     if (!fieldName.contains('.')) {
       //single field
-      Schema.SObjectField token = fflib_SObjectDescribe.getDescribe(table)
-        .getField(fieldName.toLowerCase());
+      Schema.SObjectField token = getCachedField(table, fieldName);
       if (token == null) {
         throw new InvalidFieldException(fieldName, this.table);
       }
@@ -128,7 +127,7 @@ public inherited sharing class fflib_QueryFactory {
         fflib_SecurityUtils.checkFieldIsReadable(this.table, token);
       }
 
-      return token.getDescribe().getName();
+      return getCachedFieldName(token);
     }
 
     //traversing FK relationship(s)
@@ -137,10 +136,7 @@ public inherited sharing class fflib_QueryFactory {
     Iterator<String> i = fieldName.split('\\.').iterator();
     while (i.hasNext()) {
       String field = i.next();
-      Schema.SObjectField token = fflib_SObjectDescribe.getDescribe(
-          lastSObjectType
-        )
-        .getField(field.toLowerCase());
+      Schema.SObjectField token = getCachedField(lastSObjectType, field);
       DescribeFieldResult tokenDescribe = token != null
         ? token.getDescribe()
         : null;
@@ -208,6 +204,37 @@ public inherited sharing class fflib_QueryFactory {
       sobjType
     );
     return describe == null ? null : describe.getField(fieldName);
+  }
+
+  private static Map<Schema.SObjectType, Map<String, Schema.SObjectField>> fieldTokenCache = new Map<Schema.SObjectType, Map<String, Schema.SObjectField>>();
+  private static Map<Schema.SObjectField, String> fieldNameCache = new Map<Schema.SObjectField, String>();
+
+  private static Schema.SObjectField getCachedField(
+    Schema.SObjectType sObjType,
+    String fieldName
+  ) {
+    Map<String, Schema.SObjectField> tokens = fieldTokenCache.get(sObjType);
+    if (tokens == null) {
+      tokens = new Map<String, Schema.SObjectField>();
+      fieldTokenCache.put(sObjType, tokens);
+    }
+    String key = fieldName.toLowerCase();
+    if (!tokens.containsKey(key)) {
+      tokens.put(
+        key,
+        fflib_SObjectDescribe.getDescribe(sObjType).getField(key)
+      );
+    }
+    return tokens.get(key);
+  }
+
+  private static String getCachedFieldName(Schema.SObjectField token) {
+    String name = fieldNameCache.get(token);
+    if (name == null) {
+      name = token.getDescribe().getName();
+      fieldNameCache.put(token, name);
+    }
+    return name;
   }
 
   /**
