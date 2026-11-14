@@ -22,114 +22,109 @@
  *  OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  *  OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-**/
+ **/
 @NamespaceAccessible
 @SuppressWarnings('PMD.ApexDoc, PMD.ClassNamingConventions')
-public virtual inherited sharing class fflib_Objects implements fflib_IObjects
-{
-	@NamespaceAccessible
-	protected List<Object> objects { get; private set;} { objects = new List<Object>(); }
+public virtual inherited sharing class fflib_Objects implements fflib_IObjects {
+  @NamespaceAccessible
+  protected List<Object> objects { get; private set; }
 
-	/**
-	 * Class constructor
-	 */
-	@NamespaceAccessible
-	public fflib_Objects(List<Object> objects)
-	{
-		this.objects = objects.clone();
-	}
+  {
+    objects = new List<Object>();
+  }
 
-	@NamespaceAccessible
-	public virtual Object getType()
-	{
-		return Object.class;
-	}
+  /**
+   * Class constructor
+   */
+  @NamespaceAccessible
+  public fflib_Objects(List<Object> objects) {
+    this.objects = objects.clone();
+  }
 
-	@NamespaceAccessible
-	public List<Object> getObjects()
-	{
-		return this.objects;
-	}
+  @NamespaceAccessible
+  public virtual Object getType() {
+    return Object.class;
+  }
 
-	@NamespaceAccessible
-	public Boolean contains(Object value)
-	{
-		return getObjects()?.contains(value);
-	}
+  @NamespaceAccessible
+  public List<Object> getObjects() {
+    return this.objects;
+  }
 
-	@NamespaceAccessible
-	public Boolean containsAll(List<Object> values)
-	{
-		if (values == null) return false;
+  @NamespaceAccessible
+  public Boolean contains(Object value) {
+    return getObjects()?.contains(value);
+  }
 
-		return containsAll(new Set<Object>(values));
-	}
+  @NamespaceAccessible
+  public Boolean containsAll(List<Object> values) {
+    if (values == null)
+      return false;
 
-	@NamespaceAccessible
-	public Boolean containsAll(Set<Object> values)
-	{
-		if (values == null) return false;
+    return containsAll(new Set<Object>(values));
+  }
 
-		for (Object value : values)
-		{
-			if (!getObjects()?.contains(value)) return false;
-		}
-		return true;
-	}
+  @NamespaceAccessible
+  public Boolean containsAll(Set<Object> values) {
+    if (values == null)
+      return false;
 
-	@NamespaceAccessible
-	public Boolean containsNot(Object value)
-	{
-		return !contains(value);
-	}
+    for (Object value : values) {
+      if (!getObjects()?.contains(value))
+        return false;
+    }
+    return true;
+  }
 
-	@NamespaceAccessible
-	public Boolean containsNot(List<Object> values)
-	{
-		if (values == null) return true;
+  @NamespaceAccessible
+  public Boolean containsNot(Object value) {
+    return !contains(value);
+  }
 
-		return containsNot(new Set<Object>(values));
-	}
+  @NamespaceAccessible
+  public Boolean containsNot(List<Object> values) {
+    if (values == null)
+      return true;
 
-	@NamespaceAccessible
-	public Boolean containsNot(Set<Object> values)
-	{
-		if (values == null) return true;
+    return containsNot(new Set<Object>(values));
+  }
 
-		for (Object value : values)
-		{
-			if (getObjects()?.contains(value)) return false;
-		}
-		return true;
-	}
+  @NamespaceAccessible
+  public Boolean containsNot(Set<Object> values) {
+    if (values == null)
+      return true;
 
-	@NamespaceAccessible
-	public Boolean isEmpty()
-	{
-		return (getObjects() == null || getObjects().isEmpty());
-	}
+    for (Object value : values) {
+      if (getObjects()?.contains(value))
+        return false;
+    }
+    return true;
+  }
 
-	@NamespaceAccessible
-	public Boolean isNotEmpty()
-	{
-		return !isEmpty();
-	}
+  @NamespaceAccessible
+  public Boolean isEmpty() {
+    return (getObjects() == null || getObjects().isEmpty());
+  }
 
-	@NamespaceAccessible
-	public Integer size()
-	{
-		return getObjects().size();
-	}
+  @NamespaceAccessible
+  public Boolean isNotEmpty() {
+    return !isEmpty();
+  }
 
-	@NamespaceAccessible
-	protected void setObjects(List<Object> objects)
-	{
-		this.objects = objects;
-	}
+  @NamespaceAccessible
+  public Integer size() {
+    return getObjects().size();
+  }
 
-	/**
-	 * Centralised Exception to allow reuse on any invalid input/field value
-	 */
-	@NamespaceAccessible
-	public inherited sharing virtual class InvalidValueException extends Exception{}
+  @NamespaceAccessible
+  protected void setObjects(List<Object> objects) {
+    this.objects = objects;
+  }
+
+  /**
+   * Centralised Exception to allow reuse on any invalid input/field value
+   */
+  @NamespaceAccessible
+  public inherited sharing virtual class InvalidValueException extends Exception {
+  }
 }
