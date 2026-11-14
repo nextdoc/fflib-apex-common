@@ -130,6 +130,27 @@ public inherited sharing class fflib_SecurityUtils {
   @NamespaceAccessible
   public static Boolean BYPASS_INTERNAL_FLS_AND_CRUD = false;
 
+  private static Id verifiedFieldsUserId;
+  private static Map<String, Set<String>> verifiedFieldNamesByKey = new Map<String, Set<String>>();
+
+  private static Set<String> verifiedFieldNames(
+    OperationType operation,
+    SObjectType objType
+  ) {
+    Id userId = UserInfo.getUserId();
+    if (verifiedFieldsUserId != userId) {
+      verifiedFieldsUserId = userId;
+      verifiedFieldNamesByKey.clear();
+    }
+    String key = operation.name() + ':' + String.valueOf(objType);
+    Set<String> names = verifiedFieldNamesByKey.get(key);
+    if (names == null) {
+      names = new Set<String>();
+      verifiedFieldNamesByKey.put(key, names);
+    }
+    return names;
+  }
+
   /**
    * Check{Insert,Read,Update} methods check both FLS and CRUD
    **/
@@ -142,9 +163,16 @@ public inherited sharing class fflib_SecurityUtils {
   @NamespaceAccessible
   public static void checkInsert(SObjectType objType, List<String> fieldNames) {
     checkObjectIsInsertable(objType);
+    Set<String> verified = verifiedFieldNames(OperationType.CREATE, objType);
+    if (verified.containsAll(fieldNames)) {
+      return;
+    }
     Map<String, SObjectField> fields = objType.getDescribe().fields.getMap();
     for (String fieldName : fieldNames) {
       checkFieldIsInsertable(objType, fields.get(fieldName));
+    }
+    if (!BYPASS_INTERNAL_FLS_AND_CRUD) {
+      verified.addAll(fieldNames);
     }
   }
 
@@ -172,9 +200,16 @@ public inherited sharing class fflib_SecurityUtils {
   @NamespaceAccessible
   public static void checkRead(SObjectType objType, List<String> fieldNames) {
     checkObjectIsReadable(objType);
+    Set<String> verified = verifiedFieldNames(OperationType.READ, objType);
+    if (verified.containsAll(fieldNames)) {
+      return;
+    }
     Map<String, SObjectField> fields = objType.getDescribe().fields.getMap();
     for (String fieldName : fieldNames) {
       checkFieldIsReadable(objType, fields.get(fieldName));
+    }
+    if (!BYPASS_INTERNAL_FLS_AND_CRUD) {
+      verified.addAll(fieldNames);
     }
   }
 
@@ -202,9 +237,16 @@ public inherited sharing class fflib_SecurityUtils {
   @NamespaceAccessible
   public static void checkUpdate(SObjectType objType, List<String> fieldNames) {
     checkObjectIsUpdateable(objType);
+    Set<String> verified = verifiedFieldNames(OperationType.MODIFY, objType);
+    if (verified.containsAll(fieldNames)) {
+      return;
+    }
     Map<String, SObjectField> fields = objType.getDescribe().fields.getMap();
     for (String fieldName : fieldNames) {
       checkFieldIsUpdateable(objType, fields.get(fieldName));
+    }
+    if (!BYPASS_INTERNAL_FLS_AND_CRUD) {
+      verified.addAll(fieldNames);
     }
   }
 
