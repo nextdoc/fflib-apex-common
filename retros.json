@@ -1721,5 +1721,150 @@
         }
       ]
     }
+  },
+  {
+    "name": "security-utils-style-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_SecurityUtils.cls"
+    ],
+    "branch": "ascent/security-utils-style-1",
+    "report": "ascents/security-utils-style-1/report.html?refresh=off",
+    "retro": {
+      "ascent": "security-utils-style-1",
+      "at": "2026-11-14T08:09:06.965Z",
+      "base": "47bc2e57b0c1ea1ef83ac6d80bf2ab2c29ca8724",
+      "head": "09db986516bfe2a30138085d654f269ce476aee8",
+      "changedTests": [],
+      "step": {
+        "model": "claude-opus-5-5",
+        "durationMs": 76093,
+        "costUsd": 0.5527422
+      },
+      "summary": "Only fflib_SecurityUtils changed, so it drove every score change. Graph Engine went from 67.6 to 100 in iteration 2, which swapped fflib_SObjectDescribe.getField for the native Schema field map. Limit headroom went from 52.3 to 100 in iteration 4, which added a per-user cache of field names that already passed. Resource efficiency and Test run time barely moved, and fflib_QueryFactoryTest fell slightly (80.9 to 80.3). The main risk: iteration 2 dropped getField's handling of relationship names and namespace prefixes, so names like 'Account' or 'Foo__r' now cause a NullPointerException, and the iteration 4 cache can keep a pass after a permission is revoked in the same transaction for the same user.",
+      "behaviourChanges": [
+        {
+          "code": "B1",
+          "title": "Relationship-style field names are no longer resolved",
+          "detail": "The baseline fflib_SObjectDescribe.getField mapped 'X__r' to 'X__c', 'X__pr' to 'X__pc' and a standard lookup name such as 'Account' to 'AccountId'. The native fields.getMap().get() does none of this, so it returns null and the SObjectField overload throws System.NullPointerException instead of running the FLS check. This affects checkInsert, checkRead and checkUpdate with List<String>, and the three single-field String overloads. All are public @NamespaceAccessible API.",
+          "evidence": "fflib_SecurityUtils.cls:170-172, 207-209, 244-246, 284, 330, 376; fflib_SObjectDescribe.cls:110-121",
+          "iterations": [
+            2
+          ],
+          "severity": "high",
+          "caughtByTests": false,
+          "proposedTest": "As an admin, call checkRead(Contact.SObjectType, new List<String>{'Account'}) and checkFieldIsReadable(Contact.SObjectType, 'Account'). Assert that no exception is thrown, which matches the baseline."
+        },
+        {
+          "code": "B2",
+          "title": "Namespace prefix is no longer added to field names",
+          "detail": "The baseline called getField(name, true), which tried the package namespace prefix. The native describe map is used as it is, and whether it finds unprefixed custom field names inside a managed package is not verified. If it does not, those lookups return null and throw a NullPointerException.",
+          "evidence": "fflib_SObjectDescribe.cls:101-103,119-120; fflib_SecurityUtils.cls:284,330,376",
+          "iterations": [
+            2
+          ],
+          "severity": "medium",
+          "caughtByTests": false,
+          "proposedTest": "In a namespaced packaging org, call checkRead(SomeObj__c.SObjectType, new List<String>{'Field__c'}) without the prefix and assert it gives the same result as the prefixed name."
+        },
+        {
+          "code": "B3",
+          "title": "Cached passes can outlive a permission revocation in the same transaction",
+          "detail": "verifiedFieldNames remembers names that passed, keyed by operation and SObjectType, and clears only when UserInfo.getUserId() changes. If a permission set assignment is removed later in the transaction, or a test runs two System.runAs blocks for the same user with permissions changed between them, a later List<String> check for cached names skips the per-field FLS check and passes without checking. The object CRUD check still runs on every call.",
+          "evidence": "fflib_SecurityUtils.cls:133-152, 166-169, 203-206, 240-243",
+          "iterations": [
+            4
+          ],
+          "severity": "medium",
+          "caughtByTests": false,
+          "proposedTest": "As user U with a permission set granting read on a custom field, call checkRead and see it pass. Delete the PermissionSetAssignment, run as U again and call checkRead with the same list. Assert it throws FlsException."
+        },
+        {
+          "code": "B4",
+          "title": "Fields that fflib_SObjectDescribe resolved to null are now checked",
+          "detail": "Some fields, such as Opportunity.LastSyncTime, resolve to null through fflib_SObjectDescribe.getField, so the baseline threw a NullPointerException on them. The native map finds them and runs a real FLS check. This changes behaviour in a good direction.",
+          "evidence": "fflib_SecurityUtilsTest.cls:356-358",
+          "iterations": [
+            2
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Call checkRead(Opportunity.SObjectType, new List<String>{'LastSyncTime'}) as an admin and assert that it does not throw."
+        }
+      ],
+      "patterns": [
+        {
+          "code": "P1",
+          "title": "Replacing a library wrapper with the native API to clear an analyzer warning",
+          "detail": "This removed the call that could return null, but it also dropped real behaviour: relationship-name and namespace handling. The analyzer score went up while the API contract got narrower.",
+          "evidence": "iteration 2; fflib_SecurityUtils.cls:284,330,376",
+          "verdict": "bad"
+        },
+        {
+          "code": "P2",
+          "title": "Fetching the field map once per call",
+          "detail": "Fetching the map once before the loop instead of once per field is a sound saving.",
+          "evidence": "fflib_SecurityUtils.cls:170,207,244",
+          "verdict": "good"
+        },
+        {
+          "code": "P3",
+          "title": "Static cache of security results that passed",
+          "detail": "It stores only after success with bypass off and resets when the user changes, which is careful. Its weak points are permission changes within a transaction, a String key rather than typed maps, and case-sensitive names (a cache miss only, not a correctness issue). It covers only the List<String> overloads, so behaviour differs from the List<SObjectField> and single-field overloads.",
+          "evidence": "fflib_SecurityUtils.cls:133-152",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P4",
+          "title": "No caching on the single-token path",
+          "detail": "Iteration 7 was rejected after it gained nothing and cost coverage, so the paths QueryFactory uses stay without a cache.",
+          "evidence": "iteration 7; fflib_QueryFactory.cls:111,127,334",
+          "verdict": "good"
+        }
+      ],
+      "testGaps": [
+        {
+          "code": "T1",
+          "title": "Relationship and __r/__pr field names",
+          "detail": "No test passes a relationship-style name to the String overloads.",
+          "proposedTest": "Assert that checkRead, checkInsert and checkUpdate, plus checkFieldIs* with String, accept 'Account' on Contact and 'Parent' on Account without throwing for an admin."
+        },
+        {
+          "code": "T2",
+          "title": "Cache staleness for the same user",
+          "detail": "The tests check a cache reset only through a change of user ID.",
+          "proposedTest": "Check, revoke a permission set for the same user, check again, and expect FlsException."
+        },
+        {
+          "code": "T3",
+          "title": "Cache does not hide a field that failed",
+          "detail": "No test covers a list that partly overlaps a cached set and contains a field that is not allowed.",
+          "proposedTest": "As a read-only user, call checkRead with readable fields, then call it with those fields plus one unreadable field. Expect FlsException on the second call."
+        },
+        {
+          "code": "T4",
+          "title": "Bypass does not fill the cache",
+          "detail": "Nothing asserts that a pass under BYPASS leaves no cache entry behind.",
+          "proposedTest": "As a read-only user, set BYPASS=true and call checkUpdate. Then set BYPASS=false, call checkUpdate with the same list and expect CrudException or FlsException."
+        },
+        {
+          "code": "T5",
+          "title": "Unknown or null field names",
+          "detail": "The exception type for a field name that cannot be resolved is not pinned down.",
+          "proposedTest": "Assert that checkRead(Account.SObjectType, new List<String>{'NoSuchField'}) throws System.NullPointerException, or decide that it should throw SecurityException and change the code."
+        }
+      ],
+      "other": [
+        {
+          "code": "X1",
+          "title": "Small runtime gains for the default callers",
+          "detail": "QueryFactory and SObjectSelector call the SObjectField and single-String overloads, and in legacy FLS mode only. They gain nothing from the cache, which explains why Resource efficiency barely moved. The single-String overloads now call getDescribe().fields.getMap() on every call, which may cost more than the fflib_SObjectDescribe instance cache they replaced, for example at fflib_QueryFactory.cls:777."
+        },
+        {
+          "code": "X2",
+          "title": "The headroom test hides the relationship-name loss",
+          "detail": "The headroom test builds its lists from canonical describe names and skips fields that getField cannot resolve, so the test data never contains the name forms the baseline was there to handle."
+        }
+      ]
+    }
   }
 ]

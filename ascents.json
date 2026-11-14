@@ -434,5 +434,49 @@
     ],
     "report": "ascents/unit-of-work-style-1/report.html?refresh=off",
     "retro": "ascents/unit-of-work-style-1/retro.json"
+  },
+  {
+    "name": "security-utils-style-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_SecurityUtils.cls"
+    ],
+    "startedAt": "2026-11-14T07:47:46.354Z",
+    "iterations": 7,
+    "kept": 2,
+    "baseline": {
+      "overall": 80.5,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 67.6,
+        "Tests passing": 100,
+        "Code coverage": 95.8,
+        "Test run time": 64.8,
+        "Limit headroom": 57.3,
+        "Resource efficiency": 77.7
+      }
+    },
+    "best": {
+      "overall": 92.1,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 96.7,
+        "Test run time": 70,
+        "Limit headroom": 100,
+        "Resource efficiency": 77.8
+      },
+      "iteration": 4,
+      "commit": "09db986516bfe2a30138085d654f269ce476aee8"
+    },
+    "branch": "ascent/security-utils-style-1",
+    "excludedPmdRules": [
+      "IfStmtsMustUseBraces",
+      "IfElseStmtsMustUseBraces",
+      "ForLoopsMustUseBraces",
+      "WhileLoopsMustUseBraces"
+    ],
+    "report": "ascents/security-utils-style-1/report.html?refresh=off",
+    "retro": "ascents/security-utils-style-1/retro.json"
   }
 ]
