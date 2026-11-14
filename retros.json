@@ -1969,5 +1969,220 @@
         }
       ]
     }
+  },
+  {
+    "name": "query-factory-style-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_QueryFactory.cls"
+    ],
+    "branch": "ascent/query-factory-style-1",
+    "report": "ascents/query-factory-style-1/report.html?refresh=off",
+    "retro": {
+      "ascent": "query-factory-style-1",
+      "at": "2026-11-14T09:07:42.453Z",
+      "base": "a8a954cf5d6e1a941c5b8740526e353e45c30152",
+      "head": "e6e07dc1a50696d25696c85460302232e1e5d9ac",
+      "changedTests": [],
+      "step": {
+        "model": "claude-opus-5-5",
+        "durationMs": 117869,
+        "costUsd": 0.7392764000000001
+      },
+      "summary": "Only fflib_QueryFactory.cls changed, so it caused every score change: Graph Engine (iteration 3), PMD (iterations 10 and 12) and Limit headroom (iterations 5, 7 and 12, by memoizing field paths, tokens, names, child relationships and table names in NONE mode). Resource efficiency barely moved (+4.9, inside its 6.8 noise margin) because the selector path (fflib_SObjectSelectorTest) was never meaningfully improved. Iteration 12 was kept on overall score even though its focus, Limit headroom, rose only 5.1, under the 5.3 margin. For valid input, results match the baseline; the differences are in error types, locale edge cases, heap that lasts the whole transaction, and an equals/hashCode contract mismatch that is now explicit, and no test pins any of them down.",
+      "behaviourChanges": [
+        {
+          "code": "B1",
+          "title": "Ordering(String sobjType, ...) with an unknown or blank object name now throws InvalidFieldException instead of NullPointerException",
+          "detail": "Baseline dereferenced fflib_SObjectDescribe.getDescribe(sobjType).getField(...) directly, so an unknown or blank object name raised System.NullPointerException. Now getSObjectField returns null, and Ordering(SObjectField, SortOrder) passes it to getFieldTokenPath(null), which throws InvalidFieldException('Invalid field: null'). The message names neither the object nor the field. Callers that catch NullPointerException will behave differently. This is arguably an improvement, but it is a contract change.",
+          "evidence": "fflib_QueryFactory.cls:209-217, 1088-1090, 202-205",
+          "iterations": [
+            3
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Construct new fflib_QueryFactory.Ordering('NotAnObject__x', 'Name', SortOrder.ASCENDING) and assert that InvalidFieldException (and not NullPointerException) is thrown."
+        },
+        {
+          "code": "B2",
+          "title": "Explicit hashCode is identity-based while equals is based on SOQL",
+          "detail": "hashCode returns a per-instance counter, but equals compares table, field count and toSOQL(). Two factories that are equal under equals() have different hashes, so Set.contains or Map.get with an equal but different instance misses. That breaks the Apex equals/hashCode contract. It matches the baseline's observed runtime behaviour (the deterministic_toSOQL Set kept two entries), but it now formally declares that equal objects hash differently, and the comment documents it as intended. Each instance also carries a new instanceId field, which appears in JSON.serialize and debug output and changes the class's serialized shape. The counter is a static, non-final Integer that grows across the transaction.",
+          "evidence": "fflib_QueryFactory.cls:224-225, 288-303; fflib_QueryFactoryTest.cls:520",
+          "iterations": [
+            10
+          ],
+          "severity": "medium",
+          "caughtByTests": false,
+          "proposedTest": "Build two factories with identical selects and assert qf1.equals(qf2). Then assert the intended Set/Map behaviour explicitly (for example new Set<fflib_QueryFactory>{qf1}.contains(qf2)), so the contract is pinned down in one direction or the other."
+        },
+        {
+          "code": "B3",
+          "title": "Static caches last the whole transaction and grow without bound",
+          "detail": "Five static final maps (field tokens, field names, field paths keyed by the exact case-sensitive input string, child relationships per SObjectType, table names) are never cleared within a transaction. In a long transaction such as a batch execute, Queueable or big trigger that builds queries for many objects or with varied field-name casing, heap grows. For example, the full Account child-relationship map is held for the whole transaction. fflib_SObjectDescribe already caches describes, so this is a second layer of caching on top of it. Heap is not measured by any headroom test.",
+          "evidence": "fflib_QueryFactory.cls:219-225, 227-280, 777-800",
+          "iterations": [
+            5,
+            7,
+            12
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Headroom test that selects 200 fields in mixed case across 20 SObjectTypes and asserts that Limits.getHeapSize() growth stays below a budget."
+        },
+        {
+          "code": "B4",
+          "title": "Child-relationship lookup now uses the running user's locale through toLowerCase in a transaction-wide cache",
+          "detail": "Baseline compared names with Apex == (case-insensitive) on every call. Evolved lowercases both the key and the lookup with String.toLowerCase(), which follows the context user's locale. The map is built once per transaction. If the map is built under one locale (for example tr_TR, where 'I' lowercases to 'ı') and looked up after System.runAs switches to a user with another locale, a name containing 'I' (such as a custom 'Invoices__r') misses and throws InvalidSubqueryRelationshipException. Field tokens (getCachedField) have the same cross-runAs exposure, although baseline already lowercased field names on each call.",
+          "evidence": "fflib_QueryFactory.cls:777-800, 227-244",
+          "iterations": [
+            12,
+            5
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Inside System.runAs of a user whose LocaleSidKey is 'tr' (Turkish), call subselectQuery for a relationship whose name contains 'I', after the cache has been warmed by a call outside runAs, and assert the relationship resolves."
+        },
+        {
+          "code": "B5",
+          "title": "NONE-mode string selects bypass addField",
+          "detail": "selectStringField in NONE mode calls fields.add directly instead of addField. That is equivalent today because addField only lowercases in USER_MODE and SYSTEM_MODE. Any future logic added to addField (validation, normalisation, sorting hooks) will silently skip NONE-mode string selects, while selectField(String, SObjectType), selectFieldSet and SObjectField selects still go through it.",
+          "evidence": "fflib_QueryFactory.cls:421-433, 508-524",
+          "iterations": [
+            12
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Regression test that selects the same field through selectField('name'), selectFields(List) and selectFieldSet in NONE mode and asserts a single entry in getSelectedFields()."
+        },
+        {
+          "code": "B6",
+          "title": "Invalid-field lookups now cache a null token",
+          "detail": "getCachedField stores null for an unknown name (it checks containsKey), so later calls skip fflib_SObjectDescribe entirely. Exceptions are the same because the null token still reaches InvalidFieldException. This relies on describe results being fixed for the whole transaction, which holds in Apex.",
+          "evidence": "fflib_QueryFactory.cls:227-244",
+          "iterations": [
+            5
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Call selectField('NotAField__c') twice on Contact and assert that InvalidFieldException is thrown both times."
+        },
+        {
+          "code": "B7",
+          "title": "First call per object to subselectQuery(String) now scans and lowercases every child relationship",
+          "detail": "Baseline returned on the first match. Evolved builds the whole map on first use (about 100+ entries for Account) and is faster on repeat calls. A transaction that does a single subselect pays slightly more CPU.",
+          "evidence": "fflib_QueryFactory.cls:783-797",
+          "iterations": [
+            12
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "No functional test needed. Optionally add a single-subselect CPU headroom assertion."
+        }
+      ],
+      "patterns": [
+        {
+          "code": "P1",
+          "title": "Memoizing the final resolved path behind a thin wrapper, with the original method unchanged",
+          "detail": "getFieldPath caches only when the result is user-independent (NONE mode, no related type) and otherwise delegates to the original resolveFieldPath. FLS checks (LEGACY) and the polymorphic branch are never cached. The design is correct and easy to reason about.",
+          "evidence": "fflib_QueryFactory.cls:103-111, 271-280",
+          "verdict": "good"
+        },
+        {
+          "code": "P2",
+          "title": "Several stacked cache layers that duplicate fflib_SObjectDescribe",
+          "detail": "Field tokens, field names and field paths are cached at three levels, and fflib_SObjectDescribe has its own describe cache underneath. Iterations 6 and 8 showed that the extra layers bring almost no gain, yet the token and name layers from iteration 5 remain, and are now largely made redundant by the path memo for NONE mode.",
+          "evidence": "fflib_QueryFactory.cls:219-262; iterations 5, 6, 8",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P3",
+          "title": "Declaring caches static final to stay under PMD TooManyFields",
+          "detail": "The caches are never reassigned, so final is semantically correct. However, the change was made to exploit a gap in the rule, not to fix the design. The class still holds many fields, and the caches would be better grouped in a small holder class.",
+          "evidence": "fflib_QueryFactory.cls:219-223; iterations 11, 12",
+          "verdict": "questionable"
+        },
+        {
+          "code": "P4",
+          "title": "Identity hashCode added to silence OverrideBothEqualsAndHashcode",
+          "detail": "This clears the PMD finding by writing in a hashCode that is inconsistent with equals. The cleaner fix would be a documented suppression or removing equals. As written it misleads readers into thinking the pair is consistent.",
+          "evidence": "fflib_QueryFactory.cls:299-303",
+          "verdict": "bad"
+        },
+        {
+          "code": "P5",
+          "title": "Null-safe outer static helper for the inner-class constructor",
+          "detail": "getSObjectField replaces a raw dereference with a clear failure path and satisfies Graph Engine. It is small and correct.",
+          "evidence": "fflib_QueryFactory.cls:209-217, 1088-1090",
+          "verdict": "good"
+        },
+        {
+          "code": "P6",
+          "title": "Splitting selectStringField by mode",
+          "detail": "The duplicated loops and direct fields.add couple NONE mode to how addField behaves today.",
+          "evidence": "fflib_QueryFactory.cls:421-433",
+          "verdict": "questionable"
+        }
+      ],
+      "testGaps": [
+        {
+          "code": "T1",
+          "title": "Ordering with an unknown SObject name",
+          "detail": "No test covers the null-describe path that iteration 3 changed.",
+          "proposedTest": "Assert that InvalidFieldException is thrown by new Ordering('Bogus__x', 'Name', SortOrder.ASCENDING)."
+        },
+        {
+          "code": "T2",
+          "title": "Case-insensitive subselect names and the null-name entry",
+          "detail": "The case-folding equivalence between the lowercased-key map and Apex == is not pinned down.",
+          "proposedTest": "On an Account factory, call subselectQuery('contacts') and subselectQuery('CONTACTS'), assert both resolve to the same relationship, and assert the generated SOQL uses the canonical 'Contacts'."
+        },
+        {
+          "code": "T3",
+          "title": "Mixed FLS modes on the same table in one transaction",
+          "detail": "The cache is shared across factories. No test checks that a NONE factory warming the cache does not affect a later LEGACY factory's FLS check or a USER_MODE factory's lowercasing.",
+          "proposedTest": "Select 'Name' in NONE mode, then under System.runAs a user without FLS on a custom field, build a LEGACY factory selecting that field and assert that FLS exception is thrown. Also assert that USER_MODE selects are lowercase."
+        },
+        {
+          "code": "T4",
+          "title": "Repeated invalid field",
+          "detail": "Null tokens are cached. No test checks that the second call still throws.",
+          "proposedTest": "Call selectField('Nope__c') twice in NONE mode and twice in LEGACY mode, and expect InvalidFieldException each time."
+        },
+        {
+          "code": "T5",
+          "title": "Polymorphic path with and without a related type in the same transaction",
+          "detail": "The cache is bypassed when relatedSObjectType is non-null. No test confirms that a cached null-type result doesn't leak into a related-type call or the reverse.",
+          "proposedTest": "On Task, selectField('What.Name') first, then selectField('What.Name', Account.SObjectType), and assert both produce the expected path."
+        },
+        {
+          "code": "T6",
+          "title": "equals/hashCode contract",
+          "detail": "The only coverage is indirect, through the Set in deterministic_toSOQL.",
+          "proposedTest": "Explicit assertions on qf1.equals(qf2), qf1.hashCode() != qf2.hashCode(), and Map<fflib_QueryFactory,...> lookup behaviour, so any future change is deliberate."
+        },
+        {
+          "code": "T7",
+          "title": "Heap growth of the static caches",
+          "detail": "Limit headroom measures CPU only.",
+          "proposedTest": "Bulk test asserting a Limits.getHeapSize() delta budget after querying many objects and field casings."
+        }
+      ],
+      "other": [
+        {
+          "code": "X1",
+          "title": "Resource efficiency gain is noise",
+          "detail": "+4.9 is within the 6.8 margin. fflib_SObjectSelector paths go through selectField(String, SObjectType) and SObjectField selects, which bypass the main path memo, so selector-heavy callers see little improvement."
+        },
+        {
+          "code": "X2",
+          "title": "Measurements were noisy",
+          "detail": "Iteration 9's first run also measured Limit headroom at 90 and was discarded after averaging, while iteration 12 was kept on overall score. The final 90 may be partly variance, so re-measure before relying on it."
+        },
+        {
+          "code": "X3",
+          "title": "Iteration 10 comment is a borderline justification comment",
+          "detail": "The hashCode comment explains intent that the contract violation makes necessary, but it reads more like a rationale belonging in the PR. Consider a PMD suppression with a short reason instead."
+        }
+      ]
+    }
   }
 ]

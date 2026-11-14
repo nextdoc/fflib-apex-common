@@ -523,5 +523,49 @@
     ],
     "report": "ascents/sobjects-style-1/report.html?refresh=off",
     "retro": "ascents/sobjects-style-1/retro.json"
+  },
+  {
+    "name": "query-factory-style-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_QueryFactory.cls"
+    ],
+    "startedAt": "2026-11-14T08:22:54.781Z",
+    "iterations": 15,
+    "kept": 5,
+    "baseline": {
+      "overall": 80.3,
+      "scores": {
+        "PMD": 86.2,
+        "Graph Engine": 75.8,
+        "Tests passing": 100,
+        "Code coverage": 93.1,
+        "Test run time": 73.4,
+        "Limit headroom": 59.8,
+        "Resource efficiency": 73.6
+      }
+    },
+    "best": {
+      "overall": 91.5,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 94.1,
+        "Test run time": 77.9,
+        "Limit headroom": 90,
+        "Resource efficiency": 78.5
+      },
+      "iteration": 12,
+      "commit": "e6e07dc1a50696d25696c85460302232e1e5d9ac"
+    },
+    "branch": "ascent/query-factory-style-1",
+    "excludedPmdRules": [
+      "IfStmtsMustUseBraces",
+      "IfElseStmtsMustUseBraces",
+      "ForLoopsMustUseBraces",
+      "WhileLoopsMustUseBraces"
+    ],
+    "report": "ascents/query-factory-style-1/report.html?refresh=off",
+    "retro": "ascents/query-factory-style-1/retro.json"
   }
 ]
