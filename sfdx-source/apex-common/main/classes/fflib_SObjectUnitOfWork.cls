@@ -539,7 +539,8 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
   ) {
     registerDirty(record);
     if (relatedToParentRecord != null && relatedToParentField != null)
-      registerRelationship(record, relatedToParentField, relatedToParentRecord);
+      m_relationships.get(record.getSObjectType().getDescribe().getName())
+        .add(record, relatedToParentField, relatedToParentRecord);
   }
 
   /**
@@ -993,7 +994,7 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
 
   @TestVisible
   private void assertForNonEventSObjectType(String sObjectType) {
-    if (sObjectType.length() > 3 && sObjectType.right(3) == '__e') {
+    if (sObjectType.endsWithIgnoreCase('__e')) {
       throw new UnitOfWorkException(
         String.format(
           'SObject type {0} must use registerPublishBeforeTransaction or ' +
