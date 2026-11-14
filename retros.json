@@ -2299,5 +2299,171 @@
         }
       ]
     }
+  },
+  {
+    "name": "sobject-describe-style-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_SObjectDescribe.cls"
+    ],
+    "branch": "ascent/sobject-describe-style-1",
+    "report": "ascents/sobject-describe-style-1/report.html?refresh=off",
+    "retro": {
+      "ascent": "sobject-describe-style-1",
+      "at": "2026-11-14T09:52:44.773Z",
+      "base": "283c5ecc007144f935a8b6667ea2df4a81908144",
+      "head": "bb6f9c750cb3583ef5eeae1755bfc02259ce9b65",
+      "changedTests": [],
+      "step": {
+        "model": "claude-opus-5-5",
+        "durationMs": 68582,
+        "costUsd": 0.5500852
+      },
+      "summary": "Only fflib_SObjectDescribe.cls changed, so it drove every score: PMD 71.4→100 (iterations 1, 2, 4) and Limit headroom 64.8→72.7 (iteration 4, by memoizing the name-field scan on the cached instance). Resource efficiency barely moved (QueryFactory 81.3→80.9, SecurityUtils flat at 79), and run time and coverage changes are within noise. Iteration 4 deleted the DEFERRED describe that iterations 1-2 had added, so the PMD EagerlyLoadedDescribeSObjectResult finding cleared because the eager describe moved to line 48, which the rule does not flag, not because eager loading stopped. The static getNameField now also builds and caches a describe instance, which contradicts its own ApexDoc.",
+      "behaviourChanges": [
+        {
+          "code": "B1",
+          "title": "Static getNameField now creates and caches a describe instance with an eager full describe",
+          "detail": "Baseline: static getNameField(type) did a one-off native describe and kept no wrapper state. Evolved: it calls getDescribe(objectType), which builds an fflib_SObjectDescribe, stores it in instanceCache, and loads the full eager describe (line 48, no DEFERRED, so child relationships load) plus the field map. These stay in heap until flushCache(). fflib_SObjectSelector.cls:200 calls this, so every selector type now holds a cached wrapper. Net effect: the DEFERRED optimisation from iterations 1-2 is gone, and eager loading persists at line 48.",
+          "evidence": "fflib_SObjectDescribe.cls:45-53, 159-166; fflib_SObjectSelector.cls:200",
+          "iterations": [
+            1,
+            2,
+            4
+          ],
+          "severity": "medium",
+          "caughtByTests": false,
+          "proposedTest": "After flushCache(), call getNameField(Account.SObjectType), then assert that getDescribe(Account.SObjectType) returns an instance and document whether that is intended. Separately, measure Limits.getHeapSize() before and after getNameField over many types."
+        },
+        {
+          "code": "B2",
+          "title": "Name field results now survive until flushCache and are tied to an instance",
+          "detail": "The instance getNameField() used to recompute from token on every call. Now it is memoized on the instance and the static method reads the cached instance. A caller holding an instance across flushCache() keeps its old nameField. Schema does not change within a transaction, so practical impact is low, but this is a semantic shift from stateless to cached.",
+          "evidence": "fflib_SObjectDescribe.cls:81-89, 146-148, 165",
+          "iterations": [
+            4
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Assert that getNameField(Account.SObjectType) returns the same value as getDescribe(Account.SObjectType).getNameField() both before and after flushCache()."
+        },
+        {
+          "code": "B3",
+          "title": "Types with no name field rescan every call",
+          "detail": "nameField uses null to mean 'not computed', so a type whose fields all have isNameField()=false repeats the full per-field getDescribe() scan on every call. The cost is about the same as the baseline for those types, but the cache never helps them.",
+          "evidence": "fflib_SObjectDescribe.cls:83-85",
+          "iterations": [
+            4
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Find a standard object with no name field and assert that getNameField returns null on repeated calls, checking Limits.getCpuTime growth if needed."
+        },
+        {
+          "code": "B4",
+          "title": "String and DescribeSObjectResult lookups now share the token-keyed cache",
+          "detail": "Baseline getDescribe(String): on a cache miss under the given name, it constructed a new instance, even if the token was already cached under its real name. This happens with namespace-implied names such as 'Foo__c' resolving to ns__Foo__c, where the baseline built a new instance and overwrote the cache on every call. Evolved: it delegates to getDescribe(token), which reuses the instance cached under String.valueOf(token). The DescribeSObjectResult overload switched its cache key from getName() to String.valueOf(token), which is the same in practice. This is an improvement, but instance identity changes for namespaced callers. The non-null DescribeSObjectResult and SObject paths are untested; their asserts are commented out at test lines 156-162.",
+          "evidence": "fflib_SObjectDescribe.cls:261-286; fflib_SObjectDescribeTest.cls:156-162",
+          "iterations": [
+            4
+          ],
+          "severity": "low",
+          "caughtByTests": false,
+          "proposedTest": "Uncomment the d4 and d5 asserts in getAccountDescribes. Add a test that sets currentNamespace and asserts that getDescribe('Foo__c') === getDescribe('ns__Foo__c')."
+        },
+        {
+          "code": "B5",
+          "title": "Index loops rewritten as for-each loops",
+          "detail": "getNameField scan, getPicklistLabels and isValidPicklistValue now use for-each loops. Iteration order and the behaviour on null lists (exception in both versions) are the same.",
+          "evidence": "fflib_SObjectDescribe.cls:171, getPicklistLabels, isValidPicklistValue",
+          "iterations": [
+            1
+          ],
+          "severity": "low",
+          "caughtByTests": true,
+          "proposedTest": ""
+        }
+      ],
+      "patterns": [
+        {
+          "code": "P1",
+          "title": "Fixing PMD by matching the rule's text",
+          "detail": "Iteration 2 renamed a parameter and dropped the Schema. prefix to get past the rule's text matching. Iteration 4 then sent the call through the unflagged line 48. The score reached 100 while the eager describe the rule targets is still there.",
+          "evidence": "Iterations 2 and 4; fflib_SObjectDescribe.cls:48",
+          "verdict": "bad"
+        },
+        {
+          "code": "P2",
+          "title": "Memoizing the name field on the cached per-type instance",
+          "detail": "Reuses the existing instanceCache and flushCache lifecycle, adds no new static map, and removed the dominant CPU cost. It needs a sentinel for 'no name field', and the docs need updating.",
+          "evidence": "fflib_SObjectDescribe.cls:81-89",
+          "verdict": "good"
+        },
+        {
+          "code": "P3",
+          "title": "Collapsing overloads into delegation to getDescribe(SObjectType)",
+          "detail": "One code path, fewer branches, and the cache behaviour is consistent across overloads.",
+          "evidence": "fflib_SObjectDescribe.cls:261-286",
+          "verdict": "good"
+        },
+        {
+          "code": "P4",
+          "title": "Stale documentation left behind",
+          "detail": "The @deprecated note on the instance getNameField says the static method works 'without requiring a describe instance', which is now false: the deprecated instance method is the underlying implementation. The test comment at line 210 says the instance method delegates to the static one; the reverse is now true.",
+          "evidence": "fflib_SObjectDescribe.cls:142-143; fflib_SObjectDescribeTest.cls:210",
+          "verdict": "bad"
+        },
+        {
+          "code": "P5",
+          "title": "Trading lint complexity budget for features",
+          "detail": "Iteration 4 removed branches elsewhere to stay under PMD's class complexity threshold. The result here was fine, but the climb chose refactors for score budget rather than design.",
+          "evidence": "Iterations 3, 4, 6, 7",
+          "verdict": "questionable"
+        }
+      ],
+      "testGaps": [
+        {
+          "code": "T1",
+          "title": "Non-null DescribeSObjectResult and SObject overloads",
+          "detail": "The cache-identity asserts are commented out, so the iteration 4 delegation is checked only for nulls.",
+          "proposedTest": "Assert that getDescribe(Account.SObjectType.getDescribe()) === getDescribe('Account') and getDescribe(new Account()) === getDescribe('Account')."
+        },
+        {
+          "code": "T2",
+          "title": "Static and instance getNameField agree, including after flush",
+          "detail": "Nothing checks that the two methods share state or behave the same after flushCache.",
+          "proposedTest": "For Account, Contact and Case, assert static == instance getNameField, call flushCache(), then assert again and compare to a direct scan of type.getDescribe().fields.getMap()."
+        },
+        {
+          "code": "T3",
+          "title": "Type without a name field",
+          "detail": "The null result and its repeated rescans are not exercised.",
+          "proposedTest": "Pick a standard object with no isNameField field and assert getNameField returns null on two consecutive calls."
+        },
+        {
+          "code": "T4",
+          "title": "Namespace-implied String lookup reuses the cache",
+          "detail": "The new cache sharing for implied-namespace names is untested.",
+          "proposedTest": "With a fake currentNamespace, as in the existing namespace test, assert that getDescribe by the short name and by the full name return the same instance."
+        },
+        {
+          "code": "T5",
+          "title": "Heap and describe cost of selector name-field resolution",
+          "detail": "fflib_SObjectSelector now caches a full eager wrapper per type. Nothing measures this.",
+          "proposedTest": "A headroom test that builds selectors for about 50 types and asserts that heap and CPU stay within a budget."
+        }
+      ],
+      "other": [
+        {
+          "code": "X1",
+          "title": "Possible follow-up",
+          "detail": "Use SObjectDescribeOptions.DEFERRED at line 48 to bring back the intent of iterations 1-2. Iteration 5 found this gave negligible headroom, but it is semantically honest. Also cache 'no name field' with a separate Boolean flag, and fix the ApexDoc at lines 142-143."
+        },
+        {
+          "code": "X2",
+          "title": "Headroom ceiling",
+          "detail": "Iterations 5-7 show the remaining CPU goes to native describe calls and rebuilds after the test's deliberate flushCache calls. Further work on Apex-level helpers is unlikely to pass the 8.3 margin."
+        }
+      ]
+    }
   }
 ]

@@ -612,5 +612,49 @@
     ],
     "report": "ascents/sobject-selector-style-1/report.html?refresh=off",
     "retro": "ascents/sobject-selector-style-1/retro.json"
+  },
+  {
+    "name": "sobject-describe-style-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_SObjectDescribe.cls"
+    ],
+    "startedAt": "2026-11-14T09:32:11.582Z",
+    "iterations": 7,
+    "kept": 3,
+    "baseline": {
+      "overall": 83.5,
+      "scores": {
+        "PMD": 71.4,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 95.5,
+        "Test run time": 71.2,
+        "Limit headroom": 67.1,
+        "Resource efficiency": 79.2
+      }
+    },
+    "best": {
+      "overall": 88.7,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 96.5,
+        "Test run time": 71.8,
+        "Limit headroom": 72.7,
+        "Resource efficiency": 79.9
+      },
+      "iteration": 4,
+      "commit": "bb6f9c750cb3583ef5eeae1755bfc02259ce9b65"
+    },
+    "branch": "ascent/sobject-describe-style-1",
+    "excludedPmdRules": [
+      "IfStmtsMustUseBraces",
+      "IfElseStmtsMustUseBraces",
+      "ForLoopsMustUseBraces",
+      "WhileLoopsMustUseBraces"
+    ],
+    "report": "ascents/sobject-describe-style-1/report.html?refresh=off",
+    "retro": "ascents/sobject-describe-style-1/retro.json"
   }
 ]
