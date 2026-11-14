@@ -104,6 +104,26 @@ public inherited sharing class fflib_QueryFactory {
     String fieldName,
     Schema.sObjectType relatedSObjectType
   ) {
+    if (mFlsEnforcement != FLSEnforcement.NONE || relatedSObjectType != null) {
+      return resolveFieldPath(fieldName, relatedSObjectType);
+    }
+    Map<String, String> paths = fieldPathCache.get(table);
+    if (paths == null) {
+      paths = new Map<String, String>();
+      fieldPathCache.put(table, paths);
+    }
+    String path = paths.get(fieldName);
+    if (path == null) {
+      path = resolveFieldPath(fieldName, null);
+      paths.put(fieldName, path);
+    }
+    return path;
+  }
+
+  private String resolveFieldPath(
+    String fieldName,
+    Schema.sObjectType relatedSObjectType
+  ) {
     //Enforcing FLS using the legacy heuristic requires resolving the full field path to its respective
     //Describe result to test for isAccessible on the DescribeFieldResult
     //This is computationally expensive and should be bypassed if the QueryFactory instance is not
@@ -208,6 +228,7 @@ public inherited sharing class fflib_QueryFactory {
 
   private static Map<Schema.SObjectType, Map<String, Schema.SObjectField>> fieldTokenCache = new Map<Schema.SObjectType, Map<String, Schema.SObjectField>>();
   private static Map<Schema.SObjectField, String> fieldNameCache = new Map<Schema.SObjectField, String>();
+  private static Map<Schema.SObjectType, Map<String, String>> fieldPathCache = new Map<Schema.SObjectType, Map<String, String>>();
 
   private static Schema.SObjectField getCachedField(
     Schema.SObjectType sObjType,
