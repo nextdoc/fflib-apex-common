@@ -315,10 +315,6 @@ public inherited sharing virtual class fflib_Application {
     @TestVisible
     @NamespaceAccessible
     protected virtual void setMock(fflib_ISObjectSelector selectorInstance) {
-      System.debug(
-        System.LoggingLevel.INFO,
-        '*** fflib - Please note your mocked class should have sObjectType() stubbed, or use setMock( SObjectType, SelectorMock )'
-      );
       setMock(selectorInstance.sObjectType(), selectorInstance);
     }
 
@@ -481,10 +477,6 @@ public inherited sharing virtual class fflib_Application {
     @TestVisible
     @NamespaceAccessible
     protected virtual void setMock(fflib_ISObjectDomain mockDomain) {
-      System.debug(
-        System.LoggingLevel.INFO,
-        '*** fflib - Please note your mocked class should have sObjectType() stubbed, or use setMock( SObjectType, SelectorMock )'
-      );
       setMock(mockDomain.sObjectType(), mockDomain);
     }
 
