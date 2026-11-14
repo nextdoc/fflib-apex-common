@@ -52,7 +52,9 @@ public virtual inherited sharing class fflib_SObjects extends fflib_Objects impl
   @NamespaceAccessible
   public fflib_SObjects(List<SObject> records, Schema.SObjectType sObjectType) {
     super(records);
-    this.sObjectDescribe = sObjectType.getDescribe();
+    this.sObjectDescribe = sObjectType.getDescribe(
+      SObjectDescribeOptions.DEFERRED
+    );
   }
 
   /**
@@ -92,8 +94,7 @@ public virtual inherited sharing class fflib_SObjects extends fflib_Objects impl
   @NamespaceAccessible
   public virtual void addError(String message) {
     List<SObject> records = getRecords();
-    for (Integer i = 0, j = records.size(); i < j; i++) {
-      SObject record = records[i];
+    for (SObject record : records) {
       record.addError(error(message, record));
     }
   }
@@ -107,8 +108,7 @@ public virtual inherited sharing class fflib_SObjects extends fflib_Objects impl
   @NamespaceAccessible
   public virtual void addError(Schema.SObjectField field, String message) {
     List<SObject> records = getRecords();
-    for (Integer i = 0, j = records.size(); i < j; i++) {
-      SObject record = records[i];
+    for (SObject record : records) {
       record.addError(field, error(message, record, field));
     }
   }
@@ -129,8 +129,7 @@ public virtual inherited sharing class fflib_SObjects extends fflib_Objects impl
   @NamespaceAccessible
   public virtual void clearFields(Set<Schema.SObjectField> fields) {
     List<SObject> records = getRecords();
-    for (Integer i = 0, j = records.size(); i < j; i++) {
-      SObject record = records[i];
+    for (SObject record : records) {
       for (SObjectField field : fields) {
         record.put(field, null);
       }
@@ -197,8 +196,8 @@ public virtual inherited sharing class fflib_SObjects extends fflib_Objects impl
   ) {
     Set<Id> result = new Set<Id>();
     List<SObject> records = getRecords();
-    for (Integer i = 0, j = records.size(); i < j; i++) {
-      Id foundId = (Id) records[i].get(field);
+    for (SObject record : records) {
+      Id foundId = (Id) record.get(field);
       if (foundId != null || includeNulls) {
         result.add(foundId);
       }
@@ -221,8 +220,7 @@ public virtual inherited sharing class fflib_SObjects extends fflib_Objects impl
     List<String> relationshipParts = fieldWithDotRelation.split('\\.');
     Integer lastIndex = relationshipParts.size() - 1;
     List<SObject> records = getRecords();
-    for (Integer i = 0, j = records.size(); i < j; i++) {
-      SObject current = records[i];
+    for (SObject current : records) {
       // Traverse the relationship path up to the last part, short-circuiting if any intermediate relationship is null
       for (Integer p = 0; p < lastIndex && current != null; p++) {
         current = current.getSObject(relationshipParts[p]);
@@ -260,8 +258,8 @@ public virtual inherited sharing class fflib_SObjects extends fflib_Objects impl
   ) {
     Set<String> result = new Set<String>();
     List<SObject> records = getRecords();
-    for (Integer i = 0, j = records.size(); i < j; i++) {
-      String foundString = (String) records[i].get(field);
+    for (SObject record : records) {
+      String foundString = (String) record.get(field);
       if (String.isNotBlank(foundString) || includeNulls) {
         result.add(foundString);
       }
@@ -279,8 +277,8 @@ public virtual inherited sharing class fflib_SObjects extends fflib_Objects impl
   protected virtual Set<Object> getFieldValues(Schema.SObjectField field) {
     Set<Object> result = new Set<Object>();
     List<SObject> records = getRecords();
-    for (Integer i = 0, j = records.size(); i < j; i++) {
-      result.add(records[i].get(field));
+    for (SObject record : records) {
+      result.add(record.get(field));
     }
     return result;
   }
@@ -312,8 +310,7 @@ public virtual inherited sharing class fflib_SObjects extends fflib_Objects impl
   ) {
     List<SObject> result = new List<SObject>();
     List<SObject> records = getRecords();
-    for (Integer i = 0, j = records.size(); i < j; i++) {
-      SObject record = records[i];
+    for (SObject record : records) {
       if (values?.contains(record.get(field))) {
         result.add(record);
       }
@@ -346,8 +343,7 @@ public virtual inherited sharing class fflib_SObjects extends fflib_Objects impl
   ) {
     List<SObject> result = new List<SObject>();
     List<SObject> records = getRecords();
-    for (Integer i = 0, j = records.size(); i < j; i++) {
-      SObject record = records[i];
+    for (SObject record : records) {
       for (SObjectField field : fields) {
         if (String.isNotBlank(String.valueOf(record.get(field))))
           continue;
@@ -370,8 +366,7 @@ public virtual inherited sharing class fflib_SObjects extends fflib_Objects impl
   ) {
     List<SObject> result = new List<SObject>();
     List<SObject> records = getRecords();
-    for (Integer i = 0, j = records.size(); i < j; i++) {
-      SObject record = records[i];
+    for (SObject record : records) {
       Boolean allBlank = true;
       for (SObjectField field : fields) {
         if (String.isNotBlank(String.valueOf(record.get(field)))) {
@@ -410,8 +405,7 @@ public virtual inherited sharing class fflib_SObjects extends fflib_Objects impl
   ) {
     List<SObject> result = new List<SObject>();
     List<SObject> records = getRecords();
-    for (Integer i = 0, j = records.size(); i < j; i++) {
-      SObject record = records[i];
+    for (SObject record : records) {
       for (SObjectField field : fields) {
         if (String.isNotBlank(String.valueOf(record.get(field)))) {
           result.add(record);
@@ -433,8 +427,7 @@ public virtual inherited sharing class fflib_SObjects extends fflib_Objects impl
   ) {
     List<SObject> result = new List<SObject>();
     List<SObject> records = getRecords();
-    for (Integer i = 0, j = records.size(); i < j; i++) {
-      SObject record = records[i];
+    for (SObject record : records) {
       Boolean allNonBlank = true;
       for (SObjectField field : fields) {
         if (String.isBlank(String.valueOf(record.get(field)))) {
@@ -460,8 +453,8 @@ public virtual inherited sharing class fflib_SObjects extends fflib_Objects impl
     Object value
   ) {
     List<SObject> records = getRecords();
-    for (Integer i = 0, j = records.size(); i < j; i++) {
-      records[i].put(field, value);
+    for (SObject record : records) {
+      record.put(field, value);
     }
   }
 
@@ -477,8 +470,7 @@ public virtual inherited sharing class fflib_SObjects extends fflib_Objects impl
     Map<Object, Object> values
   ) {
     List<SObject> records = getRecords();
-    for (Integer i = 0, j = records.size(); i < j; i++) {
-      SObject record = records[i];
+    for (SObject record : records) {
       Object keyValue = record.get(fieldToCheck);
       if (values?.containsKey(keyValue)) {
         record.put(fieldToUpdate, values.get(keyValue));
@@ -503,8 +495,7 @@ public virtual inherited sharing class fflib_SObjects extends fflib_Objects impl
   ) {
     Map<Object, List<SObject>> result = new Map<Object, List<SObject>>();
     List<SObject> records = getRecords();
-    for (Integer i = 0, j = records.size(); i < j; i++) {
-      SObject record = records[i];
+    for (SObject record : records) {
       Object recordKey = record.get(identifierField);
 
       if (recordKey == null) {
