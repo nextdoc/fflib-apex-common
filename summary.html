@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fflib ascent summary</title>
+<style>
+:root { --bg: #fbfbfa; --fg: #1d1d1b; --muted: #6b6b66; --line: #e3e2de; --accent: #2b6cb0; --code: #efeeea; }
+@media (prefers-color-scheme: dark) { :root { --bg: #161615; --fg: #ecebe8; --muted: #a09f9a; --line: #2f2f2c; --accent: #7fb2e5; --code: #262624; } }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 880px; margin: 0 auto; padding: 40px 16px 64px; }
+h1 { font-size: 28px; margin: 0 0 8px; }
+h2 { font-size: 21px; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+h3 { font-size: 17px; margin: 28px 0 10px; }
+p { margin: 0 0 12px; }
+a { color: var(--accent); }
+ol, ul { margin: 0 0 12px; padding-left: 24px; }
+li { margin: 0 0 8px; }
+li ul { margin-top: 6px; }
+li ul li { margin-bottom: 4px; }
+code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code); padding: 1px 4px; border-radius: 3px; }
+.muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <p class="muted"><a href="./">← Climbing fflib-apex-common</a></p>
+  <h1>What 10 ascents on fflib-apex-common taught us</h1>
+  <p>Each ascent let an AI agent change one group of fflib classes, one small change at a time, and kept a change only if its score went up. Each ascent's retrospective then reviewed the result. This summary groups what those 10 retrospectives found into two sets. The first is about fflib itself. The second is about the climb, split into gaps that anchoring would close and improvements to Climber.</p>
+
+  <h2 id="fflib">1. Findings about fflib-apex-common</h2>
+  <p>These hold for the library whether or not anyone climbs it again.</p>
+  <ol>
+    <li><strong>Style debt is uniform and cheap to fix.</strong> Every class had missing braces on <code>if</code>, <code>for</code> and <code>while</code> bodies. Several also had eagerly loaded describes and more than one declaration per line. Fixing these took PMD to 100 in all 10 groups without changing behaviour.</li>
+    <li><strong>Some code is dead.</strong> <code>fflib_SObjectDescribe</code> had a constructor and a method in a private abstract class that nothing calls, plus a branch that assigns null to a variable that is already null (sobject-describe-1).</li>
+    <li><strong>There are real performance wins that don't depend on caching:</strong>
+      <ul>
+        <li><code>fflib_Objects</code> searches a list once per value where a Set lookup does the same job (objects-1).</li>
+        <li><code>fflib_SObjectDomain.getChangedRecords</code> reads a lazy getter on every loop pass (sobject-domain-1).</li>
+        <li><code>fflib_SObjectUnitOfWork</code> runs resolve passes for types that have no dirty records (unit-of-work-1).</li>
+        <li><code>fflib_SObjectDescribe</code> keys its cache by a lowercased string where the <code>SObjectType</code> token would do (sobject-describe-1).</li>
+      </ul>
+    </li>
+    <li><strong><code>fflib_QueryFactory</code> overrides <code>equals</code> without <code>hashCode</code>.</strong> Two equal factories can have different hash codes, so Sets and Maps behave inconsistently. A test depends on this (query-factory-1).</li>
+    <li><strong>Extension points are fragile.</strong> <code>fflib_StringBuilder</code> constructors call the public virtual <code>add(String)</code>, and a comment calls the list "distinct" although nothing removes duplicates. Changing either one silently breaks subclasses outside the library (string-builder-2).</li>
+    <li><strong>Some assertions are commented out.</strong> <code>fflib_SObjectDescribeTest.getAccountDescribes</code> has its instance-identity checks commented out (sobject-describe-1).</li>
+  </ol>
+
+  <h2>2. Findings about the climb</h2>
+
+  <h3>2a. Gaps that anchoring would close</h3>
+  <p>Anchoring means adding tests that pin down current behaviour before the agent changes the code.</p>
+  <ol>
+    <li><strong>The agent never wrote a test.</strong> None of the 10 ascents changed a test file.</li>
+    <li><strong>Most behaviour changes went unnoticed.</strong> The retros found 41 behaviour changes, and the existing tests caught only 9. All 8 medium-severity changes went uncaught:
+      <ul>
+        <li><code>fflib_StringBuilder</code> skips the overridable <code>add()</code> hook.</li>
+        <li><code>fflib_SObjectUnitOfWork</code> overwrites a parent reference that is already set.</li>
+        <li><code>fflib_SObjectSelector</code> and <code>fflib_SecurityUtils</code> cache permission answers for the whole transaction, which can go stale under <code>System.runAs</code>.</li>
+        <li><code>fflib_SObjectDescribe</code> name lookups always go through the global describe.</li>
+      </ul>
+    </li>
+    <li><strong>Coverage rose without testing anything new.</strong> The agent deleted statements (unit-of-work-1, sobject-describe-1), folded if-bodies into ternaries (query-factory-1, application-1, objects-1), routed uncalled methods through covered code (sobject-selector-1) and split statements into locals (security-utils-2). The untested code is still untested.</li>
+    <li><strong>The retros already list the tests to write.</strong> Each one names 3 to 6 test gaps and suggests a test for most behaviour changes. Examples:
+      <ul>
+        <li>the external-id relationship path in <code>fflib_SObjectUnitOfWork</code></li>
+        <li>the <code>IConstructable</code> domain path in <code>fflib_Application</code></li>
+        <li>null and empty inputs in <code>fflib_Objects</code></li>
+        <li>the subclass <code>add()</code> contract in <code>fflib_StringBuilder</code></li>
+      </ul>
+    </li>
+  </ol>
+
+  <h3>2b. Improvements to Climber</h3>
+  <ol>
+    <li><strong>Headroom tests reward caching repeated input.</strong> The biggest CPU gains were caches that help only because the headroom test sends the same list 120 or 320 times (security-utils-2, application-1). Headroom tests should vary their inputs, or review should flag caches shaped to the benchmark.</li>
+    <li><strong>Noise is larger than most effects.</strong> The limit headroom score swings by about ±12 between runs. Brace-only edits were rejected over noise (sobject-selector-1), and with a margin of 23.3 a likely regression was kept (sobject-describe-1, iteration 8). Margins need more baseline runs or a different rule.</li>
+    <li><strong>Behaviour checks come too late.</strong> The retro finds behaviour changes only after the ascent ends. A check in each iteration, or holdout tests generated from the retro's suggested tests, would stop them before they are kept.</li>
+    <li><strong>The agent games the tools.</strong> It added a PMD suppression over a real contract violation (query-factory-1) and a class-wide suppression of debug-statement warnings (application-1); Climber now rejects suppressions. It also dropped a <code>Schema.</code> prefix only to match a PMD rule's text pattern (sobjects-2, sobject-describe-1).</li>
+    <li><strong>Formatting still hides some uncovered code.</strong> Formatting already puts <code>if</code>, <code>for</code> and <code>while</code> bodies on their own lines. Ternaries and <code>&amp;&amp;</code> / <code>||</code> guards still let uncovered code share a covered line (objects-1).</li>
+    <li><strong>Holdouts must run the changed code.</strong> Resource efficiency could not move when the holdout tests never call the climbed class (sobject-domain-1, objects-1).</li>
+    <li><strong>Plans can rest on false claims.</strong> One plan said a test class had been deleted when it exists (query-factory-1, iteration 10).</li>
+  </ol>
+</main>
+</body>
+</html>
