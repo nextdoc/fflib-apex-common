@@ -69,8 +69,9 @@ public virtual inherited sharing class fflib_Objects implements fflib_IObjects {
     if (values == null)
       return false;
 
+    Set<Object> members = new Set<Object>(getObjects());
     for (Object value : values) {
-      if (!getObjects()?.contains(value))
+      if (!members.contains(value))
         return false;
     }
     return true;
@@ -94,8 +95,9 @@ public virtual inherited sharing class fflib_Objects implements fflib_IObjects {
     if (values == null)
       return true;
 
+    Set<Object> members = new Set<Object>(getObjects());
     for (Object value : values) {
-      if (getObjects()?.contains(value))
+      if (members.contains(value))
         return false;
     }
     return true;
