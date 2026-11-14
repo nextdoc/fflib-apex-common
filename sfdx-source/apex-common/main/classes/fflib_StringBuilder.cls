@@ -37,6 +37,7 @@ public virtual inherited sharing class fflib_StringBuilder {
   @NamespaceAccessible
   protected List<String> buffer = new List<String>();
   private static final Boolean IS_MULTI_CURRENCY_ORG = UserInfo.isMultiCurrencyOrganization();
+  private static final Map<List<Schema.SObjectField>, List<String>> FIELD_NAMES_CACHE = new Map<List<Schema.SObjectField>, List<String>>();
 
   /**
    * Construct an empty StringBuilder
@@ -136,9 +137,14 @@ public virtual inherited sharing class fflib_StringBuilder {
       List<Schema.SObjectField> values,
       List<Schema.FieldSet> fieldSets
     ) {
-      // Create a distinct set of fields (or field paths) to select
-      for (Schema.SObjectField value : values)
-        buffer.add(String.valueOf(value));
+      List<String> fieldNames = FIELD_NAMES_CACHE.get(values);
+      if (fieldNames == null) {
+        fieldNames = new List<String>();
+        for (Schema.SObjectField value : values)
+          fieldNames.add(String.valueOf(value));
+        FIELD_NAMES_CACHE.put(values.clone(), fieldNames);
+      }
+      buffer.addAll(fieldNames);
 
       if (fieldSets != null)
         for (Schema.Fieldset fieldSet : fieldSets)
