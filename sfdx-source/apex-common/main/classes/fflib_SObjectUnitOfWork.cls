@@ -1033,13 +1033,20 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
 
   private inherited sharing class Relationships {
     private List<IRelationship> m_relationships = new List<IRelationship>();
+    private Integer m_resolvedCount;
 
     public void resolve() {
-      // Resolve relationships
+      if (m_relationships.size() == m_resolvedCount) {
+        return;
+      }
+      Boolean allResolved = true;
       for (IRelationship relationship : m_relationships) {
         if (!relationship.isResolved()) {
-          relationship.resolve();
+          allResolved = relationship.resolve() && allResolved;
         }
+      }
+      if (allResolved) {
+        m_resolvedCount = m_relationships.size();
       }
     }
 
@@ -1113,7 +1120,7 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
   }
 
   private interface IRelationship {
-    void resolve();
+    Boolean resolve();
     Boolean isResolved();
   }
 
@@ -1125,13 +1132,14 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
     public Schema.SObjectField ExternalIdField;
     public Object ExternalId;
 
-    public void resolve() {
+    public Boolean resolve() {
       SObject relationshipObject = this.RelatedTo.newSObject();
       relationshipObject.put(
         ExternalIdField.getDescribe().getName(),
         this.ExternalId
       );
       this.Record.putSObject(this.RelationshipName, relationshipObject);
+      return true;
     }
 
     public Boolean isResolved() {
@@ -1144,10 +1152,12 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
     public Schema.SObjectField RelatedToField;
     public SObject RelatedTo;
 
-    public void resolve() {
-      if (String.isNotBlank(this.RelatedTo.Id)) {
+    public Boolean resolve() {
+      Boolean hasRelatedId = String.isNotBlank(this.RelatedTo.Id);
+      if (hasRelatedId) {
         this.Record.put(this.RelatedToField, this.RelatedTo.Id);
       }
+      return hasRelatedId;
     }
 
     public Boolean isResolved() {
@@ -1160,8 +1170,9 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
     public Messaging.SingleEmailMessage email;
     public SObject relatedTo;
 
-    public void resolve() {
+    public Boolean resolve() {
       this.email.setWhatId(this.relatedTo.Id);
+      return true;
     }
 
     public Boolean isResolved() {
