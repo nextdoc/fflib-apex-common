@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ascent report</title>
+<script src="https://cdn.jsdelivr.net/npm/vega@5.30.0/build/vega.min.js" integrity="sha384-em7CHpJd+SsMugVFf6TY7AKQcLWMcbPhD84hmNK8o6WFDkK+2uHSUQRVQV1/w827" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5.21.0/build/vega-lite.min.js" integrity="sha384-GhkD6ks9/zgY1m5EFOUZWz/vMVMUFF/92DL61RZc+B42J8osL+jNufKv68bNHHZ2" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6.26.0/build/vega-embed.min.js" integrity="sha384-TqXb8su49m5OnEpKGO8m+VrgHesrUxyP22HgpXi4hnh1Hm43dXroiSYemNf5D8lv" crossorigin="anonymous"></script>
+<style>
+:root{--surface:#fcfcfb;--text:#0b0b0b;--muted:#52514e;--grid:#e6e5e0;--keep:#2a78d6;--discard:#8f8e89;--gated:#c26a1b;--rejected:#b8433a;--nochange:#b5b4ae;--error:#8e2a8e;--up:#1f7a3d;--down:#b8433a}
+@media (prefers-color-scheme:dark){:root{--surface:#1a1a19;--text:#fff;--muted:#c3c2b7;--grid:#383835;--keep:#3987e5;--discard:#8f8e89;--gated:#e08a3c;--rejected:#e0675d;--nochange:#5e5d59;--error:#c565c5;--up:#4cc176;--down:#e0675d}}
+body{margin:0;padding:24px 16px;background:var(--surface);color:var(--text);font:14px/1.4 system-ui,sans-serif}
+main{max-width:1280px;margin:0 auto}
+h1{font-size:20px;margin:0 0 4px}
+.meta{color:var(--muted);font-size:13px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:4px 16px}
+.meta b{color:var(--text);font-weight:600}
+code{font:12px ui-monospace,monospace}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin-bottom:24px}
+.card{border:1px solid var(--grid);border-radius:10px;padding:14px 16px;display:flex;gap:16px;align-items:center}
+.card svg.graphic{flex:none}
+.card > div{min-width:0}
+.card .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:6px}
+.card .big{font-size:28px;font-weight:600;line-height:1.1}
+.card .sub{color:var(--muted);font-size:13px;margin-top:4px}
+.card .row{margin-top:4px;font-size:13px}
+.card .row svg{vertical-align:-3px;margin-right:6px;color:var(--muted)}
+.card .row svg[width="10"]{vertical-align:-1px}
+h2{font-size:14px;color:var(--muted);font-weight:600;margin:28px 0 8px}
+.chart{width:100%}
+.empty{color:var(--muted);padding:32px 16px;text-align:center;border:1px dashed var(--grid);border-radius:8px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{color:var(--muted);font-weight:600;text-align:left;font-size:12px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--grid);vertical-align:top}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.up{color:var(--up)}.down{color:var(--down)}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:500;color:#fff;white-space:nowrap}
+.tag{display:inline-block;margin-top:4px;padding:0 6px;border:1px solid var(--grid);border-radius:4px;font-size:11px;color:var(--muted)}
+.focus{color:var(--muted);font-size:12px}
+.notes p{margin:0 0 6px}.notes p:last-child{margin:0}
+.notes .k{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-right:6px}
+.deltas{white-space:nowrap}
+a{color:var(--keep)}
+.refresh{position:fixed;top:12px;right:16px;color:var(--muted);font-size:12px;display:flex;align-items:center;gap:6px;background:var(--surface);padding:2px 6px;border-radius:6px}
+</style>
+</head>
+<body><main>
+<label class="refresh"><input type="checkbox" id="refresh"> Refresh every minute</label>
+<script>
+// The setting lives in the query string so it survives the reload, including from a file:// URL.
+{
+  const box = document.getElementById('refresh');
+  box.checked = new URLSearchParams(location.search).get('refresh') !== 'off';
+  if (box.checked) setTimeout(() => location.reload(), 60000);
+  box.onchange = () => { location.search = box.checked ? '' : '?refresh=off'; };
+}
+</script>
+<h1 id="title"></h1>
+<div class="meta" id="meta"></div>
+<div class="tiles" id="tiles"></div>
+<h2>Overall score by hours since baseline: current kept (line), fitted climb (dashed)</h2>
+<div class="chart" id="climb"></div>
+<h2>Minutes per iteration</h2>
+<div class="chart" id="durations"></div>
+<h2>Dimensions</h2>
+<div class="scroll"><table id="dimensions"></table></div>
+<h2>Iterations</h2>
+<div class="scroll"><table id="iterations"></table></div>
+<h2 id="cost-title">Cumulative agent cost by step</h2>
+<div class="chart" id="cost"></div>
+<section id="retro" hidden>
+<h2>Retrospective (first pass, agent generated)</h2>
+<p class="meta" id="retro-meta"></p>
+<p id="retro-summary"></p>
+<div class="scroll"><table id="retro-items"></table></div>
+</section>
+</main>
+<script>
+const data = {"ascent":{"name":"string-builder-style-1","mode":"deploy","plannerStreamline":false,"targetOrg":"fflib-apex-common","branch":"ascent/string-builder-style-1","baseCommit":"75037f70c79d30746c9f8597d853704253a26b82","createdAt":"2026-11-14T10:29:37.881Z","updatedAt":"2026-11-14T10:44:47.049Z"},"summary":{"baseline":86,"current":89.8,"gain":3.8,"iterations":6,"kept":2,"hours":0.25,"perHour":14.62,"perIteration":0.63,"angle":32.3,"minutesPerIteration":2.2,"fit":[{"hours":0.0252,"fit":87.28},{"hours":0.2268,"fit":90.23}]},"cost":{"total":3.3,"byStep":{"plan":2.19,"implement":0.76,"learn":0.36},"series":[{"hours":0,"step":"plan","usd":0},{"hours":0,"step":"implement","usd":0},{"hours":0,"step":"learn","usd":0},{"hours":0.06,"step":"plan","usd":0.2768},{"hours":0.06,"step":"implement","usd":0.1342},{"hours":0.06,"step":"learn","usd":0.0586},{"hours":0.091,"step":"plan","usd":0.5962},{"hours":0.091,"step":"implement","usd":0.2474},{"hours":0.091,"step":"learn","usd":0.1239},{"hours":0.119,"step":"plan","usd":0.8906},{"hours":0.119,"step":"implement","usd":0.3817},{"hours":0.119,"step":"learn","usd":0.1841},{"hours":0.161,"step":"plan","usd":1.2773},{"hours":0.161,"step":"implement","usd":0.503},{"hours":0.161,"step":"learn","usd":0.2448},{"hours":0.206,"step":"plan","usd":1.7317},{"hours":0.206,"step":"implement","usd":0.6495},{"hours":0.206,"step":"learn","usd":0.3004},{"hours":0.252,"step":"plan","usd":2.1886},{"hours":0.252,"step":"implement","usd":0.7576},{"hours":0.252,"step":"learn","usd":0.3588}]},"dimensions":[{"name":"PMD","baseline":100,"current":100,"delta":0,"margin":0.5,"series":[100,100,100]},{"name":"Graph Engine","baseline":100,"current":100,"delta":0,"margin":0.5,"series":[100,100,100]},{"name":"Tests passing","baseline":100,"current":100,"delta":0,"margin":0,"series":[100,100,100]},{"name":"Code coverage","baseline":92.7,"current":93.8,"delta":1.1,"margin":0,"series":[92.7,92.9,93.8]},{"name":"Test run time","baseline":74.9,"current":76.6,"delta":1.7,"margin":4.2,"series":[74.9,75.3,76.6]},{"name":"Limit headroom","baseline":59.8,"current":83.1,"delta":23.3,"margin":7.7,"series":[59.8,72.4,83.1]},{"name":"Resource efficiency","baseline":74.5,"current":75.2,"delta":0.7,"margin":2.8,"series":[74.5,76.1,75.2]}],"rows":[{"iteration":1,"at":"2026-11-14T10:31:39.576Z","outcome":"keep","dryRun":false,"overall":88.1,"current":88.1,"hours":0.06,"minutes":1.6,"focus":["Limit headroom"],"reason":"Limit headroom (CPU 40.2% in headroomBulkBuilders) is the weakest dimension. The hot path is the FieldListBuilder constructor, which makes a virtual add(String) call for every field, and MultiCurrencyFieldListBuilder, which calls UserInfo.isMultiCurrencyOrganization() on every construction. Writing straight to the protected buffer and reading the multi-currency flag once per transaction into a static cuts per-field and per-instance CPU without changing behaviour or line structure.","decision":["every focus dimension rose by more than its margin and no other dimension fell by more than its margin"],"learning":"In bulk-construction hot paths, CPU limit headroom responds to removing per-iteration overhead (virtual calls, repeated platform calls like UserInfo checks), and such micro-optimisations are safe, because they leave behaviour-neutral dimensions (PMD, tests, graph engine) flat. Further gains would likely come from the same pattern elsewhere, e.g. other repeated describe or UserInfo calls inside loops.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":0.2,"Test run time":0.4,"Limit headroom":12.6,"Resource efficiency":1.6},"patch":"patches/1.patch","run":"runs/1","cost":{"plan":0.2767744,"implement":0.1341886,"learn":0.0586067}},{"iteration":2,"at":"2026-11-14T10:33:15.454Z","outcome":"discard","dryRun":false,"overall":88.5,"current":88.1,"hours":0.091,"minutes":1.8,"focus":["Limit headroom"],"reason":"Limit headroom (CPU 27.6% in headroomBulkBuilders) is still the weakest dimension. The hot path is now the FieldListBuilder constructor's loop, which runs an interpreted iteration and a String.valueOf(SObjectField) call for every field, about 2,600 times per field list, the largest being all Account fields. One native String.join(values, ',').split(',') produces the same field-name list with no per-field interpreted work. The isEmpty guard keeps the empty-list buffer empty, because splitting '' gives [''], and it keeps the same line count, so coverage and other dimensions stay flat.","decision":["Limit headroom is a focus but rose 7.5, not more than its margin 7.7","Tests passing fell 5.4, more than its margin 0"],"learning":"Replacing the per-field String.valueOf loop with String.join(...).split(',') gave only a sub-margin headroom gain and broke tests, probably because join does not stringify SObjectField like valueOf. Bulk native-call rewrites of builder output need proven output equivalence, so prefer behaviour-preserving micro-changes like skipping virtual dispatch.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":-5.4,"Code coverage":0,"Test run time":1.1,"Limit headroom":7.5,"Resource efficiency":-0.3},"patch":"patches/2.patch","run":"runs/2","cost":{"plan":0.3194712,"implement":0.11316670000000001,"learn":0.0652848}},{"iteration":3,"at":"2026-11-14T10:35:04.573Z","outcome":"keep","dryRun":false,"overall":89.8,"current":89.8,"hours":0.119,"minutes":1.7,"focus":["Limit headroom"],"reason":"Limit headroom (CPU 27.6%) is the weakest dimension, and the remaining hot path is the FieldListBuilder constructor's interpreted loop. It calls String.valueOf(SObjectField) for every field on every construction, and the test builds the same four field lists 1300 times with two builders each. A static per-transaction cache of field-name lists means each distinct list is stringified once. Every later build costs one native map lookup and one buffer.addAll, with no per-field interpreted work. The output is the same strings in the same order, unlike the discarded join/split rewrite. The cache key is a clone, so later changes to the caller's list cannot corrupt the cache. Fieldset and multi-currency logic are unchanged.","decision":["every focus dimension rose by more than its margin and no other dimension fell by more than its margin"],"learning":"Memoizing repeated per-field String.valueOf work in a static cache (one native map lookup plus addAll per build) gave the largest CPU headroom gain, so the next targets are other repeated interpreted loops that can be memoized or replaced with native bulk calls. The cost was a small resource-efficiency dip, probably from the extra static map held in memory, and it stayed within its margin.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":0.9,"Test run time":1.3,"Limit headroom":10.7,"Resource efficiency":-0.9},"patch":"patches/3.patch","run":"runs/3","cost":{"plan":0.2943246,"implement":0.1343159,"learn":0.0602407}},{"iteration":4,"at":"2026-11-14T10:36:48.174Z","outcome":"discard","dryRun":false,"overall":90.5,"current":89.8,"hours":0.161,"minutes":2.5,"focus":["Limit headroom"],"reason":"Limit headroom (CPU 16.9% in headroomBulkBuilders) is the weakest dimension that can still move. The test calls CommaDelimitedListBuilder.getStringValue(prefix) twice per round, and each call makes an extra virtual setItemPrefix call before toString. MultiCurrencyFieldListBuilder goes through virtual add(String) for CurrencyIsoCode. On a cache miss, FieldListBuilder builds the name list with an unsized list. Writing the prefix field directly, appending straight to the protected buffer, and pre-sizing the miss-path list remove that per-call overhead. Output strings and order are the same, and no line is added or removed. The gain is likely small, because most of the remaining CPU is the test's own loop.","decision":["re-measured a close discard and averaged the noisy dimensions over 2 runs (first run {\"PMD\":100,\"Graph Engine\":100,\"Tests passing\":100,\"Code coverage\":93.8,\"Test run time\":79.1,\"Limit headroom\":84.9,\"Resource efficiency\":74.9})","Limit headroom is a focus but rose 3.1, not more than its margin 7.7"],"learning":"Removing constant per-call overhead (one virtual call in getStringValue, one in the multi-currency constructor, list pre-sizing on cache misses) moved Limit headroom less than its noise margin, because the remaining CPU is mostly the test's own loop. Earlier gains came from removing per-field work that scales with field count (the static name cache), so future candidates should target that kind of work, not per-call micro-edits.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":0,"Test run time":2.3,"Limit headroom":3.1,"Resource efficiency":-0.4},"patch":"patches/4.patch","run":"runs/4","cost":{"plan":0.3867008,"implement":0.1213279,"learn":0.0606227}},{"iteration":5,"at":"2026-11-14T10:39:18.121Z","outcome":"discard","dryRun":false,"overall":89.3,"current":89.8,"hours":0.206,"minutes":2.7,"focus":["Limit headroom"],"reason":"Limit headroom (CPU 16.9%) is the only dimension this file can still move. The one per-field cost left on a cache hit that the output does not need is the Map\u003cList\u003cSObjectField>> key lookup, which hashes the whole field list and then compares it element by element. The test builds each list twice in a row, so a one-entry last-match cache with a native == content check replaces the hash and map probe on about half the builds. Output strings and order are unchanged. The expected gain is small and may not beat the 7.7 margin.","decision":["Limit headroom is a focus but rose -0.7, not more than its margin 7.7","PMD fell 3.8, more than its margin 0.5"],"learning":"After the per-transaction field-name cache removed the interpreted per-field loop, shaving the remaining native Map lookup with a last-match cache gained no CPU headroom, because its extra branch and clone cost as much as the probe it skipped. The added statements also pushed the constructor to its NCSS threshold and cost PMD, so further changes in this constructor should add no statements.","deltas":{"PMD":-3.8,"Graph Engine":0,"Tests passing":0,"Code coverage":0.5,"Test run time":0.2,"Limit headroom":-0.7,"Resource efficiency":0.1},"patch":"patches/5.patch","run":"runs/5","cost":{"plan":0.4543976,"implement":0.1464975,"learn":0.0556276}},{"iteration":6,"at":"2026-11-14T10:42:00.434Z","outcome":"discard","dryRun":false,"overall":90.3,"current":89.8,"hours":0.252,"minutes":2.8,"focus":["Limit headroom"],"reason":"Limit headroom (CPU 16.9% in headroomBulkBuilders) is the weakest dimension this file can still move. The only work left in this file that grows with field count is the FieldListBuilder constructor copying the cached name list into the buffer with buffer.addAll, about 2,600 times per round set, including the full Account field list. addAll into a freshly allocated empty list grows its backing store as it copies, while clone() makes one exact-size native copy. The buffer still gets its own list, so later add calls (fieldsets, CurrencyIsoCode) cannot change the cache. Output strings and order are the same, and the statement and line count are unchanged, so PMD (the constructor is at its NCSS threshold) and coverage stay flat. The expected gain is small because most of the remaining CPU is the test's own interpreted loop.","decision":["re-measured a close discard and averaged the noisy dimensions over 2 runs (first run {\"PMD\":100,\"Graph Engine\":100,\"Tests passing\":100,\"Code coverage\":93.8,\"Test run time\":77,\"Limit headroom\":85.9,\"Resource efficiency\":75})","Limit headroom is a focus but rose 2.3, not more than its margin 7.7"],"learning":"Limit headroom responds to removing per-field interpreted work and per-instance platform calls (the earlier cache and static-flag changes), but swapping buffer.addAll for clone() on an already-cached list is below the noise floor because the rest of the CPU is the test's own loop. Further headroom gains would need fewer constructions or calls, not cheaper copies.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":0,"Test run time":1.8,"Limit headroom":2.3,"Resource efficiency":-0.5},"patch":"patches/6.patch","run":"runs/6","cost":{"plan":0.4569294,"implement":0.10811520000000001,"learn":0.0584027}}],"retro":{"ascent":"string-builder-style-1","at":"2026-11-14T10:46:11.485Z","base":"95888682df213ff9d28982efb0d8f617d477dacb","head":"7c82edaea008734f01b2cf9d969769cbdd6e9026","changedTests":[],"step":{"model":"claude-opus-5-5","durationMs":79986,"costUsd":0.5490276},"summary":"The ascent changed only fflib_StringBuilder. Iteration 1 (bypassing virtual add, caching the multi-currency flag in a static) and iteration 3 (a static per-transaction field-name cache) together lifted Limit headroom in fflib_StringBuilderTest.headroomBulkBuilders from 59.8 to 83.1. Code coverage's 1.1 rise comes only from the covered new cache lines. fflib_SObjectSelectorTest Resource efficiency barely moved (+2.3) and is probably noise, because the selector's getFieldListBuilder uses CommaDelimitedListBuilder, which did not change. The main risk is that the FieldListBuilder constructor no longer calls the virtual add(String), so subclasses that override it are silently skipped, and no test covers that.","behaviourChanges":[{"code":"B1","title":"FieldListBuilder constructor bypasses the virtual add(String)","detail":"The baseline called add(String.valueOf(value)) and add(fieldSetMember.getFieldPath()), so an add(String) override in a subclass of the public virtual, @NamespaceAccessible FieldListBuilder (or of MultiCurrencyFieldListBuilder's parent chain) saw every field name and field-set path. The evolved code writes field names in bulk with buffer.addAll(fieldNames) and field-set paths with buffer.add(...). Overrides that filter, dedupe, change case or add a namespace prefix are now silently ignored for the initial field list, but still apply to later add() calls and to CurrencyIsoCode (line 175 still calls add). This is a contract change for subscriber code.","evidence":"sfdx-source/apex-common/main/classes/fflib_StringBuilder.cls:129, :147, :152, :175","iterations":[1,3],"severity":"medium","caughtByTests":false,"proposedTest":"In fflib_StringBuilderTest, add a private inner class extending fflib_StringBuilder.FieldListBuilder that overrides add(String value) to call super.add(value.toUpperCase()). Construct it with {Account.Name, Account.Id} and assert getStringValue() == 'NAME,ID'."},{"code":"B2","title":"Unbounded per-transaction static cache of field-name lists","detail":"FIELD_NAMES_CACHE keeps a cloned key list and a name list for every distinct List\u003cSObjectField> passed in during the transaction, and never evicts. In transactions that build many distinct dynamic field lists (dynamic selectors, many SObject types, wide objects), heap grows in proportion. Each lookup also hashes and compares the whole key list, so the cost per build still scales with field count, though in native code. The heap cost is small in normal use but is new behaviour.","evidence":"sfdx-source/apex-common/main/classes/fflib_StringBuilder.cls:40, :140-146","iterations":[3],"severity":"low","caughtByTests":false,"proposedTest":"Headroom test: build FieldListBuilders for 500 distinct field-list permutations of all Account fields. Assert Limits.getHeapSize() stays under a chosen budget (e.g. 50% of the limit)."},{"code":"B3","title":"Multi-currency flag read once when the class loads","detail":"UserInfo.isMultiCurrencyOrganization() now runs in a static initializer the first time any fflib_StringBuilder class is touched in a transaction, even a plain StringBuilder that never builds a field list. The value is org-level and fixed within a transaction (System.runAs does not change it), so output is unchanged. The only differences are when the call happens and that it now runs even if unused.","evidence":"sfdx-source/apex-common/main/classes/fflib_StringBuilder.cls:39, :174","iterations":[1],"severity":"low","caughtByTests":false,"proposedTest":"Build MultiCurrencyFieldListBuilder and assert it contains CurrencyIsoCode exactly when UserInfo.isMultiCurrencyOrganization(). Also assert it appears exactly once (the existing test only checks contains)."},{"code":"B4","title":"Cache key and value sharing on repeated builds","detail":"The cache key is values.clone(), and each builder gets its own copy of the cached names through buffer.addAll, so changing the caller's list or a builder's buffer cannot corrupt the cache. Behaviour is the same as the baseline, but this safety now depends on those two copies. A future edit such as iteration 6's buffer = fieldNames is fine only if it stays a clone, and assigning the cached list directly would leak state between builders. Tests never build from the same list after changing it.","evidence":"sfdx-source/apex-common/main/classes/fflib_StringBuilder.cls:145, :147; iteration 6 plan","iterations":[3],"severity":"low","caughtByTests":false,"proposedTest":"Build A from list L, call A.add('X'), then add Account.Phone to L and build B from L. Build C from the original two-field list. Assert B ends with 'Phone' and has no 'X', and assert C equals the original output."}],"patterns":[{"code":"P1","title":"Static per-transaction memoization of String.valueOf(SObjectField)","detail":"Results come out the same, and the copies in and out are done correctly. It gave the largest headroom gain, but mainly because the benchmark rebuilds four identical lists 1,300 times. In real selectors that build each list once per transaction it adds a map hash plus a clone and saves little.","evidence":"fflib_StringBuilder.cls:40, :140-147; iteration 3","verdict":"questionable"},{"code":"P2","title":"Writing to protected buffer instead of the virtual add()","detail":"A micro-optimisation that silently changes the extension contract of a public virtual class. It is also inconsistent, since line 175 still uses add().","evidence":"fflib_StringBuilder.cls:147, :152, :175; iteration 1","verdict":"bad"},{"code":"P3","title":"Static final cache of the org multi-currency flag","detail":"The value is fixed per transaction, so caching it is safe, cheap and easy to read.","evidence":"fflib_StringBuilder.cls:39; iteration 1","verdict":"good"},{"code":"P4","title":"Removed the explanatory comments","detail":"The baseline comments 'Create a distinct set of fields' (inaccurate, since nothing dedupes) and 'Alternative to value.getDescribe().getName()' were dropped. The second one recorded why valueOf is used, which is a non-obvious fact.","evidence":"baseline diff around fflib_StringBuilder.cls:138-140","verdict":"questionable"}],"testGaps":[{"code":"T1","title":"Exact output order is not asserted","detail":"testFieldListBuilder and testMultiCurrencyFieldListBuilder put the output into a Set, so a reorder or dedupe would pass. That matters because a cache could easily change order.","proposedTest":"Assert new FieldListBuilder({Account.Name, Account.Id, Account.AccountNumber, Account.AccountNumber}).getStringValue() == 'Name,Id,AccountNumber,AccountNumber'."},{"code":"T2","title":"Subclass add(String) override not exercised","detail":"Nothing pins down that the constructor goes through the virtual add, so iteration 1's contract change was invisible to the tests.","proposedTest":"Use an inner subclass that overrides add(String) to change case or filter, and assert the override applied to constructor-supplied fields."},{"code":"T3","title":"Cache behaviour across caller mutation and buffer mutation","detail":"No test reuses a list after changing it, or checks that one builder's later add() calls don't leak into the next build.","proposedTest":"Build, mutate the source list, build again, and assert the new field is present. Then call add('X') on the first builder, build a third from the original fields, and assert 'X' is absent."},{"code":"T4","title":"Field-set path untested","detail":"No test passes fieldSets, so the field-set branch (now buffer.add) has no coverage and the order of field-set members after the cached names is unchecked.","proposedTest":"If the test org has an Account field set, build FieldListBuilder(fields, new List\u003cSchema.FieldSet>{fs}) and assert its member paths follow the field names in order. Otherwise skip with a guard on Schema.SObjectType.Account.fieldSets.getMap().isEmpty()."},{"code":"T5","title":"Empty and null inputs","detail":"The empty list should give '' and a null list should throw NullPointerException, as in the baseline. Neither is asserted.","proposedTest":"Assert new FieldListBuilder(new List\u003cSchema.SObjectField>()).getStringValue() == ''. Assert new FieldListBuilder((List\u003cSchema.SObjectField>) null) throws NullPointerException."},{"code":"T6","title":"CurrencyIsoCode count","detail":"The multi-currency test checks only that CurrencyIsoCode is present, not that it appears once or comes last.","proposedTest":"In a multi-currency org, assert the last element of the split output is 'CurrencyIsoCode' and that it appears once."}],"other":[{"code":"X1","title":"Benchmark shape drove the design","detail":"headroomBulkBuilders rebuilds the same four field lists 2,600 times per list, which strongly favours memoization. Production selectors use fflib_QueryFactory rather than FieldListBuilder (fflib_SObjectSelector.cls:308-313), so the real-world CPU benefit of iteration 3 is probably small."},{"code":"X2","title":"Iteration 2's learning is speculative","detail":"It blamed the broken tests on String.join not stringifying SObjectField like valueOf. That was never checked, and later iterations relied on it to justify keeping a loop."},{"code":"X3","title":"Selector Resource efficiency change is not attributable","detail":"fflib_SObjectSelectorTest does not reach FieldListBuilder or MultiCurrencyFieldListBuilder, so treat its +2.3 as run-to-run noise rather than an effect of the ascent."}]}};
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]);
+const f = (x, d = 2) => x == null ? '–' : x.toFixed(d);
+const signed = (x, d = 1) => (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x).toFixed(d);
+const trend = x => x > 0 ? 'up' : x < 0 ? 'down' : '';
+const s = data.summary, a = data.ascent;
+const OUTCOMES = ['keep', 'discard', 'gated', 'rejected', 'no-change', 'error'];
+const colour = o => css(o === 'no-change' ? '--nochange' : `--${o}`);
+
+document.title = `${a.name} ascent`;
+document.getElementById('title').textContent = `${a.name} ascent`;
+const when = t => new Date(t).toLocaleString();
+document.getElementById('meta').innerHTML = [
+  ['Mode', esc(a.mode) + (a.plannerStreamline ? ' + planner probes' : '')], ['Org', esc(a.targetOrg)], ['Branch', `<code>${esc(a.branch)}</code>`], ['Base', `<code>${esc(a.baseCommit.slice(0, 8))}</code>`],
+  ['Started', esc(when(a.createdAt))], ['Updated', esc(when(a.updatedAt))]
+].map(([k, v]) => `<span><b>${k}:</b> ${v}</span>`).join('');
+
+const icon = d => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const icons = {
+  target: icon('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>'),
+  up: icon('<path d="M12 19V5M5 12l7-7 7 7"/>'),
+  down: icon('<path d="M12 5v14M5 12l7 7 7-7"/>'),
+  trend: icon('<path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/>'),
+  clock: icon('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+  flask: icon('<path d="M9 3h6M10 3v6L4 19a1 1 0 0 0 1 2h14a1 1 0 0 0 1-2L14 9V3"/>'),
+  check: icon('<path d="M5 12l5 5 9-10"/>'),
+  coin: icon('<circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .8-3 2s1.3 1.7 3 2 3 .8 3 2-1.3 2-3 2c-1.4 0-2.5-.5-3-1.5M12 6v2M12 16v2"/>')};
+const scoreBar = (() => {
+  const w = 96, x = v => Math.max(0, Math.min(100, v)) / 100 * w;
+  return `<svg class="graphic" width="${w}" height="44" viewBox="0 0 ${w} 44">
+    <rect x="0" y="18" width="${w}" height="8" rx="4" fill="var(--grid)"/>
+    <rect x="0" y="18" width="${x(s.baseline)}" height="8" rx="4" fill="var(--discard)"/>
+    <rect x="${x(s.baseline)}" y="18" width="${Math.max(0, x(s.current) - x(s.baseline))}" height="8" rx="2" fill="var(--keep)"/>
+    <text x="0" y="42" font-size="10" fill="var(--muted)">0</text>
+    <text x="${w}" y="42" font-size="10" fill="var(--muted)" text-anchor="end">100</text></svg>`;})();
+const gauge = (() => {
+  const r = 40, t = Math.max(-90, Math.min(90, s.angle)) * Math.PI / 180;
+  return `<svg class="graphic" width="56" height="56" viewBox="0 0 56 56">
+    <path d="M ${6 + r} 48 A ${r} ${r} 0 0 0 6 ${48 - r}" fill="none" stroke="var(--grid)" stroke-width="6"/>
+    <line x1="6" y1="48" x2="${6 + r}" y2="48" stroke="var(--grid)" stroke-width="1"/>
+    <line x1="6" y1="48" x2="${6 + r * Math.SQRT1_2}" y2="${48 - r * Math.SQRT1_2}" stroke="var(--grid)" stroke-width="1" stroke-dasharray="2 2"/>
+    <line x1="6" y1="48" x2="${6 + r * Math.cos(t)}" y2="${48 - r * Math.sin(t)}" stroke="var(--keep)" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="6" cy="48" r="3" fill="var(--text)"/></svg>`;})();
+const ring = (() => {
+  const r = 22, c = 2 * Math.PI * r, share = s.iterations ? s.kept / s.iterations : 0;
+  return `<svg class="graphic" width="56" height="56" viewBox="0 0 56 56">
+    <circle cx="28" cy="28" r="${r}" fill="none" stroke="var(--grid)" stroke-width="6"/>
+    <circle cx="28" cy="28" r="${r}" fill="none" stroke="var(--keep)" stroke-width="6" stroke-linecap="round"
+      stroke-dasharray="${share * c} ${c}" transform="rotate(-90 28 28)"/>
+    <text x="28" y="32" font-size="12" font-weight="600" text-anchor="middle" fill="var(--text)">${Math.round(share * 100)}%</text></svg>`;})();
+const STEP_COLOURS = {plan: '--keep', implement: '--gated', learn: '--discard'};
+const costShares = Object.entries(data.cost.byStep).map(([step, v]) => [step, v, data.cost.total ? v / data.cost.total : 0]);
+const pie = (() => {
+  const r = 26, point = t => `${28 + r * Math.sin(t * 2 * Math.PI)} ${28 - r * Math.cos(t * 2 * Math.PI)}`;
+  let from = 0;
+  const slices = costShares.filter(([, , share]) => share > 0).map(([step, , share]) => {
+    const path = share >= 1
+      ? `<circle cx="28" cy="28" r="${r}" fill="var(${STEP_COLOURS[step]})"/>`
+      : `<path d="M28 28 L${point(from)} A${r} ${r} 0 ${share > 0.5 ? 1 : 0} 1 ${point(from + share)} Z" fill="var(${STEP_COLOURS[step]})" stroke="var(--surface)" stroke-width="1.5"/>`;
+    from += share;
+    return path;
+  });
+  return `<svg class="graphic" width="56" height="56" viewBox="0 0 56 56">
+    ${slices.length ? slices.join('') : `<circle cx="28" cy="28" r="${r}" fill="var(--grid)"/>`}</svg>`;})();
+document.getElementById('tiles').innerHTML = `
+  <div class="card">${scoreBar}<div>
+    <div class="label">${icons.target} Gain on baseline</div>
+    <div class="big">${signed(s.gain)} <span style="font-size:16px;color:var(--muted)">pts</span></div>
+    <div class="row">${s.gain >= 0 ? icons.up : icons.down}Current <b>${f(s.current)}</b> from ${f(s.baseline)} baseline</div></div></div>
+  <div class="card">${gauge}<div>
+    <div class="label">${icons.trend} Climb angle</div>
+    <div class="big">${f(s.angle, 1)}°</div>
+    <div class="sub">45° is one point an iteration</div>
+    <div class="row"><b>${f(s.perHour)}</b> pts/hour · <b>${f(s.perIteration)}</b> pts/iteration</div></div></div>
+  <div class="card">${ring}<div>
+    <div class="label">${icons.check} Kept</div>
+    <div class="big">${s.kept} <span style="font-size:16px;color:var(--muted)">of ${s.iterations}</span></div>
+    <div class="row">${icons.clock}<b>${f(s.hours, 1)}</b> hours</div>
+    <div class="row">${icons.flask}<b>${f(s.minutesPerIteration, 1)}</b> min/iteration</div></div></div>
+  <div class="card">${pie}<div>
+    <div class="label">${icons.coin} Total cost</div>
+    <div class="big">$${f(data.cost.total)}</div>
+    ${costShares.map(([step, v, share]) => `<div class="row"><svg width="10" height="10"><rect width="10" height="10" rx="2" fill="var(${STEP_COLOURS[step]})"/></svg>${step} <b>$${f(v)}</b> · ${Math.round(share * 100)}%</div>`).join('')}</div></div>`;
+
+const climb = data.rows.filter(r => !r.dryRun);
+const scored = climb.filter(r => r.overall != null);
+const unscored = climb.filter(r => r.overall == null);
+const steps = [{hours: 0, current: s.baseline}].concat(climb.map(r => ({hours: r.hours, current: r.current})));
+const config = {background: css('--surface'), view: {stroke: null},
+  axis: {labelColor: css('--muted'), titleColor: css('--muted'), gridColor: css('--grid'), domainColor: css('--grid'), tickColor: css('--grid')},
+  legend: {labelColor: css('--text'), titleColor: css('--muted')}};
+const outcome = {field: 'outcome', title: 'Outcome', scale: {domain: OUTCOMES, range: OUTCOMES.map(colour)}};
+const tip = [{field: 'iteration', title: 'Iteration'}, {field: 'outcome', title: 'Outcome'},
+  {field: 'overall', title: 'Score', format: '.2f'}, {field: 'current', title: 'Current kept', format: '.2f'},
+  {field: 'hours', title: 'Hours', format: '.2f'}, {field: 'minutes', title: 'Minutes', format: '.1f'},
+  {field: 'focusText', title: 'Focus'}, {field: 'reason', title: 'Reason'}];
+const withFocus = rows => rows.map(r => ({...r, focusText: r.focus.join(', ')}));
+const lastHours = Math.max(s.hours, ...climb.map(r => r.hours));
+const fiveMinutes = Array.from({length: Math.max(1, Math.ceil(lastHours * 12)) + 1}, (_, i) => i / 12);
+const minutes = 'round(datum.value * 60)';
+const waiting = id => { document.getElementById(id).innerHTML = '<div class="empty">No iterations yet. This chart fills in after the first one finishes.</div>'; };
+const hoursAxis = {field: 'hours', type: 'quantitative', title: 'Time since baseline (h:mm)',
+  scale: {domain: [0, fiveMinutes.at(-1)], nice: false},
+  axis: {values: fiveMinutes, labelExpr: `${minutes} % 15 ? '' : floor(${minutes} / 60) + ':' + pad(${minutes} % 60, 2, '0', 'left')`}};
+const ends = steps.length > 1 && steps.at(-1).current.toFixed(1) !== steps[0].current.toFixed(1)
+  ? [[steps[0], 'left'], [steps.at(-1), 'right']] : [[steps.at(-1), 'left']];
+vegaEmbed('#climb', {$schema: 'https://vega.github.io/schema/vega-lite/5.json', config,
+  vconcat: [
+    {width: 'container', height: 320, layer: [
+      {data: {values: steps}, mark: {type: 'line', interpolate: 'step-after', strokeWidth: 2, color: css('--keep')},
+       encoding: {x: {...hoursAxis, axis: {...hoursAxis.axis, title: null, labels: false}}, y: {field: 'current', type: 'quantitative', title: 'Overall score', scale: {zero: false}}}},
+      {data: {values: s.fit}, mark: {type: 'line', strokeDash: [6, 4], strokeWidth: 2, color: css('--muted'), opacity: 0.3},
+       encoding: {x: {field: 'hours', type: 'quantitative'}, y: {field: 'fit', type: 'quantitative'}}},
+      ...ends.map(([step, align]) => (
+       {data: {values: [step]}, mark: {type: 'text', align, baseline: 'bottom', dy: -6, fontSize: 28, fontWeight: 600, color: css('--text')},
+        encoding: {x: {field: 'hours', type: 'quantitative'}, y: {field: 'current', type: 'quantitative'}, text: {field: 'current', format: '.1f'}}})),
+      {data: {values: withFocus(scored)}, mark: {type: 'point', size: 90, strokeWidth: 2, opacity: 1},
+       encoding: {x: {field: 'hours', type: 'quantitative'}, y: {field: 'overall', type: 'quantitative'},
+                  color: outcome, shape: {field: 'outcome', legend: null},
+                  fill: {condition: {test: "datum.outcome === 'keep'", value: css('--keep')}, value: css('--surface')},
+                  tooltip: tip}}]},
+    {width: 'container', height: 60, data: {values: withFocus(unscored)}, mark: {type: 'tick', thickness: 2, size: 14},
+     encoding: {x: hoursAxis, y: {field: 'outcome', type: 'nominal', title: null, scale: {domain: ['gated', 'rejected', 'no-change', 'error']}},
+                color: {...outcome, legend: null}, tooltip: tip}}
+  ], resolve: {scale: {x: 'shared'}}}, {actions: false});
+const timed = climb.filter(r => r.minutes != null);
+if (!timed.length) waiting('durations');
+else vegaEmbed('#durations', {$schema: 'https://vega.github.io/schema/vega-lite/5.json', width: 'container', height: 200, config,
+  data: {values: withFocus(timed)},
+  mark: {type: 'bar', cornerRadiusTopLeft: 4, cornerRadiusTopRight: 4, width: {expr: "min(40, bandwidth('x') * 0.8)"}},
+  encoding: {x: {field: 'iteration', type: 'ordinal', title: 'Iteration', axis: {labelAngle: 0}},
+             y: {field: 'minutes', type: 'quantitative', title: 'Minutes'},
+             color: outcome, tooltip: tip}}, {actions: false});
+
+const usd = x => `$${x.toFixed(2)}`;
+document.getElementById("cost-title").textContent =
+  `Cumulative agent cost by step: ${usd(data.cost.total)} total (${Object.entries(data.cost.byStep).map(([k, v]) => `${k} ${usd(v)}`).join(", ")}), estimated at list price`;
+const byCost = Object.entries(data.cost.byStep).sort(([, a], [, b]) => b - a).map(([step]) => step);
+if (!data.rows.length) waiting("cost");
+else vegaEmbed("#cost", {$schema: "https://vega.github.io/schema/vega-lite/5.json", width: "container", height: 240, config,
+  data: {values: data.cost.series.map(p => ({...p, rank: byCost.indexOf(p.step)}))},
+  mark: {type: "area", line: {strokeWidth: 2}, opacity: 0.25},
+  encoding: {x: hoursAxis,
+             y: {field: "usd", type: "quantitative", stack: "zero", title: "Cumulative cost (USD)", axis: {format: "$.2f"}},
+             color: {field: "step", title: "Step", scale: {domain: [...byCost].reverse(), range: [...byCost].reverse().map(step => css(STEP_COLOURS[step]))}},
+             order: {field: "rank"},
+             tooltip: [{field: "step", title: "Step"}, {field: "hours", title: "Hours", format: ".2f"}, {field: "usd", title: "Cumulative", format: "$.2f"}]}}, {actions: false});
+
+const spark = series => {
+  const w = 96, h = 24, lo = Math.min(...series), hi = Math.max(...series), span = hi - lo || 1;
+  const pts = series.map((v, i) => [series.length > 1 ? i / (series.length - 1) * w : w / 2, h - 2 - (v - lo) / span * (h - 4)]);
+  const [lx, ly] = pts.at(-1);
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="var(--keep)" stroke-width="1.5"/><circle cx="${lx}" cy="${ly}" r="2.5" fill="var(--keep)"/></svg>`;
+};
+document.getElementById('dimensions').innerHTML = `
+  <tr><th>Dimension</th><th class="num">Baseline</th><th class="num">Current</th><th class="num">Change</th><th class="num">Margin</th><th>Kept iterations</th></tr>
+  ${data.dimensions.map(d => `<tr><td>${esc(d.name)}</td><td class="num">${f(d.baseline, 1)}</td><td class="num">${f(d.current, 1)}</td>
+    <td class="num ${trend(d.delta)}">${signed(d.delta)}</td><td class="num">${d.margin}</td><td>${spark(d.series)}</td></tr>`).join('')}`;
+
+const deltas = r => r.deltas ? Object.entries(r.deltas).filter(([, v]) => v !== 0)
+  .map(([k, v]) => `<div class="deltas">${esc(k)} <span class="${trend(v)}">${signed(v)}</span></div>`).join('') || '<span class="focus">no change</span>' : '';
+const note = (k, v) => v ? `<p><span class="k">${k}</span>${esc(v)}</p>` : '';
+const link = (label, href) => href ? `<div><a href="${esc(href)}">${label}</a></div>` : '';
+document.getElementById('iterations').innerHTML = `
+  <tr><th class="num">#</th><th>Outcome</th><th class="num">Overall</th><th>Changes vs kept</th><th>Plan, decision and learning</th><th>Files</th></tr>
+  ${[...data.rows].reverse().map(r => `<tr>
+    <td class="num">${r.iteration}</td>
+    <td><span class="pill" style="background:${colour(r.outcome)}">${esc(r.outcome)}</span>${r.dryRun ? '<div><span class="tag">dry run</span></div>' : ''}
+      ${r.focus.length ? `<div class="focus" style="margin-top:6px">${esc(r.focus.join(', '))}</div>` : ''}</td>
+    <td class="num">${f(r.overall)}</td>
+    <td>${deltas(r)}</td>
+    <td class="notes">${note('Reason', r.reason)}${note('Decision', r.decision.join('; '))}${note('Learning', r.learning)}</td>
+    <td>${link('patch', r.patch)}${link('run', r.run)}</td></tr>`).join('') || '<tr><td colspan="6" class="focus">No iterations yet.</td></tr>'}`;
+
+if (data.retro) {
+  const r = data.retro;
+  document.getElementById('retro').hidden = false;
+  document.getElementById('retro-meta').innerHTML = [
+    ['Commits', `<code>${esc(r.base.slice(0, 8))}..${esc(r.head.slice(0, 8))}</code>`], ['Written', esc(when(r.at))],
+    ['Tests changed', esc(r.changedTests.join(', ') || 'none')]
+  ].map(([k, v]) => `<span><b>${k}:</b> ${v}</span>`).join('');
+  document.getElementById('retro-summary').textContent = r.summary;
+  const tone = {high: '--rejected', medium: '--gated', low: '--discard', good: '--keep', questionable: '--gated', bad: '--rejected'};
+  const pill = v => `<span class="pill" style="background:${css(tone[v])}">${esc(v)}</span>`;
+  const groups = [
+    ['Behaviour changes', r.behaviourChanges, i => `${pill(i.severity)}<div class="focus" style="margin-top:6px">${i.caughtByTests ? 'caught by tests' : 'not caught by tests'}</div>`,
+      i => note('Evidence', i.evidence) + note('Iterations', i.iterations.join(', ')) + note('Proposed test', i.proposedTest)],
+    ['Patterns', r.patterns, i => pill(i.verdict), i => note('Evidence', i.evidence)],
+    ['Test gaps', r.testGaps, () => '', i => note('Proposed test', i.proposedTest)],
+    ['Other', r.other, () => '', () => '']];
+  document.getElementById('retro-items').innerHTML = `
+    <tr><th>Code</th><th>Kind</th><th>Finding</th></tr>
+    ${groups.flatMap(([kind, items, badge, extra]) => items.map(i => `<tr>
+      <td><b>${esc(i.code)}</b></td><td>${kind}${badge(i) ? `<div style="margin-top:4px">${badge(i)}</div>` : ''}</td>
+      <td class="notes"><p><b>${esc(i.title)}</b></p><p>${esc(i.detail)}</p>${extra(i)}</td></tr>`)).join('')}`;
+}
+</script>
+</body>
+</html>

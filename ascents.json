@@ -751,5 +751,49 @@
     ],
     "report": "ascents/sobject-domain-style-1/report.html?refresh=off",
     "retro": "ascents/sobject-domain-style-1/retro.json"
+  },
+  {
+    "name": "string-builder-style-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_StringBuilder.cls"
+    ],
+    "startedAt": "2026-11-14T10:29:37.881Z",
+    "iterations": 6,
+    "kept": 2,
+    "baseline": {
+      "overall": 86,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 92.7,
+        "Test run time": 74.9,
+        "Limit headroom": 59.8,
+        "Resource efficiency": 74.5
+      }
+    },
+    "best": {
+      "overall": 89.8,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 93.8,
+        "Test run time": 76.6,
+        "Limit headroom": 83.1,
+        "Resource efficiency": 75.2
+      },
+      "iteration": 3,
+      "commit": "7c82edaea008734f01b2cf9d969769cbdd6e9026"
+    },
+    "branch": "ascent/string-builder-style-1",
+    "excludedPmdRules": [
+      "IfStmtsMustUseBraces",
+      "IfElseStmtsMustUseBraces",
+      "ForLoopsMustUseBraces",
+      "WhileLoopsMustUseBraces"
+    ],
+    "report": "ascents/string-builder-style-1/report.html?refresh=off",
+    "retro": "ascents/string-builder-style-1/retro.json"
   }
 ]

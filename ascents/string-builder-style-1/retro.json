@@ -1,0 +1,149 @@
+{
+  "ascent": "string-builder-style-1",
+  "at": "2026-11-14T10:46:11.485Z",
+  "base": "95888682df213ff9d28982efb0d8f617d477dacb",
+  "head": "7c82edaea008734f01b2cf9d969769cbdd6e9026",
+  "changedTests": [],
+  "step": {
+    "model": "claude-opus-5-5",
+    "durationMs": 79986,
+    "costUsd": 0.5490276
+  },
+  "summary": "The ascent changed only fflib_StringBuilder. Iteration 1 (bypassing virtual add, caching the multi-currency flag in a static) and iteration 3 (a static per-transaction field-name cache) together lifted Limit headroom in fflib_StringBuilderTest.headroomBulkBuilders from 59.8 to 83.1. Code coverage's 1.1 rise comes only from the covered new cache lines. fflib_SObjectSelectorTest Resource efficiency barely moved (+2.3) and is probably noise, because the selector's getFieldListBuilder uses CommaDelimitedListBuilder, which did not change. The main risk is that the FieldListBuilder constructor no longer calls the virtual add(String), so subclasses that override it are silently skipped, and no test covers that.",
+  "behaviourChanges": [
+    {
+      "code": "B1",
+      "title": "FieldListBuilder constructor bypasses the virtual add(String)",
+      "detail": "The baseline called add(String.valueOf(value)) and add(fieldSetMember.getFieldPath()), so an add(String) override in a subclass of the public virtual, @NamespaceAccessible FieldListBuilder (or of MultiCurrencyFieldListBuilder's parent chain) saw every field name and field-set path. The evolved code writes field names in bulk with buffer.addAll(fieldNames) and field-set paths with buffer.add(...). Overrides that filter, dedupe, change case or add a namespace prefix are now silently ignored for the initial field list, but still apply to later add() calls and to CurrencyIsoCode (line 175 still calls add). This is a contract change for subscriber code.",
+      "evidence": "sfdx-source/apex-common/main/classes/fflib_StringBuilder.cls:129, :147, :152, :175",
+      "iterations": [
+        1,
+        3
+      ],
+      "severity": "medium",
+      "caughtByTests": false,
+      "proposedTest": "In fflib_StringBuilderTest, add a private inner class extending fflib_StringBuilder.FieldListBuilder that overrides add(String value) to call super.add(value.toUpperCase()). Construct it with {Account.Name, Account.Id} and assert getStringValue() == 'NAME,ID'."
+    },
+    {
+      "code": "B2",
+      "title": "Unbounded per-transaction static cache of field-name lists",
+      "detail": "FIELD_NAMES_CACHE keeps a cloned key list and a name list for every distinct List<SObjectField> passed in during the transaction, and never evicts. In transactions that build many distinct dynamic field lists (dynamic selectors, many SObject types, wide objects), heap grows in proportion. Each lookup also hashes and compares the whole key list, so the cost per build still scales with field count, though in native code. The heap cost is small in normal use but is new behaviour.",
+      "evidence": "sfdx-source/apex-common/main/classes/fflib_StringBuilder.cls:40, :140-146",
+      "iterations": [
+        3
+      ],
+      "severity": "low",
+      "caughtByTests": false,
+      "proposedTest": "Headroom test: build FieldListBuilders for 500 distinct field-list permutations of all Account fields. Assert Limits.getHeapSize() stays under a chosen budget (e.g. 50% of the limit)."
+    },
+    {
+      "code": "B3",
+      "title": "Multi-currency flag read once when the class loads",
+      "detail": "UserInfo.isMultiCurrencyOrganization() now runs in a static initializer the first time any fflib_StringBuilder class is touched in a transaction, even a plain StringBuilder that never builds a field list. The value is org-level and fixed within a transaction (System.runAs does not change it), so output is unchanged. The only differences are when the call happens and that it now runs even if unused.",
+      "evidence": "sfdx-source/apex-common/main/classes/fflib_StringBuilder.cls:39, :174",
+      "iterations": [
+        1
+      ],
+      "severity": "low",
+      "caughtByTests": false,
+      "proposedTest": "Build MultiCurrencyFieldListBuilder and assert it contains CurrencyIsoCode exactly when UserInfo.isMultiCurrencyOrganization(). Also assert it appears exactly once (the existing test only checks contains)."
+    },
+    {
+      "code": "B4",
+      "title": "Cache key and value sharing on repeated builds",
+      "detail": "The cache key is values.clone(), and each builder gets its own copy of the cached names through buffer.addAll, so changing the caller's list or a builder's buffer cannot corrupt the cache. Behaviour is the same as the baseline, but this safety now depends on those two copies. A future edit such as iteration 6's buffer = fieldNames is fine only if it stays a clone, and assigning the cached list directly would leak state between builders. Tests never build from the same list after changing it.",
+      "evidence": "sfdx-source/apex-common/main/classes/fflib_StringBuilder.cls:145, :147; iteration 6 plan",
+      "iterations": [
+        3
+      ],
+      "severity": "low",
+      "caughtByTests": false,
+      "proposedTest": "Build A from list L, call A.add('X'), then add Account.Phone to L and build B from L. Build C from the original two-field list. Assert B ends with 'Phone' and has no 'X', and assert C equals the original output."
+    }
+  ],
+  "patterns": [
+    {
+      "code": "P1",
+      "title": "Static per-transaction memoization of String.valueOf(SObjectField)",
+      "detail": "Results come out the same, and the copies in and out are done correctly. It gave the largest headroom gain, but mainly because the benchmark rebuilds four identical lists 1,300 times. In real selectors that build each list once per transaction it adds a map hash plus a clone and saves little.",
+      "evidence": "fflib_StringBuilder.cls:40, :140-147; iteration 3",
+      "verdict": "questionable"
+    },
+    {
+      "code": "P2",
+      "title": "Writing to protected buffer instead of the virtual add()",
+      "detail": "A micro-optimisation that silently changes the extension contract of a public virtual class. It is also inconsistent, since line 175 still uses add().",
+      "evidence": "fflib_StringBuilder.cls:147, :152, :175; iteration 1",
+      "verdict": "bad"
+    },
+    {
+      "code": "P3",
+      "title": "Static final cache of the org multi-currency flag",
+      "detail": "The value is fixed per transaction, so caching it is safe, cheap and easy to read.",
+      "evidence": "fflib_StringBuilder.cls:39; iteration 1",
+      "verdict": "good"
+    },
+    {
+      "code": "P4",
+      "title": "Removed the explanatory comments",
+      "detail": "The baseline comments 'Create a distinct set of fields' (inaccurate, since nothing dedupes) and 'Alternative to value.getDescribe().getName()' were dropped. The second one recorded why valueOf is used, which is a non-obvious fact.",
+      "evidence": "baseline diff around fflib_StringBuilder.cls:138-140",
+      "verdict": "questionable"
+    }
+  ],
+  "testGaps": [
+    {
+      "code": "T1",
+      "title": "Exact output order is not asserted",
+      "detail": "testFieldListBuilder and testMultiCurrencyFieldListBuilder put the output into a Set, so a reorder or dedupe would pass. That matters because a cache could easily change order.",
+      "proposedTest": "Assert new FieldListBuilder({Account.Name, Account.Id, Account.AccountNumber, Account.AccountNumber}).getStringValue() == 'Name,Id,AccountNumber,AccountNumber'."
+    },
+    {
+      "code": "T2",
+      "title": "Subclass add(String) override not exercised",
+      "detail": "Nothing pins down that the constructor goes through the virtual add, so iteration 1's contract change was invisible to the tests.",
+      "proposedTest": "Use an inner subclass that overrides add(String) to change case or filter, and assert the override applied to constructor-supplied fields."
+    },
+    {
+      "code": "T3",
+      "title": "Cache behaviour across caller mutation and buffer mutation",
+      "detail": "No test reuses a list after changing it, or checks that one builder's later add() calls don't leak into the next build.",
+      "proposedTest": "Build, mutate the source list, build again, and assert the new field is present. Then call add('X') on the first builder, build a third from the original fields, and assert 'X' is absent."
+    },
+    {
+      "code": "T4",
+      "title": "Field-set path untested",
+      "detail": "No test passes fieldSets, so the field-set branch (now buffer.add) has no coverage and the order of field-set members after the cached names is unchecked.",
+      "proposedTest": "If the test org has an Account field set, build FieldListBuilder(fields, new List<Schema.FieldSet>{fs}) and assert its member paths follow the field names in order. Otherwise skip with a guard on Schema.SObjectType.Account.fieldSets.getMap().isEmpty()."
+    },
+    {
+      "code": "T5",
+      "title": "Empty and null inputs",
+      "detail": "The empty list should give '' and a null list should throw NullPointerException, as in the baseline. Neither is asserted.",
+      "proposedTest": "Assert new FieldListBuilder(new List<Schema.SObjectField>()).getStringValue() == ''. Assert new FieldListBuilder((List<Schema.SObjectField>) null) throws NullPointerException."
+    },
+    {
+      "code": "T6",
+      "title": "CurrencyIsoCode count",
+      "detail": "The multi-currency test checks only that CurrencyIsoCode is present, not that it appears once or comes last.",
+      "proposedTest": "In a multi-currency org, assert the last element of the split output is 'CurrencyIsoCode' and that it appears once."
+    }
+  ],
+  "other": [
+    {
+      "code": "X1",
+      "title": "Benchmark shape drove the design",
+      "detail": "headroomBulkBuilders rebuilds the same four field lists 2,600 times per list, which strongly favours memoization. Production selectors use fflib_QueryFactory rather than FieldListBuilder (fflib_SObjectSelector.cls:308-313), so the real-world CPU benefit of iteration 3 is probably small."
+    },
+    {
+      "code": "X2",
+      "title": "Iteration 2's learning is speculative",
+      "detail": "It blamed the broken tests on String.join not stringifying SObjectField like valueOf. That was never checked, and later iterations relied on it to justify keeping a loop."
+    },
+    {
+      "code": "X3",
+      "title": "Selector Resource efficiency change is not attributable",
+      "detail": "fflib_SObjectSelectorTest does not reach FieldListBuilder or MultiCurrencyFieldListBuilder, so treat its +2.3 as run-to-run noise rather than an effect of the ascent."
+    }
+  ]
+}
