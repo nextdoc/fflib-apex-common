@@ -58,18 +58,12 @@ public virtual inherited sharing class fflib_Objects implements fflib_IObjects {
 
   @NamespaceAccessible
   public Boolean containsAll(List<Object> values) {
-    if (values == null)
-      return false;
-
-    return containsAllOf(values.iterator());
+    return containsAllOf(values);
   }
 
   @NamespaceAccessible
   public Boolean containsAll(Set<Object> values) {
-    if (values == null)
-      return false;
-
-    return containsAllOf(values.iterator());
+    return containsAllOf(values);
   }
 
   @NamespaceAccessible
@@ -79,33 +73,35 @@ public virtual inherited sharing class fflib_Objects implements fflib_IObjects {
 
   @NamespaceAccessible
   public Boolean containsNot(List<Object> values) {
-    if (values == null)
-      return true;
-
-    return containsNoneOf(values.iterator());
+    return containsNoneOf(values);
   }
 
   @NamespaceAccessible
   public Boolean containsNot(Set<Object> values) {
-    if (values == null)
-      return true;
-
-    return containsNoneOf(values.iterator());
+    return containsNoneOf(values);
   }
 
-  private Boolean containsAllOf(Iterator<Object> values) {
+  private Boolean containsAllOf(Iterable<Object> values) {
+    if (values == null)
+      return false;
+
     Set<Object> members = new Set<Object>(getObjects());
-    while (values.hasNext()) {
-      if (!members.contains(values.next()))
+    Iterator<Object> it = values.iterator();
+    while (it.hasNext()) {
+      if (!members.contains(it.next()))
         return false;
     }
     return true;
   }
 
-  private Boolean containsNoneOf(Iterator<Object> values) {
+  private Boolean containsNoneOf(Iterable<Object> values) {
+    if (values == null)
+      return true;
+
     Set<Object> members = new Set<Object>(getObjects());
-    while (values.hasNext()) {
-      if (members.contains(values.next()))
+    Iterator<Object> it = values.iterator();
+    while (it.hasNext()) {
+      if (members.contains(it.next()))
         return false;
     }
     return true;
