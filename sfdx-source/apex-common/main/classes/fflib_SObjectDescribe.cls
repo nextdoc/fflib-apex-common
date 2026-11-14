@@ -78,6 +78,15 @@ public inherited sharing class fflib_SObjectDescribe {
     }
     set;
   }
+  private Schema.SObjectField nameField {
+    get {
+      if (nameField == null) {
+        nameField = findNameField(fields.values());
+      }
+      return nameField;
+    }
+    set;
+  }
 
   @TestVisible
   private fflib_SObjectDescribe(Schema.SObjectType token) {
@@ -135,7 +144,7 @@ public inherited sharing class fflib_SObjectDescribe {
    */
   @NamespaceAccessible
   public Schema.SObjectField getNameField() {
-    return getNameField(token);
+    return nameField;
   }
 
   /**
@@ -153,11 +162,12 @@ public inherited sharing class fflib_SObjectDescribe {
     if (objectType == null) {
       return null;
     }
-    List<Schema.SObjectField> sObjectFields = objectType.getDescribe(
-        SObjectDescribeOptions.DEFERRED
-      )
-      .fields.getMap()
-      .values();
+    return getDescribe(objectType).nameField;
+  }
+
+  private static Schema.SObjectField findNameField(
+    List<Schema.SObjectField> sObjectFields
+  ) {
     for (Schema.SObjectField sObjectField : sObjectFields) {
       if (sObjectField.getDescribe().isNameField()) {
         return sObjectField;
@@ -252,18 +262,8 @@ public inherited sharing class fflib_SObjectDescribe {
     if (String.isBlank(sObjectName)) {
       return null;
     }
-    fflib_SObjectDescribe result = instanceCache.get(sObjectName.toLowerCase());
-    if (result == null) {
-      Schema.SObjectType token = wrappedGlobalDescribe.get(
-        sObjectName.toLowerCase()
-      );
-      if (token == null) {
-        result = null;
-      } else {
-        result = new fflib_SObjectDescribe(token);
-      }
-    }
-    return result;
+    return instanceCache.get(sObjectName.toLowerCase()) ??
+      getDescribe(wrappedGlobalDescribe.get(sObjectName.toLowerCase()));
   }
 
   @NamespaceAccessible
@@ -282,8 +282,7 @@ public inherited sharing class fflib_SObjectDescribe {
     if (nativeDescribe == null) {
       return null;
     }
-    return instanceCache.get(nativeDescribe?.getName()?.toLowerCase()) ??
-      new fflib_SObjectDescribe(nativeDescribe.getSObjectType());
+    return getDescribe(nativeDescribe.getSObjectType());
   }
 
   @NamespaceAccessible
