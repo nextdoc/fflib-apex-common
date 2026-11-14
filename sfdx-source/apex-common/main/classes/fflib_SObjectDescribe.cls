@@ -142,19 +142,19 @@ public inherited sharing class fflib_SObjectDescribe {
    * Returns the field where isNameField() is true for the given SObjectType.
    * There is no native Schema equivalent, so this centralizes the loop over the native fields map.
    *
-   * @param sObjectType The SObjectType to retrieve the name field for
+   * @param objectType The SObjectType to retrieve the name field for
    *
-   * @return The name field of the SObjectType, or null when sObjectType is null or has no name field
+   * @return The name field of the SObjectType, or null when objectType is null or has no name field
    */
   @NamespaceAccessible
   public static Schema.SObjectField getNameField(
-    Schema.SObjectType sObjectType
+    Schema.SObjectType objectType
   ) {
-    if (sObjectType == null) {
+    if (objectType == null) {
       return null;
     }
-    List<Schema.SObjectField> sObjectFields = sObjectType.getDescribe(
-        Schema.SObjectDescribeOptions.DEFERRED
+    List<Schema.SObjectField> sObjectFields = objectType.getDescribe(
+        SObjectDescribeOptions.DEFERRED
       )
       .fields.getMap()
       .values();
