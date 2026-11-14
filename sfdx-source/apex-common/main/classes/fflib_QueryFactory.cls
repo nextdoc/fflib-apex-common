@@ -229,6 +229,8 @@ public inherited sharing class fflib_QueryFactory {
   private static Map<Schema.SObjectType, Map<String, Schema.SObjectField>> fieldTokenCache = new Map<Schema.SObjectType, Map<String, Schema.SObjectField>>();
   private static Map<Schema.SObjectField, String> fieldNameCache = new Map<Schema.SObjectField, String>();
   private static Map<Schema.SObjectType, Map<String, String>> fieldPathCache = new Map<Schema.SObjectType, Map<String, String>>();
+  private static Integer instanceCount = 0;
+  private final Integer instanceId = instanceCount++;
 
   private static Schema.SObjectField getCachedField(
     Schema.SObjectType sObjType,
@@ -273,6 +275,12 @@ public inherited sharing class fflib_QueryFactory {
     )
       return false;
     return ((fflib_QueryFactory) obj).toSOQL() == this.toSOQL();
+  }
+
+  // Identity-based: equality depends on mutable SOQL, so equal factories may hash differently and stay distinct in Sets.
+  @NamespaceAccessible
+  public Integer hashCode() {
+    return instanceId;
   }
 
   /**
