@@ -567,5 +567,50 @@
     ],
     "report": "ascents/query-factory-style-1/report.html?refresh=off",
     "retro": "ascents/query-factory-style-1/retro.json"
+  },
+  {
+    "name": "sobject-selector-style-1",
+    "app": [
+      "sfdx-source/apex-common/main/classes/fflib_SObjectSelector.cls",
+      "sfdx-source/apex-common/main/classes/fflib_ISObjectSelector.cls"
+    ],
+    "startedAt": "2026-11-14T09:08:32.215Z",
+    "iterations": 6,
+    "kept": 1,
+    "baseline": {
+      "overall": 85.1,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 83.6,
+        "Test run time": 74.3,
+        "Limit headroom": 48.2,
+        "Resource efficiency": 89.6
+      }
+    },
+    "best": {
+      "overall": 86,
+      "scores": {
+        "PMD": 100,
+        "Graph Engine": 100,
+        "Tests passing": 100,
+        "Code coverage": 83.9,
+        "Test run time": 74.9,
+        "Limit headroom": 53,
+        "Resource efficiency": 90.2
+      },
+      "iteration": 3,
+      "commit": "53ad240c34308d734bf1fa4182c79ddea2caeaf8"
+    },
+    "branch": "ascent/sobject-selector-style-1",
+    "excludedPmdRules": [
+      "IfStmtsMustUseBraces",
+      "IfElseStmtsMustUseBraces",
+      "ForLoopsMustUseBraces",
+      "WhileLoopsMustUseBraces"
+    ],
+    "report": "ascents/sobject-selector-style-1/report.html?refresh=off",
+    "retro": "ascents/sobject-selector-style-1/retro.json"
   }
 ]

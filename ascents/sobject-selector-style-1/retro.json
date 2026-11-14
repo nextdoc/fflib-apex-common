@@ -1,0 +1,106 @@
+{
+  "ascent": "sobject-selector-style-1",
+  "at": "2026-11-14T09:31:53.845Z",
+  "base": "01f7b998542d739df57e164fa8a97bbc0e39efc8",
+  "head": "53ad240c34308d734bf1fa4182c79ddea2caeaf8",
+  "changedTests": [],
+  "step": {
+    "model": "claude-opus-5-5",
+    "durationMs": 57664,
+    "costUsd": 0.4757658
+  },
+  "summary": "The only change kept was iteration 3: a static Map<SObjectType,String> cache (fflib_SObjectSelector.cls:117) that remembers the default ORDER BY, read before the original logic and written after it (cls:222-224, cls:239). The original name-field, encryption and CreatedDate/Id logic is unchanged, and Apex statics last only one transaction, so behaviour should be the same. fflib_SObjectSelector.cls is the only class changed and drove every score change. Limit headroom (+4.8) did not beat its 5.7 margin, and the headroom test's own score rose only 51.8 → 52.8, which doesn't match the dimension's 48.2 → 53. The coverage, run-time and resource-efficiency moves (ApplicationTest 80 → 81.9) look like noise.",
+  "behaviourChanges": [
+    {
+      "code": "B1",
+      "title": "Default order-by is now shared by all selector instances of the same SObjectType in a transaction",
+      "detail": "Before, each instance worked out its default order-by from describe data. Now the first instance per type computes it and later instances, including other selector subclasses for the same type, reuse that string. This is only safe because the computed value depends only on the type: the name field, isEncrypted() and whether the type has CreatedDate are all org metadata. Statics reset per transaction, so nothing leaks between transactions. Subclasses that override getOrderBy() without calling super never touch the cache.",
+      "evidence": "fflib_SObjectSelector.cls:117, :222-224, :239",
+      "iterations": [
+        3
+      ],
+      "severity": "low",
+      "caughtByTests": false,
+      "proposedTest": "In one test, create two different selector subclasses for the same type, one of which is an Account selector with the default getOrderBy(). Assert that both return the literal 'Name'. Do the same for CaseComment and assert the literal 'CreatedDate'."
+    },
+    {
+      "code": "B2",
+      "title": "Cached value carries across System.runAs user switches in the same transaction",
+      "detail": "In tests, System.runAs does not reset statics, so a value computed as one user is reused as another. Today none of the inputs vary by user: describe getMap() returns fields regardless of FLS, and name field and encryption are metadata. If the order-by logic ever adds a per-user check such as isAccessible(), the cache would silently serve the first user's result.",
+      "evidence": "fflib_SObjectSelector.cls:225-239; FLS tests around fflib_SObjectSelectorTest.cls:398-430 use runAs",
+      "iterations": [
+        3
+      ],
+      "severity": "low",
+      "caughtByTests": false,
+      "proposedTest": "Inside a single test, compute getOrderBy() as an admin and then again inside System.runAs with a minimal-access user. Assert that both match what an uncached computation gives for that user."
+    },
+    {
+      "code": "B3",
+      "title": "getSObjectType() is called more often on a cache miss",
+      "detail": "On a miss, getSObjectType() now runs 3 times instead of 1. On a hit it runs once and skips getNameField. This only matters if a subclass's getSObjectType() is expensive or has side effects, which would be unusual. A null type would behave as before: Map.get(null) is legal and the original code path then runs.",
+      "evidence": "fflib_SObjectSelector.cls:223, :227, :239",
+      "iterations": [
+        3
+      ],
+      "severity": "low",
+      "caughtByTests": false,
+      "proposedTest": "None needed beyond the shared-instance test above."
+    }
+  ],
+  "patterns": [
+    {
+      "code": "P1",
+      "title": "Flat static per-type memoisation of a pure derived string",
+      "detail": "The cache is cheap to look up, holds very little memory (one string per type), lasts only the transaction, and leaves the original logic untouched. That is why PMD and Graph Engine held at 100 (iterations 1 and 2 lost points by restructuring the code).",
+      "evidence": "fflib_SObjectSelector.cls:117, :222-239; iterations 1-3",
+      "verdict": "good"
+    },
+    {
+      "code": "P2",
+      "title": "The same `if (m_orderBy == null)` check appears twice in a row",
+      "detail": "Two adjacent identical checks look accidental and invite a later 'simplification' that merges them and breaks the cache-hit path. The score tools (PMD, Graph Engine) rewarded this shape, but people reading it may not see why. It would read better as a cache read followed by one guarded block, or a short early return.",
+      "evidence": "fflib_SObjectSelector.cls:222-225",
+      "verdict": "questionable"
+    },
+    {
+      "code": "P3",
+      "title": "Mutable static cache that is not final and not documented",
+      "detail": "`private static Map<...> defaultOrderByCache` is reassignable and nothing marks it as a cache shared across instances. `static final` would be safer. This file already uses non-final statics for its constants (cls:115-116), so it is consistent with local style.",
+      "evidence": "fflib_SObjectSelector.cls:117",
+      "verdict": "questionable"
+    }
+  ],
+  "testGaps": [
+    {
+      "code": "T1",
+      "title": "Most order-by assertions derive the expected value from getOrderBy() itself",
+      "detail": "Tests at fflib_SObjectSelectorTest.cls:176, 308, 334, 454, 470, 883 and 925 build the expected SOQL from selector.getOrderBy(). A wrong cached value would match itself and pass. Only cls:208 ('Name' prefix) and cls:841 ('ORDER BY CreatedDate') check literal values, and each test method is a fresh transaction, so they mostly exercise the cache-miss path.",
+      "proposedTest": "Assert literal defaults on both the miss and the hit path in one transaction: Account → 'Name', CaseComment → 'CreatedDate', and an object with neither a name field nor CreatedDate → 'Id'. Call each selector twice, plus a second subclass for the same type."
+    },
+    {
+      "code": "T2",
+      "title": "Encrypted name field fallback",
+      "detail": "The isEncrypted() branch (cls:232) is not pinned by a literal assertion, so caching the wrong branch would go unnoticed.",
+      "proposedTest": "If the org has an object with an encrypted name field (or one can be set up), assert that getOrderBy() returns 'CreatedDate' or 'Id' on both calls. Otherwise record this as a known gap."
+    },
+    {
+      "code": "T3",
+      "title": "Headroom test does not check results",
+      "detail": "headroomBulkSelectorQueries checks only totalLength > 0 and the row count, so the order-by text inside the 600 rounds of generated SOQL is never checked.",
+      "proposedTest": "After the loop, assert that new CaseSelector().newQueryFactory().toSOQL() ends with the expected literal 'ORDER BY <field> ASC NULLS FIRST '."
+    }
+  ],
+  "other": [
+    {
+      "code": "X1",
+      "title": "Headroom gain is within noise",
+      "detail": "Iteration 3 was kept on overall score (+0.9 against a 0.8 margin) after re-measuring, while its focus dimension stayed below its margin. Iterations 4-6 show the remaining CPU is spread across many query-building paths, so more caching at this level has little left to gain. fflib_SObjectDescribe.getNameField is still uncached and loops over every field. Caching it there, per type, would help every caller, not just selectors."
+    },
+    {
+      "code": "X2",
+      "title": "Reported headroom numbers are inconsistent",
+      "detail": "The dimension is said to be the mean of its per-test scores, yet it went 48.2 → 53 while its only test went 51.8 → 52.8. Check the scoring pipeline before trusting the size of the gain."
+    }
+  ]
+}

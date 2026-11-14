@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ascent report</title>
+<script src="https://cdn.jsdelivr.net/npm/vega@5.30.0/build/vega.min.js" integrity="sha384-em7CHpJd+SsMugVFf6TY7AKQcLWMcbPhD84hmNK8o6WFDkK+2uHSUQRVQV1/w827" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5.21.0/build/vega-lite.min.js" integrity="sha384-GhkD6ks9/zgY1m5EFOUZWz/vMVMUFF/92DL61RZc+B42J8osL+jNufKv68bNHHZ2" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6.26.0/build/vega-embed.min.js" integrity="sha384-TqXb8su49m5OnEpKGO8m+VrgHesrUxyP22HgpXi4hnh1Hm43dXroiSYemNf5D8lv" crossorigin="anonymous"></script>
+<style>
+:root{--surface:#fcfcfb;--text:#0b0b0b;--muted:#52514e;--grid:#e6e5e0;--keep:#2a78d6;--discard:#8f8e89;--gated:#c26a1b;--rejected:#b8433a;--nochange:#b5b4ae;--error:#8e2a8e;--up:#1f7a3d;--down:#b8433a}
+@media (prefers-color-scheme:dark){:root{--surface:#1a1a19;--text:#fff;--muted:#c3c2b7;--grid:#383835;--keep:#3987e5;--discard:#8f8e89;--gated:#e08a3c;--rejected:#e0675d;--nochange:#5e5d59;--error:#c565c5;--up:#4cc176;--down:#e0675d}}
+body{margin:0;padding:24px 16px;background:var(--surface);color:var(--text);font:14px/1.4 system-ui,sans-serif}
+main{max-width:1280px;margin:0 auto}
+h1{font-size:20px;margin:0 0 4px}
+.meta{color:var(--muted);font-size:13px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:4px 16px}
+.meta b{color:var(--text);font-weight:600}
+code{font:12px ui-monospace,monospace}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin-bottom:24px}
+.card{border:1px solid var(--grid);border-radius:10px;padding:14px 16px;display:flex;gap:16px;align-items:center}
+.card svg.graphic{flex:none}
+.card > div{min-width:0}
+.card .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:6px}
+.card .big{font-size:28px;font-weight:600;line-height:1.1}
+.card .sub{color:var(--muted);font-size:13px;margin-top:4px}
+.card .row{margin-top:4px;font-size:13px}
+.card .row svg{vertical-align:-3px;margin-right:6px;color:var(--muted)}
+.card .row svg[width="10"]{vertical-align:-1px}
+h2{font-size:14px;color:var(--muted);font-weight:600;margin:28px 0 8px}
+.chart{width:100%}
+.empty{color:var(--muted);padding:32px 16px;text-align:center;border:1px dashed var(--grid);border-radius:8px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{color:var(--muted);font-weight:600;text-align:left;font-size:12px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--grid);vertical-align:top}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.up{color:var(--up)}.down{color:var(--down)}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:500;color:#fff;white-space:nowrap}
+.tag{display:inline-block;margin-top:4px;padding:0 6px;border:1px solid var(--grid);border-radius:4px;font-size:11px;color:var(--muted)}
+.focus{color:var(--muted);font-size:12px}
+.notes p{margin:0 0 6px}.notes p:last-child{margin:0}
+.notes .k{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-right:6px}
+.deltas{white-space:nowrap}
+a{color:var(--keep)}
+.refresh{position:fixed;top:12px;right:16px;color:var(--muted);font-size:12px;display:flex;align-items:center;gap:6px;background:var(--surface);padding:2px 6px;border-radius:6px}
+</style>
+</head>
+<body><main>
+<label class="refresh"><input type="checkbox" id="refresh"> Refresh every minute</label>
+<script>
+// The setting lives in the query string so it survives the reload, including from a file:// URL.
+{
+  const box = document.getElementById('refresh');
+  box.checked = new URLSearchParams(location.search).get('refresh') !== 'off';
+  if (box.checked) setTimeout(() => location.reload(), 60000);
+  box.onchange = () => { location.search = box.checked ? '' : '?refresh=off'; };
+}
+</script>
+<h1 id="title"></h1>
+<div class="meta" id="meta"></div>
+<div class="tiles" id="tiles"></div>
+<h2>Overall score by hours since baseline: current kept (line), fitted climb (dashed)</h2>
+<div class="chart" id="climb"></div>
+<h2>Minutes per iteration</h2>
+<div class="chart" id="durations"></div>
+<h2>Dimensions</h2>
+<div class="scroll"><table id="dimensions"></table></div>
+<h2>Iterations</h2>
+<div class="scroll"><table id="iterations"></table></div>
+<h2 id="cost-title">Cumulative agent cost by step</h2>
+<div class="chart" id="cost"></div>
+<section id="retro" hidden>
+<h2>Retrospective (first pass, agent generated)</h2>
+<p class="meta" id="retro-meta"></p>
+<p id="retro-summary"></p>
+<div class="scroll"><table id="retro-items"></table></div>
+</section>
+</main>
+<script>
+const data = {"ascent":{"name":"sobject-selector-style-1","mode":"deploy","plannerStreamline":false,"targetOrg":"fflib-apex-common","branch":"ascent/sobject-selector-style-1","baseCommit":"75037f70c79d30746c9f8597d853704253a26b82","createdAt":"2026-11-14T09:08:32.215Z","updatedAt":"2026-11-14T09:30:50.337Z"},"summary":{"baseline":85.1,"current":86,"gain":0.9,"iterations":6,"kept":1,"hours":0.37,"perHour":3.16,"perIteration":0.15,"angle":8.5,"minutesPerIteration":3.3,"fit":[{"hours":0.037200000000000004,"fit":85.13},{"hours":0.3348,"fit":86.07}]},"cost":{"total":4.22,"byStep":{"plan":2.93,"implement":0.9,"learn":0.39},"series":[{"hours":0,"step":"plan","usd":0},{"hours":0,"step":"implement","usd":0},{"hours":0,"step":"learn","usd":0},{"hours":0.09,"step":"plan","usd":0.4194},{"hours":0.09,"step":"implement","usd":0.1537},{"hours":0.09,"step":"learn","usd":0.069},{"hours":0.14,"step":"plan","usd":0.7793},{"hours":0.14,"step":"implement","usd":0.3183},{"hours":0.14,"step":"learn","usd":0.1424},{"hours":0.188,"step":"plan","usd":1.0841},{"hours":0.188,"step":"implement","usd":0.4463},{"hours":0.188,"step":"learn","usd":0.2024},{"hours":0.24,"step":"plan","usd":1.6491},{"hours":0.24,"step":"implement","usd":0.5741},{"hours":0.24,"step":"learn","usd":0.2644},{"hours":0.304,"step":"plan","usd":2.3145},{"hours":0.304,"step":"implement","usd":0.7407},{"hours":0.304,"step":"learn","usd":0.3282},{"hours":0.372,"step":"plan","usd":2.9327},{"hours":0.372,"step":"implement","usd":0.8998},{"hours":0.372,"step":"learn","usd":0.3922}]},"dimensions":[{"name":"PMD","baseline":100,"current":100,"delta":0,"margin":0.5,"series":[100,100]},{"name":"Graph Engine","baseline":100,"current":100,"delta":0,"margin":0.5,"series":[100,100]},{"name":"Tests passing","baseline":100,"current":100,"delta":0,"margin":0,"series":[100,100]},{"name":"Code coverage","baseline":83.6,"current":83.9,"delta":0.3,"margin":0,"series":[83.6,83.9]},{"name":"Test run time","baseline":74.3,"current":74.9,"delta":0.6,"margin":3,"series":[74.3,74.9]},{"name":"Limit headroom","baseline":48.2,"current":53,"delta":4.8,"margin":5.7,"series":[48.2,53]},{"name":"Resource efficiency","baseline":89.6,"current":90.2,"delta":0.6,"margin":1,"series":[89.6,90.2]}],"rows":[{"iteration":1,"at":"2026-11-14T09:11:03.775Z","outcome":"discard","dryRun":false,"overall":80.2,"current":85.1,"hours":0.09,"minutes":2.9,"focus":["Limit headroom"],"reason":"Limit headroom is the weakest dimension: CPU reaches 48.2% in headroomBulkSelectorQueries. Each new selector instance runs getOrderBy(), which calls the uncached fflib_SObjectDescribe.getNameField. That call loops over the full fields map and calls getDescribe() on every field. Each instance also calls getDescribe() and fields.getMap() again. With about 7 selectors per round over 600 rounds, this repeated describe work dominates CPU. The describe result, the fields map and the default order-by depend only on the SObjectType, so static per-type caches remove the repeat work. Behaviour is unchanged.","decision":["PMD fell 7.4, more than its margin 0.5","Graph Engine fell 51.0, more than its margin 0.5","Graph Engine at 49 is below half its best 100"],"learning":"Static per-SObjectType describe/fields/order-by caches fix the CPU hotspot (Limit headroom +18.8), but nesting the cache check around the existing name-field logic caused the PMD and Graph Engine losses (a deep-nesting finding and repeated SFGE null-deref findings on nameField.getDescribe). Retry the caching with flat control flow (early return or extracted helper) and keep the original null-guarded nameField expression untouched.","deltas":{"PMD":-7.4,"Graph Engine":-51,"Tests passing":0,"Code coverage":1,"Test run time":3.6,"Limit headroom":18.8,"Resource efficiency":0.8},"patch":"patches/1.patch","run":"runs/1","cost":{"plan":0.4194362,"implement":0.15374130000000003,"learn":0.0689927}},{"iteration":2,"at":"2026-11-14T09:13:56.871Z","outcome":"discard","dryRun":false,"overall":78.9,"current":85.1,"hours":0.14,"minutes":3,"focus":["Limit headroom"],"reason":"Limit headroom is the weakest dimension: CPU peaks at 48.2% in headroomBulkSelectorQueries. Every new selector instance recomputes getOrderBy() through the uncached fflib_SObjectDescribe.getNameField, which loops over the whole fields map and calls getDescribe() on each field. Each instance also repeats getDescribe() and fields.getMap(). All three results depend only on the SObjectType, so static per-type caches remove the repeated work without changing behaviour. Iteration #1 showed this works (+18.8 headroom) but lost PMD and Graph Engine points because the cache check was nested around the name-field logic. This version uses flat helpers with early returns and moves the original null-guarded nameField ternary in as is, so no deep nesting or new null-deref paths appear.","decision":["PMD fell 13.8, more than its margin 0.5","Graph Engine fell 51.0, more than its margin 0.5","Graph Engine at 49 is below half its best 100"],"learning":"Per-type static caching reliably buys limit headroom, but relocating the nameField null-guarded ternary into a new method made Graph Engine report a null dereference at every call path, and a cached full getDescribe() triggered PMD's eager-describe rule. A later attempt should leave that ternary where it is and cache around it, use a deferred describe, or cache the name field inside fflib_SObjectDescribe.","deltas":{"PMD":-13.8,"Graph Engine":-51,"Tests passing":0,"Code coverage":1.6,"Test run time":3.4,"Limit headroom":15.9,"Resource efficiency":0.3},"patch":"patches/2.patch","run":"runs/2","cost":{"plan":0.3598468,"implement":0.16460139999999998,"learn":0.0733867}},{"iteration":3,"at":"2026-11-14T09:16:56.377Z","outcome":"keep","dryRun":false,"overall":86,"current":86,"hours":0.188,"minutes":2.9,"focus":["Limit headroom"],"reason":"Limit headroom is the weakest dimension: CPU peaks at 48.2% in headroomBulkSelectorQueries because every new selector instance's getOrderBy() calls the uncached fflib_SObjectDescribe.getNameField, which loops over the full fields map and calls getDescribe() on each field. The default order-by depends only on the SObjectType, so a static per-type cache of the computed string removes that repeated work without changing behaviour. Earlier attempts lost PMD and Graph Engine points by nesting the cache check, moving the nameField ternary and caching the full describe. This plan does none of those: it adds one flat lookup before the existing block and one put inside it, and leaves the original logic and ternary unchanged.","decision":["re-measured a close discard and averaged the noisy dimensions over 2 runs (first run {\"PMD\":100,\"Graph Engine\":100,\"Tests passing\":100,\"Code coverage\":83.9,\"Test run time\":74.2,\"Limit headroom\":52.8,\"Resource efficiency\":90.4})","overall rose 0.9, more than its margin 0.8 and no dimension fell by more than its margin","Limit headroom is a focus but rose 4.8, not more than its margin 5.7"],"learning":"A flat static per-SObjectType cache of a pure computed string (leaving the original logic untouched) improves Limit headroom and holds the PMD and Graph Engine scores; earlier losses came from nesting, restructuring or caching too much. The gain was small and sat near the noise margin, so cutting repeated describe work is only worth about a few points. Further headroom gains need another hotspot, and the same minimal flat-edit pattern should be reused.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":0.3,"Test run time":0.6,"Limit headroom":4.8,"Resource efficiency":0.6},"patch":"patches/3.patch","run":"runs/3","cost":{"plan":0.30484839999999996,"implement":0.1279557,"learn":0.0600187}},{"iteration":4,"at":"2026-11-14T09:19:50.125Z","outcome":"discard","dryRun":false,"overall":85.4,"current":86,"hours":0.24,"minutes":3.1,"focus":["Limit headroom"],"reason":"Limit headroom is still the weakest dimension at 52.8 (CPU at 47.2% in headroomBulkSelectorQueries). configureQueryFactoryFields calls field.getDescribe().getName() on every field on every call (2 selectors x 4 fields x 600 rounds, about 4,800 field describes). getSObjectName() forces a full per-instance getSObjectType().getDescribe() each round. Field API names and SObject names depend only on the token, so flat static caches remove this repeated describe work without changing behaviour. This reuses the pattern from #3 that held PMD and Graph Engine: one flat lookup and one compute-and-put block, original expressions unchanged, no full describe cached, and no change to the multi-currency path, whose new lines might never run.","decision":["Limit headroom is a focus but rose -3.5, not more than its margin 5.7"],"learning":"Caching only helps where the uncached call does heavy work, such as the field-map loop in getNameField. Caching single-token getDescribe().getName() lookups added map operations and extra getSObjectType() calls that cost at least as much as they saved, so Limit headroom fell. Future plans should look for remaining O(fields) loops or repeated allocations rather than caching cheap describe calls.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":0.7,"Test run time":-1.7,"Limit headroom":-3.5,"Resource efficiency":0.2},"patch":"patches/4.patch","run":"runs/4","cost":{"plan":0.5649554,"implement":0.1277962,"learn":0.0619627}},{"iteration":5,"at":"2026-11-14T09:22:55.148Z","outcome":"discard","dryRun":false,"overall":86.5,"current":86,"hours":0.304,"minutes":3.9,"focus":["Limit headroom"],"reason":"Limit headroom (CPU 47.2% in headroomBulkSelectorQueries) is the weakest dimension. getFieldListBuilder(), used by getFieldListString and getRelatedFieldListString (called twice per round over 600 rounds), builds a full query factory through newQueryFactory(). That parses getOrderBy() with regex splits, calls addOrdering, which in LEGACY/NONE mode resolves the sort field through fflib_SObjectDescribe and token.getDescribe() plus an FLS check, and sets sort flags, then throws it all away because only getSelectedFields() is read. Splitting configureQueryFactory into a selection step and an ordering step lets getFieldListBuilder skip the unused ordering work. The selected fields and the CRUD exception do not change, and both new methods run in existing tests. The flat split keeps the original expressions as they are, with no nesting or moved null-guards, so PMD and Graph Engine should hold.","decision":["re-measured a close discard and averaged the noisy dimensions over 2 runs (first run {\"PMD\":100,\"Graph Engine\":100,\"Tests passing\":100,\"Code coverage\":84.9,\"Test run time\":74.9,\"Limit headroom\":54.3,\"Resource efficiency\":89.4})","Limit headroom is a focus but rose 3.2, not more than its margin 5.7"],"learning":"Removing unused ordering work from one caller (getFieldListBuilder) gives only a small headroom gain, below the margin, because the CPU peak is dominated by per-instance describe/field-map work (getOrderBy/getNameField) shared by every query path. A flat method split is neutral for PMD and Graph Engine, so the next step should cache or remove that repeated describe work across all selector instances, not trim a single caller.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":1,"Test run time":0.1,"Limit headroom":3.2,"Resource efficiency":-1},"patch":"patches/5.patch","run":"runs/5","cost":{"plan":0.665441,"implement":0.1665783,"learn":0.0638747}},{"iteration":6,"at":"2026-11-14T09:26:48.106Z","outcome":"discard","dryRun":false,"overall":85.9,"current":86,"hours":0.372,"minutes":4,"focus":["Limit headroom"],"reason":"Limit headroom (CPU 47.2% in headroomBulkSelectorQueries) is the weakest dimension. Every configureQueryFactory call (about 6 per round over 600 rounds) re-parses getOrderBy() with two regex splits, trims and equalsIgnoreCase/containsIgnoreCase checks per part. It then calls queryFactory.addOrdering(String,...), which resolves each sort field through fflib_SObjectDescribe.getField and token.getDescribe().getName(). The resulting immutable fflib_QueryFactory.Ordering objects depend only on the SObjectType, the FLS mode and the order-by string. A static cache keyed on those three lets later calls add the cached orderings through the public addOrdering(Ordering) and skip the parsing and field resolution. LEGACY FLS mode is never cached, so its per-user checkFieldIsReadable still runs every time. The parsing loop moves verbatim into a helper and the cache logic is two flat if blocks, with no nesting and no moved null-guards, so PMD and Graph Engine should hold. All new lines (cache hit, miss and LEGACY path) run in existing tests.","decision":["Limit headroom is a focus but rose -0.7, not more than its margin 5.7","Resource efficiency fell 1.1, more than its margin 1"],"learning":"A composite string-keyed cache of parsed orderings (key built from type, FLS mode and order-by on every call, plus a list copy on miss) cost about as much as the regex parsing and field resolution it skipped, so Limit headroom did not rise and Resource efficiency fell. Caches that pay off here are single-lookup ones keyed directly on the SObjectType, like defaultOrderByCache, where the key costs nothing to build.","deltas":{"PMD":0,"Graph Engine":0,"Tests passing":0,"Code coverage":1.3,"Test run time":-0.4,"Limit headroom":-0.7,"Resource efficiency":-1.1},"patch":"patches/6.patch","run":"runs/6","cost":{"plan":0.6181966,"implement":0.1591118,"learn":0.0639407}}],"retro":{"ascent":"sobject-selector-style-1","at":"2026-11-14T09:31:53.845Z","base":"01f7b998542d739df57e164fa8a97bbc0e39efc8","head":"53ad240c34308d734bf1fa4182c79ddea2caeaf8","changedTests":[],"step":{"model":"claude-opus-5-5","durationMs":57664,"costUsd":0.4757658},"summary":"The only change kept was iteration 3: a static Map\u003cSObjectType,String> cache (fflib_SObjectSelector.cls:117) that remembers the default ORDER BY, read before the original logic and written after it (cls:222-224, cls:239). The original name-field, encryption and CreatedDate/Id logic is unchanged, and Apex statics last only one transaction, so behaviour should be the same. fflib_SObjectSelector.cls is the only class changed and drove every score change. Limit headroom (+4.8) did not beat its 5.7 margin, and the headroom test's own score rose only 51.8 → 52.8, which doesn't match the dimension's 48.2 → 53. The coverage, run-time and resource-efficiency moves (ApplicationTest 80 → 81.9) look like noise.","behaviourChanges":[{"code":"B1","title":"Default order-by is now shared by all selector instances of the same SObjectType in a transaction","detail":"Before, each instance worked out its default order-by from describe data. Now the first instance per type computes it and later instances, including other selector subclasses for the same type, reuse that string. This is only safe because the computed value depends only on the type: the name field, isEncrypted() and whether the type has CreatedDate are all org metadata. Statics reset per transaction, so nothing leaks between transactions. Subclasses that override getOrderBy() without calling super never touch the cache.","evidence":"fflib_SObjectSelector.cls:117, :222-224, :239","iterations":[3],"severity":"low","caughtByTests":false,"proposedTest":"In one test, create two different selector subclasses for the same type, one of which is an Account selector with the default getOrderBy(). Assert that both return the literal 'Name'. Do the same for CaseComment and assert the literal 'CreatedDate'."},{"code":"B2","title":"Cached value carries across System.runAs user switches in the same transaction","detail":"In tests, System.runAs does not reset statics, so a value computed as one user is reused as another. Today none of the inputs vary by user: describe getMap() returns fields regardless of FLS, and name field and encryption are metadata. If the order-by logic ever adds a per-user check such as isAccessible(), the cache would silently serve the first user's result.","evidence":"fflib_SObjectSelector.cls:225-239; FLS tests around fflib_SObjectSelectorTest.cls:398-430 use runAs","iterations":[3],"severity":"low","caughtByTests":false,"proposedTest":"Inside a single test, compute getOrderBy() as an admin and then again inside System.runAs with a minimal-access user. Assert that both match what an uncached computation gives for that user."},{"code":"B3","title":"getSObjectType() is called more often on a cache miss","detail":"On a miss, getSObjectType() now runs 3 times instead of 1. On a hit it runs once and skips getNameField. This only matters if a subclass's getSObjectType() is expensive or has side effects, which would be unusual. A null type would behave as before: Map.get(null) is legal and the original code path then runs.","evidence":"fflib_SObjectSelector.cls:223, :227, :239","iterations":[3],"severity":"low","caughtByTests":false,"proposedTest":"None needed beyond the shared-instance test above."}],"patterns":[{"code":"P1","title":"Flat static per-type memoisation of a pure derived string","detail":"The cache is cheap to look up, holds very little memory (one string per type), lasts only the transaction, and leaves the original logic untouched. That is why PMD and Graph Engine held at 100 (iterations 1 and 2 lost points by restructuring the code).","evidence":"fflib_SObjectSelector.cls:117, :222-239; iterations 1-3","verdict":"good"},{"code":"P2","title":"The same `if (m_orderBy == null)` check appears twice in a row","detail":"Two adjacent identical checks look accidental and invite a later 'simplification' that merges them and breaks the cache-hit path. The score tools (PMD, Graph Engine) rewarded this shape, but people reading it may not see why. It would read better as a cache read followed by one guarded block, or a short early return.","evidence":"fflib_SObjectSelector.cls:222-225","verdict":"questionable"},{"code":"P3","title":"Mutable static cache that is not final and not documented","detail":"`private static Map\u003c...> defaultOrderByCache` is reassignable and nothing marks it as a cache shared across instances. `static final` would be safer. This file already uses non-final statics for its constants (cls:115-116), so it is consistent with local style.","evidence":"fflib_SObjectSelector.cls:117","verdict":"questionable"}],"testGaps":[{"code":"T1","title":"Most order-by assertions derive the expected value from getOrderBy() itself","detail":"Tests at fflib_SObjectSelectorTest.cls:176, 308, 334, 454, 470, 883 and 925 build the expected SOQL from selector.getOrderBy(). A wrong cached value would match itself and pass. Only cls:208 ('Name' prefix) and cls:841 ('ORDER BY CreatedDate') check literal values, and each test method is a fresh transaction, so they mostly exercise the cache-miss path.","proposedTest":"Assert literal defaults on both the miss and the hit path in one transaction: Account → 'Name', CaseComment → 'CreatedDate', and an object with neither a name field nor CreatedDate → 'Id'. Call each selector twice, plus a second subclass for the same type."},{"code":"T2","title":"Encrypted name field fallback","detail":"The isEncrypted() branch (cls:232) is not pinned by a literal assertion, so caching the wrong branch would go unnoticed.","proposedTest":"If the org has an object with an encrypted name field (or one can be set up), assert that getOrderBy() returns 'CreatedDate' or 'Id' on both calls. Otherwise record this as a known gap."},{"code":"T3","title":"Headroom test does not check results","detail":"headroomBulkSelectorQueries checks only totalLength > 0 and the row count, so the order-by text inside the 600 rounds of generated SOQL is never checked.","proposedTest":"After the loop, assert that new CaseSelector().newQueryFactory().toSOQL() ends with the expected literal 'ORDER BY \u003cfield> ASC NULLS FIRST '."}],"other":[{"code":"X1","title":"Headroom gain is within noise","detail":"Iteration 3 was kept on overall score (+0.9 against a 0.8 margin) after re-measuring, while its focus dimension stayed below its margin. Iterations 4-6 show the remaining CPU is spread across many query-building paths, so more caching at this level has little left to gain. fflib_SObjectDescribe.getNameField is still uncached and loops over every field. Caching it there, per type, would help every caller, not just selectors."},{"code":"X2","title":"Reported headroom numbers are inconsistent","detail":"The dimension is said to be the mean of its per-test scores, yet it went 48.2 → 53 while its only test went 51.8 → 52.8. Check the scoring pipeline before trusting the size of the gain."}]}};
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]);
+const f = (x, d = 2) => x == null ? '–' : x.toFixed(d);
+const signed = (x, d = 1) => (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x).toFixed(d);
+const trend = x => x > 0 ? 'up' : x < 0 ? 'down' : '';
+const s = data.summary, a = data.ascent;
+const OUTCOMES = ['keep', 'discard', 'gated', 'rejected', 'no-change', 'error'];
+const colour = o => css(o === 'no-change' ? '--nochange' : `--${o}`);
+
+document.title = `${a.name} ascent`;
+document.getElementById('title').textContent = `${a.name} ascent`;
+const when = t => new Date(t).toLocaleString();
+document.getElementById('meta').innerHTML = [
+  ['Mode', esc(a.mode) + (a.plannerStreamline ? ' + planner probes' : '')], ['Org', esc(a.targetOrg)], ['Branch', `<code>${esc(a.branch)}</code>`], ['Base', `<code>${esc(a.baseCommit.slice(0, 8))}</code>`],
+  ['Started', esc(when(a.createdAt))], ['Updated', esc(when(a.updatedAt))]
+].map(([k, v]) => `<span><b>${k}:</b> ${v}</span>`).join('');
+
+const icon = d => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const icons = {
+  target: icon('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>'),
+  up: icon('<path d="M12 19V5M5 12l7-7 7 7"/>'),
+  down: icon('<path d="M12 5v14M5 12l7 7 7-7"/>'),
+  trend: icon('<path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/>'),
+  clock: icon('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+  flask: icon('<path d="M9 3h6M10 3v6L4 19a1 1 0 0 0 1 2h14a1 1 0 0 0 1-2L14 9V3"/>'),
+  check: icon('<path d="M5 12l5 5 9-10"/>'),
+  coin: icon('<circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .8-3 2s1.3 1.7 3 2 3 .8 3 2-1.3 2-3 2c-1.4 0-2.5-.5-3-1.5M12 6v2M12 16v2"/>')};
+const scoreBar = (() => {
+  const w = 96, x = v => Math.max(0, Math.min(100, v)) / 100 * w;
+  return `<svg class="graphic" width="${w}" height="44" viewBox="0 0 ${w} 44">
+    <rect x="0" y="18" width="${w}" height="8" rx="4" fill="var(--grid)"/>
+    <rect x="0" y="18" width="${x(s.baseline)}" height="8" rx="4" fill="var(--discard)"/>
+    <rect x="${x(s.baseline)}" y="18" width="${Math.max(0, x(s.current) - x(s.baseline))}" height="8" rx="2" fill="var(--keep)"/>
+    <text x="0" y="42" font-size="10" fill="var(--muted)">0</text>
+    <text x="${w}" y="42" font-size="10" fill="var(--muted)" text-anchor="end">100</text></svg>`;})();
+const gauge = (() => {
+  const r = 40, t = Math.max(-90, Math.min(90, s.angle)) * Math.PI / 180;
+  return `<svg class="graphic" width="56" height="56" viewBox="0 0 56 56">
+    <path d="M ${6 + r} 48 A ${r} ${r} 0 0 0 6 ${48 - r}" fill="none" stroke="var(--grid)" stroke-width="6"/>
+    <line x1="6" y1="48" x2="${6 + r}" y2="48" stroke="var(--grid)" stroke-width="1"/>
+    <line x1="6" y1="48" x2="${6 + r * Math.SQRT1_2}" y2="${48 - r * Math.SQRT1_2}" stroke="var(--grid)" stroke-width="1" stroke-dasharray="2 2"/>
+    <line x1="6" y1="48" x2="${6 + r * Math.cos(t)}" y2="${48 - r * Math.sin(t)}" stroke="var(--keep)" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="6" cy="48" r="3" fill="var(--text)"/></svg>`;})();
+const ring = (() => {
+  const r = 22, c = 2 * Math.PI * r, share = s.iterations ? s.kept / s.iterations : 0;
+  return `<svg class="graphic" width="56" height="56" viewBox="0 0 56 56">
+    <circle cx="28" cy="28" r="${r}" fill="none" stroke="var(--grid)" stroke-width="6"/>
+    <circle cx="28" cy="28" r="${r}" fill="none" stroke="var(--keep)" stroke-width="6" stroke-linecap="round"
+      stroke-dasharray="${share * c} ${c}" transform="rotate(-90 28 28)"/>
+    <text x="28" y="32" font-size="12" font-weight="600" text-anchor="middle" fill="var(--text)">${Math.round(share * 100)}%</text></svg>`;})();
+const STEP_COLOURS = {plan: '--keep', implement: '--gated', learn: '--discard'};
+const costShares = Object.entries(data.cost.byStep).map(([step, v]) => [step, v, data.cost.total ? v / data.cost.total : 0]);
+const pie = (() => {
+  const r = 26, point = t => `${28 + r * Math.sin(t * 2 * Math.PI)} ${28 - r * Math.cos(t * 2 * Math.PI)}`;
+  let from = 0;
+  const slices = costShares.filter(([, , share]) => share > 0).map(([step, , share]) => {
+    const path = share >= 1
+      ? `<circle cx="28" cy="28" r="${r}" fill="var(${STEP_COLOURS[step]})"/>`
+      : `<path d="M28 28 L${point(from)} A${r} ${r} 0 ${share > 0.5 ? 1 : 0} 1 ${point(from + share)} Z" fill="var(${STEP_COLOURS[step]})" stroke="var(--surface)" stroke-width="1.5"/>`;
+    from += share;
+    return path;
+  });
+  return `<svg class="graphic" width="56" height="56" viewBox="0 0 56 56">
+    ${slices.length ? slices.join('') : `<circle cx="28" cy="28" r="${r}" fill="var(--grid)"/>`}</svg>`;})();
+document.getElementById('tiles').innerHTML = `
+  <div class="card">${scoreBar}<div>
+    <div class="label">${icons.target} Gain on baseline</div>
+    <div class="big">${signed(s.gain)} <span style="font-size:16px;color:var(--muted)">pts</span></div>
+    <div class="row">${s.gain >= 0 ? icons.up : icons.down}Current <b>${f(s.current)}</b> from ${f(s.baseline)} baseline</div></div></div>
+  <div class="card">${gauge}<div>
+    <div class="label">${icons.trend} Climb angle</div>
+    <div class="big">${f(s.angle, 1)}°</div>
+    <div class="sub">45° is one point an iteration</div>
+    <div class="row"><b>${f(s.perHour)}</b> pts/hour · <b>${f(s.perIteration)}</b> pts/iteration</div></div></div>
+  <div class="card">${ring}<div>
+    <div class="label">${icons.check} Kept</div>
+    <div class="big">${s.kept} <span style="font-size:16px;color:var(--muted)">of ${s.iterations}</span></div>
+    <div class="row">${icons.clock}<b>${f(s.hours, 1)}</b> hours</div>
+    <div class="row">${icons.flask}<b>${f(s.minutesPerIteration, 1)}</b> min/iteration</div></div></div>
+  <div class="card">${pie}<div>
+    <div class="label">${icons.coin} Total cost</div>
+    <div class="big">$${f(data.cost.total)}</div>
+    ${costShares.map(([step, v, share]) => `<div class="row"><svg width="10" height="10"><rect width="10" height="10" rx="2" fill="var(${STEP_COLOURS[step]})"/></svg>${step} <b>$${f(v)}</b> · ${Math.round(share * 100)}%</div>`).join('')}</div></div>`;
+
+const climb = data.rows.filter(r => !r.dryRun);
+const scored = climb.filter(r => r.overall != null);
+const unscored = climb.filter(r => r.overall == null);
+const steps = [{hours: 0, current: s.baseline}].concat(climb.map(r => ({hours: r.hours, current: r.current})));
+const config = {background: css('--surface'), view: {stroke: null},
+  axis: {labelColor: css('--muted'), titleColor: css('--muted'), gridColor: css('--grid'), domainColor: css('--grid'), tickColor: css('--grid')},
+  legend: {labelColor: css('--text'), titleColor: css('--muted')}};
+const outcome = {field: 'outcome', title: 'Outcome', scale: {domain: OUTCOMES, range: OUTCOMES.map(colour)}};
+const tip = [{field: 'iteration', title: 'Iteration'}, {field: 'outcome', title: 'Outcome'},
+  {field: 'overall', title: 'Score', format: '.2f'}, {field: 'current', title: 'Current kept', format: '.2f'},
+  {field: 'hours', title: 'Hours', format: '.2f'}, {field: 'minutes', title: 'Minutes', format: '.1f'},
+  {field: 'focusText', title: 'Focus'}, {field: 'reason', title: 'Reason'}];
+const withFocus = rows => rows.map(r => ({...r, focusText: r.focus.join(', ')}));
+const lastHours = Math.max(s.hours, ...climb.map(r => r.hours));
+const fiveMinutes = Array.from({length: Math.max(1, Math.ceil(lastHours * 12)) + 1}, (_, i) => i / 12);
+const minutes = 'round(datum.value * 60)';
+const waiting = id => { document.getElementById(id).innerHTML = '<div class="empty">No iterations yet. This chart fills in after the first one finishes.</div>'; };
+const hoursAxis = {field: 'hours', type: 'quantitative', title: 'Time since baseline (h:mm)',
+  scale: {domain: [0, fiveMinutes.at(-1)], nice: false},
+  axis: {values: fiveMinutes, labelExpr: `${minutes} % 15 ? '' : floor(${minutes} / 60) + ':' + pad(${minutes} % 60, 2, '0', 'left')`}};
+const ends = steps.length > 1 && steps.at(-1).current.toFixed(1) !== steps[0].current.toFixed(1)
+  ? [[steps[0], 'left'], [steps.at(-1), 'right']] : [[steps.at(-1), 'left']];
+vegaEmbed('#climb', {$schema: 'https://vega.github.io/schema/vega-lite/5.json', config,
+  vconcat: [
+    {width: 'container', height: 320, layer: [
+      {data: {values: steps}, mark: {type: 'line', interpolate: 'step-after', strokeWidth: 2, color: css('--keep')},
+       encoding: {x: {...hoursAxis, axis: {...hoursAxis.axis, title: null, labels: false}}, y: {field: 'current', type: 'quantitative', title: 'Overall score', scale: {zero: false}}}},
+      {data: {values: s.fit}, mark: {type: 'line', strokeDash: [6, 4], strokeWidth: 2, color: css('--muted'), opacity: 0.3},
+       encoding: {x: {field: 'hours', type: 'quantitative'}, y: {field: 'fit', type: 'quantitative'}}},
+      ...ends.map(([step, align]) => (
+       {data: {values: [step]}, mark: {type: 'text', align, baseline: 'bottom', dy: -6, fontSize: 28, fontWeight: 600, color: css('--text')},
+        encoding: {x: {field: 'hours', type: 'quantitative'}, y: {field: 'current', type: 'quantitative'}, text: {field: 'current', format: '.1f'}}})),
+      {data: {values: withFocus(scored)}, mark: {type: 'point', size: 90, strokeWidth: 2, opacity: 1},
+       encoding: {x: {field: 'hours', type: 'quantitative'}, y: {field: 'overall', type: 'quantitative'},
+                  color: outcome, shape: {field: 'outcome', legend: null},
+                  fill: {condition: {test: "datum.outcome === 'keep'", value: css('--keep')}, value: css('--surface')},
+                  tooltip: tip}}]},
+    {width: 'container', height: 60, data: {values: withFocus(unscored)}, mark: {type: 'tick', thickness: 2, size: 14},
+     encoding: {x: hoursAxis, y: {field: 'outcome', type: 'nominal', title: null, scale: {domain: ['gated', 'rejected', 'no-change', 'error']}},
+                color: {...outcome, legend: null}, tooltip: tip}}
+  ], resolve: {scale: {x: 'shared'}}}, {actions: false});
+const timed = climb.filter(r => r.minutes != null);
+if (!timed.length) waiting('durations');
+else vegaEmbed('#durations', {$schema: 'https://vega.github.io/schema/vega-lite/5.json', width: 'container', height: 200, config,
+  data: {values: withFocus(timed)},
+  mark: {type: 'bar', cornerRadiusTopLeft: 4, cornerRadiusTopRight: 4, width: {expr: "min(40, bandwidth('x') * 0.8)"}},
+  encoding: {x: {field: 'iteration', type: 'ordinal', title: 'Iteration', axis: {labelAngle: 0}},
+             y: {field: 'minutes', type: 'quantitative', title: 'Minutes'},
+             color: outcome, tooltip: tip}}, {actions: false});
+
+const usd = x => `$${x.toFixed(2)}`;
+document.getElementById("cost-title").textContent =
+  `Cumulative agent cost by step: ${usd(data.cost.total)} total (${Object.entries(data.cost.byStep).map(([k, v]) => `${k} ${usd(v)}`).join(", ")}), estimated at list price`;
+const byCost = Object.entries(data.cost.byStep).sort(([, a], [, b]) => b - a).map(([step]) => step);
+if (!data.rows.length) waiting("cost");
+else vegaEmbed("#cost", {$schema: "https://vega.github.io/schema/vega-lite/5.json", width: "container", height: 240, config,
+  data: {values: data.cost.series.map(p => ({...p, rank: byCost.indexOf(p.step)}))},
+  mark: {type: "area", line: {strokeWidth: 2}, opacity: 0.25},
+  encoding: {x: hoursAxis,
+             y: {field: "usd", type: "quantitative", stack: "zero", title: "Cumulative cost (USD)", axis: {format: "$.2f"}},
+             color: {field: "step", title: "Step", scale: {domain: [...byCost].reverse(), range: [...byCost].reverse().map(step => css(STEP_COLOURS[step]))}},
+             order: {field: "rank"},
+             tooltip: [{field: "step", title: "Step"}, {field: "hours", title: "Hours", format: ".2f"}, {field: "usd", title: "Cumulative", format: "$.2f"}]}}, {actions: false});
+
+const spark = series => {
+  const w = 96, h = 24, lo = Math.min(...series), hi = Math.max(...series), span = hi - lo || 1;
+  const pts = series.map((v, i) => [series.length > 1 ? i / (series.length - 1) * w : w / 2, h - 2 - (v - lo) / span * (h - 4)]);
+  const [lx, ly] = pts.at(-1);
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="var(--keep)" stroke-width="1.5"/><circle cx="${lx}" cy="${ly}" r="2.5" fill="var(--keep)"/></svg>`;
+};
+document.getElementById('dimensions').innerHTML = `
+  <tr><th>Dimension</th><th class="num">Baseline</th><th class="num">Current</th><th class="num">Change</th><th class="num">Margin</th><th>Kept iterations</th></tr>
+  ${data.dimensions.map(d => `<tr><td>${esc(d.name)}</td><td class="num">${f(d.baseline, 1)}</td><td class="num">${f(d.current, 1)}</td>
+    <td class="num ${trend(d.delta)}">${signed(d.delta)}</td><td class="num">${d.margin}</td><td>${spark(d.series)}</td></tr>`).join('')}`;
+
+const deltas = r => r.deltas ? Object.entries(r.deltas).filter(([, v]) => v !== 0)
+  .map(([k, v]) => `<div class="deltas">${esc(k)} <span class="${trend(v)}">${signed(v)}</span></div>`).join('') || '<span class="focus">no change</span>' : '';
+const note = (k, v) => v ? `<p><span class="k">${k}</span>${esc(v)}</p>` : '';
+const link = (label, href) => href ? `<div><a href="${esc(href)}">${label}</a></div>` : '';
+document.getElementById('iterations').innerHTML = `
+  <tr><th class="num">#</th><th>Outcome</th><th class="num">Overall</th><th>Changes vs kept</th><th>Plan, decision and learning</th><th>Files</th></tr>
+  ${[...data.rows].reverse().map(r => `<tr>
+    <td class="num">${r.iteration}</td>
+    <td><span class="pill" style="background:${colour(r.outcome)}">${esc(r.outcome)}</span>${r.dryRun ? '<div><span class="tag">dry run</span></div>' : ''}
+      ${r.focus.length ? `<div class="focus" style="margin-top:6px">${esc(r.focus.join(', '))}</div>` : ''}</td>
+    <td class="num">${f(r.overall)}</td>
+    <td>${deltas(r)}</td>
+    <td class="notes">${note('Reason', r.reason)}${note('Decision', r.decision.join('; '))}${note('Learning', r.learning)}</td>
+    <td>${link('patch', r.patch)}${link('run', r.run)}</td></tr>`).join('') || '<tr><td colspan="6" class="focus">No iterations yet.</td></tr>'}`;
+
+if (data.retro) {
+  const r = data.retro;
+  document.getElementById('retro').hidden = false;
+  document.getElementById('retro-meta').innerHTML = [
+    ['Commits', `<code>${esc(r.base.slice(0, 8))}..${esc(r.head.slice(0, 8))}</code>`], ['Written', esc(when(r.at))],
+    ['Tests changed', esc(r.changedTests.join(', ') || 'none')]
+  ].map(([k, v]) => `<span><b>${k}:</b> ${v}</span>`).join('');
+  document.getElementById('retro-summary').textContent = r.summary;
+  const tone = {high: '--rejected', medium: '--gated', low: '--discard', good: '--keep', questionable: '--gated', bad: '--rejected'};
+  const pill = v => `<span class="pill" style="background:${css(tone[v])}">${esc(v)}</span>`;
+  const groups = [
+    ['Behaviour changes', r.behaviourChanges, i => `${pill(i.severity)}<div class="focus" style="margin-top:6px">${i.caughtByTests ? 'caught by tests' : 'not caught by tests'}</div>`,
+      i => note('Evidence', i.evidence) + note('Iterations', i.iterations.join(', ')) + note('Proposed test', i.proposedTest)],
+    ['Patterns', r.patterns, i => pill(i.verdict), i => note('Evidence', i.evidence)],
+    ['Test gaps', r.testGaps, () => '', i => note('Proposed test', i.proposedTest)],
+    ['Other', r.other, () => '', () => '']];
+  document.getElementById('retro-items').innerHTML = `
+    <tr><th>Code</th><th>Kind</th><th>Finding</th></tr>
+    ${groups.flatMap(([kind, items, badge, extra]) => items.map(i => `<tr>
+      <td><b>${esc(i.code)}</b></td><td>${kind}${badge(i) ? `<div style="margin-top:4px">${badge(i)}</div>` : ''}</td>
+      <td class="notes"><p><b>${esc(i.title)}</b></p><p>${esc(i.detail)}</p>${extra(i)}</td></tr>`)).join('')}`;
+}
+</script>
+</body>
+</html>
