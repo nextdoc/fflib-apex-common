@@ -36,6 +36,7 @@
 public virtual inherited sharing class fflib_StringBuilder {
   @NamespaceAccessible
   protected List<String> buffer = new List<String>();
+  private static final Boolean IS_MULTI_CURRENCY_ORG = UserInfo.isMultiCurrencyOrganization();
 
   /**
    * Construct an empty StringBuilder
@@ -137,12 +138,12 @@ public virtual inherited sharing class fflib_StringBuilder {
     ) {
       // Create a distinct set of fields (or field paths) to select
       for (Schema.SObjectField value : values)
-        add(String.valueOf(value)); // Alternative to value.getDescribe().getName()
+        buffer.add(String.valueOf(value));
 
       if (fieldSets != null)
         for (Schema.Fieldset fieldSet : fieldSets)
           for (Schema.FieldSetMember fieldSetMember : fieldSet.getFields())
-            add(fieldSetMember.getFieldPath());
+            buffer.add(fieldSetMember.getFieldPath());
     }
   }
 
@@ -164,7 +165,7 @@ public virtual inherited sharing class fflib_StringBuilder {
       super(values, fieldSets);
 
       // Dynamically add CurrencyIsoCode field for multi-currency organisations
-      if (UserInfo.isMultiCurrencyOrganization())
+      if (IS_MULTI_CURRENCY_ORG)
         add('CurrencyIsoCode');
     }
   }
