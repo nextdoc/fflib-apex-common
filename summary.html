@@ -20,6 +20,7 @@ li ul { margin-top: 6px; }
 li ul li { margin-bottom: 4px; }
 code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code); padding: 1px 4px; border-radius: 3px; }
 .muted { color: var(--muted); }
+.refs { display: block; font-size: 14px; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -29,21 +30,30 @@ code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; background: va
   <p>Each ascent let an AI agent change one group of fflib classes, one small change at a time, and kept a change only if its score went up. Each ascent's retrospective then reviewed the result. This summary groups what those 10 retrospectives found into two sets. The first is about fflib itself. The second is about the climb, split into gaps that anchoring would close and improvements to Climber.</p>
 
   <h2 id="fflib">1. Findings about fflib-apex-common</h2>
-  <p>These hold for the library whether or not anyone climbs it again.</p>
+  <p>These hold for the library whether or not anyone climbs it again. Each finding links to the <a href="https://github.com/apex-enterprise-patterns/fflib-apex-common/tree/69ad914b24e1bcbcf5e3f2cb0795c9541895a3a9">upstream code</a> the ascents started from, and to the ascent commit that changed it, where one was kept. Each commit message holds the agent's reasoning.</p>
   <ol>
-    <li><strong>Style debt is uniform and cheap to fix.</strong> Every class had missing braces on <code>if</code>, <code>for</code> and <code>while</code> bodies. Several also had eagerly loaded describes and more than one declaration per line. Fixing these took PMD to 100 in all 10 groups without changing behaviour.</li>
-    <li><strong>Some code is dead.</strong> <code>fflib_SObjectDescribe</code> had a constructor and a method in a private abstract class that nothing calls, plus a branch that assigns null to a variable that is already null (sobject-describe-1).</li>
+    <li><strong>Style debt is uniform and cheap to fix.</strong> Every class had missing braces on <code>if</code>, <code>for</code> and <code>while</code> bodies. Several also had eagerly loaded describes and more than one declaration per line. Fixing these took PMD to 100 in all 10 groups without changing behaviour.
+      <span class="refs">Example: <a href="https://github.com/apex-enterprise-patterns/fflib-apex-common/blob/69ad914b24e1bcbcf5e3f2cb0795c9541895a3a9/sfdx-source/apex-common/main/classes/fflib_StringBuilder.cls#L144-L154">code</a> · <a href="https://github.com/nextdoc/fflib-apex-common/commit/c4e8a6ae885962531ae78c65f965d553e165faea">change</a></span></li>
+    <li><strong>Some code is dead.</strong> <code>fflib_SObjectDescribe</code> had a constructor and a method in a private abstract class that nothing calls, plus a branch that assigns null to a variable that is already null (sobject-describe-1).
+      <span class="refs"><a href="https://github.com/apex-enterprise-patterns/fflib-apex-common/blob/69ad914b24e1bcbcf5e3f2cb0795c9541895a3a9/sfdx-source/apex-common/main/classes/fflib_SObjectDescribe.cls#L371-L380">code</a> · <a href="https://github.com/apex-enterprise-patterns/fflib-apex-common/blob/69ad914b24e1bcbcf5e3f2cb0795c9541895a3a9/sfdx-source/apex-common/main/classes/fflib_SObjectDescribe.cls#L244-L245">code</a> · <a href="https://github.com/nextdoc/fflib-apex-common/commit/06acd9358d77f89ca636045a5aae8364374a9ad8">change</a> · <a href="https://github.com/nextdoc/fflib-apex-common/commit/b1f718c0c56e8b5456119a1409aa12a2d02bf153">change</a></span></li>
     <li><strong>There are real performance wins that don't depend on caching:</strong>
       <ul>
-        <li><code>fflib_Objects</code> searches a list once per value where a Set lookup does the same job (objects-1).</li>
-        <li><code>fflib_SObjectDomain.getChangedRecords</code> reads a lazy getter on every loop pass (sobject-domain-1).</li>
-        <li><code>fflib_SObjectUnitOfWork</code> runs resolve passes for types that have no dirty records (unit-of-work-1).</li>
-        <li><code>fflib_SObjectDescribe</code> keys its cache by a lowercased string where the <code>SObjectType</code> token would do (sobject-describe-1).</li>
+        <li><code>fflib_Objects</code> searches a list once per value where a Set lookup does the same job (objects-1).
+          <span class="refs"><a href="https://github.com/apex-enterprise-patterns/fflib-apex-common/blob/69ad914b24e1bcbcf5e3f2cb0795c9541895a3a9/sfdx-source/apex-common/main/classes/fflib_Objects.cls#L69-L105">code</a> · <a href="https://github.com/nextdoc/fflib-apex-common/commit/b851dd54beac387d1bc16b4656ebbf5958b8ebb7">change</a></span></li>
+        <li><code>fflib_SObjectDomain.getChangedRecords</code> reads a lazy getter on every loop pass (sobject-domain-1).
+          <span class="refs"><a href="https://github.com/apex-enterprise-patterns/fflib-apex-common/blob/69ad914b24e1bcbcf5e3f2cb0795c9541895a3a9/sfdx-source/apex-common/main/classes/fflib_SObjectDomain.cls#L318-L339">code</a> · <a href="https://github.com/nextdoc/fflib-apex-common/commit/e495f52f8ae7dd4cc63b24b5d4a6a120fe308bba">change</a></span></li>
+        <li><code>fflib_SObjectUnitOfWork</code> runs resolve passes for types that have no dirty records (unit-of-work-1).
+          <span class="refs"><a href="https://github.com/apex-enterprise-patterns/fflib-apex-common/blob/69ad914b24e1bcbcf5e3f2cb0795c9541895a3a9/sfdx-source/apex-common/main/classes/fflib_SObjectUnitOfWork.cls#L878-L886">code</a> · <a href="https://github.com/nextdoc/fflib-apex-common/commit/f95815f3d216ea33071b18c9b43729cd2948d71a">change</a></span></li>
+        <li><code>fflib_SObjectDescribe</code> keys its cache by a lowercased string where the <code>SObjectType</code> token would do (sobject-describe-1). The kept change also made name lookups slower, so take the keying, not the whole commit.
+          <span class="refs"><a href="https://github.com/apex-enterprise-patterns/fflib-apex-common/blob/69ad914b24e1bcbcf5e3f2cb0795c9541895a3a9/sfdx-source/apex-common/main/classes/fflib_SObjectDescribe.cls#L236-L268">code</a> · <a href="https://github.com/nextdoc/fflib-apex-common/commit/1b5082c5d85bfc8b61368809f8650980f2962696">change</a></span></li>
       </ul>
     </li>
-    <li><strong><code>fflib_QueryFactory</code> overrides <code>equals</code> without <code>hashCode</code>.</strong> Two equal factories can have different hash codes, so Sets and Maps behave inconsistently. A test depends on this (query-factory-1).</li>
-    <li><strong>Extension points are fragile.</strong> <code>fflib_StringBuilder</code> constructors call the public virtual <code>add(String)</code>, and a comment calls the list "distinct" although nothing removes duplicates. Changing either one silently breaks subclasses outside the library (string-builder-2).</li>
-    <li><strong>Some assertions are commented out.</strong> <code>fflib_SObjectDescribeTest.getAccountDescribes</code> has its instance-identity checks commented out (sobject-describe-1).</li>
+    <li><strong><code>fflib_QueryFactory</code> overrides <code>equals</code> without <code>hashCode</code>.</strong> Two equal factories can have different hash codes, so Sets and Maps behave inconsistently. A test depends on this (query-factory-1). The agent only suppressed the PMD warning, so the change shows the problem, not a fix.
+      <span class="refs"><a href="https://github.com/apex-enterprise-patterns/fflib-apex-common/blob/69ad914b24e1bcbcf5e3f2cb0795c9541895a3a9/sfdx-source/apex-common/main/classes/fflib_QueryFactory.cls#L179-L184">code</a> · <a href="https://github.com/apex-enterprise-patterns/fflib-apex-common/blob/69ad914b24e1bcbcf5e3f2cb0795c9541895a3a9/sfdx-source/apex-common/test/classes/fflib_QueryFactoryTest.cls#L517">test</a> · <a href="https://github.com/nextdoc/fflib-apex-common/commit/2d6ca513727399c9a531a099cd305ec5944490c0">change</a></span></li>
+    <li><strong>Extension points are fragile.</strong> <code>fflib_StringBuilder</code> constructors call the public virtual <code>add(String)</code>, and a comment calls the list "distinct" although nothing removes duplicates. Changing either one silently breaks subclasses outside the library (string-builder-2). The kept change is the one that broke it.
+      <span class="refs"><a href="https://github.com/apex-enterprise-patterns/fflib-apex-common/blob/69ad914b24e1bcbcf5e3f2cb0795c9541895a3a9/sfdx-source/apex-common/main/classes/fflib_StringBuilder.cls#L144-L154">code</a> · <a href="https://github.com/apex-enterprise-patterns/fflib-apex-common/blob/69ad914b24e1bcbcf5e3f2cb0795c9541895a3a9/sfdx-source/apex-common/main/classes/fflib_StringBuilder.cls#L67">add(String)</a> · <a href="https://github.com/nextdoc/fflib-apex-common/commit/c5b7379ddff3bb9d17f9fd5dd99494c5b5e09d73">change</a></span></li>
+    <li><strong>Some assertions are commented out.</strong> <code>fflib_SObjectDescribeTest.getAccountDescribes</code> has its instance-identity checks commented out (sobject-describe-1).
+      <span class="refs"><a href="https://github.com/apex-enterprise-patterns/fflib-apex-common/blob/69ad914b24e1bcbcf5e3f2cb0795c9541895a3a9/sfdx-source/apex-common/test/classes/fflib_SObjectDescribeTest.cls#L152-L163">code</a></span></li>
   </ol>
 
   <h2>2. Findings about the climb</h2>

@@ -44,6 +44,14 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
     <li>An <code>equals</code> without a matching <code>hashCode</code> in <code>fflib_QueryFactory</code>.</li>
     <li>An extension point in <code>fflib_StringBuilder</code> that is easy to break.</li>
   </ul>
+  <p>Caveats:</p>
+  <ul>
+    <li>PMD ran with Salesforce Code Analyzer's default rules and settings. fflib often leaves out braces, which is a valid style choice, and PMD can be configured not to flag it.</li>
+    <li>The headroom tests that measure performance were written for these climbs and are not part of fflib. They repeat the same input many times, so the performance findings reflect those tests, not real workloads.</li>
+    <li>Each ascent ran in one scratch org, and the governor limit headroom score varies by about ±12 between runs, so small performance differences are within noise.</li>
+    <li>No anchoring was done. Anchoring means adding tests that fix the expected behaviour before the agent changes the code. We are not fflib's maintainers or authors, so we did not presume what the correct behaviour or the right tests are.</li>
+    <li>The scratch org had multi-currency enabled and no namespace, so behaviour in namespaced orgs was not tested.</li>
+  </ul>
   <p>If you are a coding agent, use the retrospective JSON files: one per ascent, linked in the table, or all of them in <a href="retros.json">retros.json</a>.</p>
 
   <h2>Map</h2>
