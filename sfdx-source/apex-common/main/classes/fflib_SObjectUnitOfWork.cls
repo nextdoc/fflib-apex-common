@@ -280,7 +280,10 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
    *
    */
   private void handleRegisterType(Schema.SObjectType sObjectType) {
-    String sObjectName = sObjectType.getDescribe().getName();
+    String sObjectName = sObjectType.getDescribe(
+        SObjectDescribeOptions.DEFERRED
+      )
+      .getName();
 
     // add type to dml operation tracking
     m_newListByType.put(sObjectName, new List<SObject>());
@@ -613,7 +616,8 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
     SObject relatedToParentRecord
   ) {
     SObjectType sObjectType = record.getSObjectType();
-    String sObjName = sObjectType.getDescribe().getName();
+    String sObjName = sObjectType.getDescribe(SObjectDescribeOptions.DEFERRED)
+      .getName();
 
     assertForNonEventSObjectType(sObjName);
     assertForSupportedSObjectType(m_upsertRecordsPerType, sObjName);
@@ -890,14 +894,19 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
   private void publishBeforeEventsStarting() {
     for (Schema.SObjectType sObjectType : m_sObjectTypes) {
       m_dml.eventPublish(
-        m_publishBeforeListByType.get(sObjectType.getDescribe().getName())
+        m_publishBeforeListByType.get(
+          sObjectType.getDescribe(SObjectDescribeOptions.DEFERRED).getName()
+        )
       );
     }
   }
 
   private void insertDmlByType() {
     for (Schema.SObjectType sObjectType : m_sObjectTypes) {
-      String sObjectName = sObjectType.getDescribe().getName();
+      String sObjectName = sObjectType.getDescribe(
+          SObjectDescribeOptions.DEFERRED
+        )
+        .getName();
       m_relationships.get(sObjectName).resolve();
       m_dml.dmlInsert(m_newListByType.get(sObjectName));
     }
@@ -905,7 +914,10 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
 
   private void updateDmlByType() {
     for (Schema.SObjectType sObjectType : m_sObjectTypes) {
-      String sObjectName = sObjectType.getDescribe().getName();
+      String sObjectName = sObjectType.getDescribe(
+          SObjectDescribeOptions.DEFERRED
+        )
+        .getName();
       m_relationships.get(sObjectName).resolve();
       m_dml.dmlUpdate(m_dirtyMapByType.get(sObjectName).values());
     }
@@ -914,7 +926,8 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
   private void upsertDmlByType() {
     String sobjName;
     for (Schema.SObjectType sObjectType : m_sObjectTypes) {
-      sobjName = sObjectType.getDescribe().getName();
+      sobjName = sObjectType.getDescribe(SObjectDescribeOptions.DEFERRED)
+        .getName();
       List<SObject> upsertRecords = m_upsertRecordsPerType.get(sobjName);
       if (upsertRecords != null && !upsertRecords.isEmpty()) {
         m_relationships.get(sobjName).resolve();
@@ -965,7 +978,9 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
   private void publishAfterSuccessEvents() {
     for (Schema.SObjectType sObjectType : m_sObjectTypes) {
       m_dml.eventPublish(
-        m_publishAfterSuccessListByType.get(sObjectType.getDescribe().getName())
+        m_publishAfterSuccessListByType.get(
+          sObjectType.getDescribe(SObjectDescribeOptions.DEFERRED).getName()
+        )
       );
     }
   }
@@ -973,7 +988,9 @@ public virtual inherited sharing class fflib_SObjectUnitOfWork implements fflib_
   private void publishAfterFailureEvents() {
     for (Schema.SObjectType sObjectType : m_sObjectTypes) {
       m_dml.eventPublish(
-        m_publishAfterFailureListByType.get(sObjectType.getDescribe().getName())
+        m_publishAfterFailureListByType.get(
+          sObjectType.getDescribe(SObjectDescribeOptions.DEFERRED).getName()
+        )
       );
     }
   }
