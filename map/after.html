@@ -110,8 +110,11 @@ function tipHtml(g) {
 }
 
 const tip = document.getElementById('tip');
+const hideTip = () => { tip.style.display = 'none'; };
 function showTip(handler, event, item, id) {
-  if (id == null || !byId[id]) { tip.style.display = 'none'; return; }
+  // Vega only knows the touched item after a move, so touches are handled by the pointerup lookup below.
+  if (event?.pointerType === 'touch') return;
+  if (id == null || !byId[id]) { hideTip(); return; }
   tip.innerHTML = tipHtml(byId[id]);
   tip.style.display = 'block';
   const x = event.clientX + 14, y = event.clientY + 14;
@@ -142,6 +145,7 @@ document.addEventListener('click', event => {
   const p = event.target.closest('.pill');
   if (p) setFilter(p.dataset.tag === filter ? '' : p.dataset.tag);
   else if (event.target.closest('.clear')) setFilter('');
+  if (!event.target.closest('canvas')) hideTip();
 });
 
 const fade = {opacity: [{test: "tagFilter && indexof(datum.tagKeys, tagFilter) < 0", value: 0.15}, {value: 1}]};
@@ -168,6 +172,14 @@ vegaEmbed('#map', {
       text: {signal: "datum.size + ' lines' + (datum.score == null ? '' : ' · score ' + format(datum.score, '.1f'))"}, limit: {signal: 'datum.x1 - datum.x0 - 20'}}}}]
 }, {actions: false, tooltip: showTip}).then(result => {
   view = result.view;
+  const canvas = document.querySelector('#map canvas');
+  canvas.addEventListener('pointerup', event => {
+    if (event.pointerType !== 'touch') return;
+    const r = canvas.getBoundingClientRect(), x = event.clientX - r.left, y = event.clientY - r.top;
+    const leaf = view.data('leaves').find(d => x >= d.x0 && x < d.x1 && y >= d.y0 && y < d.y1);
+    showTip(null, {clientX: event.clientX, clientY: event.clientY}, null, leaf?.id);
+  });
+  addEventListener('scroll', hideTip, {passive: true});
   drawPills();
 });
 </script>
