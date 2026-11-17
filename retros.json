@@ -1788,7 +1788,8 @@
           ],
           "severity": "low",
           "caughtByTests": false,
-          "proposedTest": "Call checkRead(Opportunity.SObjectType, new List<String>{'LastSyncTime'}) as an admin and assert that it does not throw."
+          "proposedTest": "Call checkRead(Opportunity.SObjectType, new List<String>{'LastSyncTime'}) as an admin and assert that it does not throw.",
+          "correction": "Checked on 2026-11-17 in the fflib-apex-common scratch org, this claim is wrong. fflib_SObjectDescribe.getField resolved every native field on Account, Contact, Lead, Opportunity and Case, and Opportunity has no LastSyncTime field in that org. The real behaviour is in fflib_SecurityUtils: checkFieldIsReadable, checkFieldIsInsertable and checkFieldIsUpdateable call getDescribe() on the result of getField without a null check, so an unknown field name such as LastSyncTime or NoSuchField__c throws a NullPointerException that does not name the field."
         }
       ],
       "patterns": [
