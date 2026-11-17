@@ -22,3 +22,14 @@ details.ascents summary:hover { background: color-mix(in srgb, var(--accent) 8%,
 details.ascents summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 details.ascents .wrap { padding: 0 12px 10px; }
 .venn { width: 100%; }
+code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+body > ul { margin: 0; padding: 0 0 1px 24px; }
+blockquote { margin: 8px 0 12px; padding: 8px 14px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); color: var(--fg); }
+blockquote ul { margin: 0; padding-left: 18px; }
+.findings-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin: 0 0 8px; }
+.findings-head p { margin: 0; }
+.findings-head button { font: 600 14px system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--accent); background: none; border: 1px solid var(--line); border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+.findings-head button:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.findings-head button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#findings.collapsed blockquote { display: none; }
+#findings > li { margin: 0 0 6px; }
