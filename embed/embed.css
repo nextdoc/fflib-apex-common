@@ -23,7 +23,7 @@ details.ascents summary:focus-visible { outline: 2px solid var(--accent); outlin
 details.ascents .wrap { padding: 0 12px 10px; }
 .venn { width: 100%; }
 code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
-body > ul { margin: 0; padding: 0 0 1px 24px; }
+body > ol { margin: 0; padding: 0 0 1px 24px; }
 blockquote { margin: 8px 0 12px; padding: 8px 14px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); color: var(--fg); }
 blockquote ul { margin: 0; padding-left: 18px; }
 .findings-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin: 0 0 8px; }

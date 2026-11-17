@@ -11,7 +11,7 @@
   <p>Highlights for the fflib authors (<a href="https://nextdoc.github.io/fflib-apex-common/summary.html#fflib" target="_blank" rel="noopener">read the fflib findings</a>):</p>
   <button type="button" id="toggle" aria-expanded="false" aria-controls="findings">Show explanations</button>
 </div>
-<ul id="findings" class="collapsed">
+<ol id="findings" class="collapsed">
   <li>An <code>equals</code> without a matching <code>hashCode</code> in <code>fflib_QueryFactory</code>, found by both sets of ascents.
     <blockquote>Two factories that are equal can have different hash codes, so a <code>Set</code> or <code>Map</code> can hold both. The test <code>deterministic_toSOQL</code> relies on this: it puts two equal, empty factories in a <code>Set</code> and expects both to stay. A plain fix is hard because a factory changes after it is built, so a hash based on its query would change while it sits in a collection. The options are to drop the <code>equals</code> override or to document that factories must not be used as keys. The agent only suppressed the PMD warning.</blockquote></li>
   <li>A list search in <code>fflib_Objects</code> where a Set lookup would do.
@@ -29,7 +29,7 @@
   <li>Dead code in <code>fflib_SObjectDescribe</code>.
     <blockquote>The private abstract class <code>NamespacedAttributeMap</code> has a no-argument constructor and a one-argument <code>getObject</code> that neither subclass calls, and <code>getDescribe(String)</code> has a branch that assigns null to a variable that is already null. This is cleanup, not a defect: removing it changes no behaviour.</blockquote></li>
   <li>198 of the 229 PMD findings are brace rules, which are false positives for fflib because its code style leaves out braces on one-line bodies. The second set of ascents left those rules out. Without them, six of the ten groups already have a clean PMD score.</li>
-</ul>
+</ol>
 <script>
 const toggle = document.getElementById("toggle"), findings = document.getElementById("findings");
 toggle.addEventListener("click", () => {
