@@ -1,0 +1,24 @@
+:root { --bg: #fbfbfa; --fg: #1d1d1b; --muted: #6b6b66; --line: #e3e2de; --accent: #2b6cb0; --good: #2f855a; }
+@media (prefers-color-scheme: dark) { :root { --bg: #161615; --fg: #ecebe8; --muted: #a09f9a; --line: #2f2f2c; --accent: #7fb2e5; --good: #68d391; } }
+html, body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; overflow-x: hidden; }
+a { color: var(--accent); }
+.muted { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+th, td { text-align: left; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 13px; }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.up { color: var(--good); }
+.gain { width: 200px; }
+.gain-bar { min-width: max-content; padding: 1px 6px; border-radius: 3px; background: var(--good); color: var(--bg); font-size: 13px; font-weight: 600; white-space: nowrap; box-sizing: border-box; }
+.wrap { overflow-x: auto; }
+details.ascents { border: 1px solid var(--line); border-radius: 4px; }
+details.ascents summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 4px; }
+details.ascents summary::-webkit-details-marker { display: none; }
+details.ascents summary::before { content: ""; flex: none; width: 7px; height: 7px; border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: rotate(-45deg); transition: transform 0.15s; }
+details.ascents[open] summary::before { transform: rotate(45deg); }
+details.ascents summary::after { content: "Show table"; margin-left: auto; flex: none; color: var(--accent); font-size: 14px; font-weight: 600; }
+details.ascents[open] summary::after { content: "Hide table"; }
+details.ascents summary:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+details.ascents summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+details.ascents .wrap { padding: 0 12px 10px; }
+.venn { width: 100%; }

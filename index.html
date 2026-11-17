@@ -18,27 +18,10 @@ a { color: var(--accent); }
 code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; }
 blockquote { margin: 8px 0 12px; padding: 8px 14px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); color: var(--fg); }
 blockquote ul { margin: 0; padding-left: 18px; }
-table { width: 100%; border-collapse: collapse; font-size: 15px; }
-th, td { text-align: left; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { font-weight: 600; color: var(--muted); font-size: 13px; }
-td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.up { color: var(--good); }
-.gain { width: 200px; }
-.gain-bar { min-width: max-content; padding: 1px 6px; border-radius: 3px; background: var(--good); color: var(--bg); font-size: 13px; font-weight: 600; white-space: nowrap; box-sizing: border-box; }
-.map-frame { width: 100%; height: 600px; border: 1px solid var(--line); border-radius: 4px; display: block; }
-.wrap { overflow-x: auto; }
-details.ascents { border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; }
-details.ascents { padding: 0; }
-details.ascents summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 4px; }
-details.ascents summary::-webkit-details-marker { display: none; }
-details.ascents summary::before { content: ""; flex: none; width: 7px; height: 7px; border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: rotate(-45deg); transition: transform 0.15s; }
-details.ascents[open] summary::before { transform: rotate(45deg); }
-details.ascents summary::after { content: "Show table"; margin-left: auto; flex: none; color: var(--accent); font-size: 14px; font-weight: 600; }
-details.ascents[open] summary::after { content: "Hide table"; }
-details.ascents summary:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
-details.ascents summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-details.ascents .wrap { padding: 0 12px 10px; }
-.venn { width: 100%; margin: 8px 0 16px; }
+.frame { width: 100%; border: 0; display: block; }
+.map-frame { height: 600px; border: 1px solid var(--line); border-radius: 4px; }
+.embed-frame { height: 60px; }
+.venn-frame { height: 280px; margin: 8px 0 16px; }
 </style>
 </head>
 <body>
@@ -85,38 +68,22 @@ details.ascents .wrap { padding: 0 12px 10px; }
 
   <h2 id="map">Out of the box map</h2>
   <p>The library grouped by area, sized by lines of code and coloured by score. Scored before any ascent, with Salesforce Code Analyzer's default PMD rules, as its ascents were scored.</p>
-  <iframe class="map-frame" src="map/after.html" title="Scored map of fflib-apex-common with default PMD rules"></iframe>
+  <iframe class="frame map-frame" src="map/after.html" title="Scored map of fflib-apex-common with default PMD rules"></iframe>
 
   <h2 id="ascents-oob">Out of the box ascents</h2>
-  <details class="ascents">
-    <summary id="ascents-summary">Loading…</summary>
-    <div class="wrap">
-      <table>
-        <thead><tr><th>Ascent</th><th>Classes</th><th>Iterations</th><th>Before</th><th>Change</th><th>After</th><th>Links</th></tr></thead>
-        <tbody id="ascents"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
-      </table>
-    </div>
-  </details>
+  <iframe class="frame embed-frame" src="embed/ascents-oob.html" title="Out of the box ascents"></iframe>
 
   <h2 id="map-style">Map adjusted for style</h2>
   <p>The same code, scored from the same test and analyzer run as the map above, but with PMD run without the four brace rules (<code>IfStmtsMustUseBraces</code>, <code>IfElseStmtsMustUseBraces</code>, <code>ForLoopsMustUseBraces</code>, <code>WhileLoopsMustUseBraces</code>), which flag fflib's choice to leave braces out of one-line bodies. This removes 198 of the 229 PMD violations. Six of the ten groups reach a PMD score of 100. SObjects, Unit of work and SObject describe stay lower because of <code>OneDeclarationPerLine</code> and <code>EagerlyLoadedDescribeSObjectResult</code>.</p>
-  <iframe class="map-frame" src="map/after-style.html" title="Scored map of fflib-apex-common without the PMD brace rules"></iframe>
+  <iframe class="frame map-frame" src="map/after-style.html" title="Scored map of fflib-apex-common without the PMD brace rules"></iframe>
 
   <h2 id="ascents-adjusted">Ascents adjusted for style</h2>
   <p>The same groups climbed again with the four brace rules left out of PMD, from the lowest scoring group on the map above.</p>
-  <details class="ascents">
-    <summary id="ascents-style-summary">Loading…</summary>
-    <div class="wrap">
-      <table>
-        <thead><tr><th>Ascent</th><th>Classes</th><th>Iterations</th><th>Before</th><th>Change</th><th>After</th><th>Links</th></tr></thead>
-        <tbody id="ascents-style"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
-      </table>
-    </div>
-  </details>
+  <iframe class="frame embed-frame" src="embed/ascents-style.html" title="Ascents adjusted for style"></iframe>
 
   <h2 id="learnings">What the two sets taught us about Climber</h2>
   <p>Climber's goal is to find the best improvements and bug fixes reliably, so two runs on the same code should find the same ideas. The chart counts the distinct ideas kept by each set across all ten groups, leaving out brace fixes.</p>
-  <div id="venn" class="venn" role="img" aria-label="Ideas kept: 31 only out of the box, 22 by both, 15 only adjusted for style"></div>
+  <iframe class="frame embed-frame venn-frame" src="embed/venn.html" title="Ideas kept: 31 only out of the box, 22 by both, 15 only adjusted for style"></iframe>
   <ul>
     <li>Both sets kept the biggest performance win in every group, and the main static analysis fixes such as the Graph Engine null check and deferred describes.</li>
     <li>They agree on about a third of all kept ideas (22 of 68). Counting the 15 ideas that one set kept and the other tried and discarded, they agree on about half.</li>
@@ -141,90 +108,21 @@ details.ascents .wrap { padding: 0 12px 10px; }
   <h2>Data</h2>
   <p><a href="ascents.json">ascents.json</a> lists every ascent with its scores and links. <a href="retros.json">retros.json</a> collects every ascent's retrospective (behaviour changes, patterns, test gaps) in one file.</p>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/vega@5.30.0/build/vega.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/vega-embed@6.26.0/build/vega-embed.min.js"></script>
 <script>
-const repo = "https://github.com/nextdoc/fflib-apex-common";
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-for (const mapFrame of document.querySelectorAll(".map-frame")) {
-  const fitMap = () => {
-    const doc = mapFrame.contentDocument;
-    const fit = () => { mapFrame.style.height = doc.documentElement.scrollHeight + "px"; };
+addEventListener("message", (e) => {
+  const frame = [...document.querySelectorAll(".embed-frame")].find((f) => f.contentWindow === e.source);
+  if (frame && e.data?.type === "climber-embed-height") frame.style.height = e.data.height + "px";
+});
+for (const frame of document.querySelectorAll(".map-frame")) {
+  const fitFrame = () => {
+    const doc = frame.contentDocument;
+    const fit = () => { frame.style.height = doc.documentElement.scrollHeight + "px"; };
     new ResizeObserver(fit).observe(doc.body);
     fit();
   };
-  if (mapFrame.contentDocument?.readyState === "complete" && mapFrame.contentDocument.URL !== "about:blank") fitMap();
-  else mapFrame.addEventListener("load", fitMap);
+  if (frame.contentDocument?.readyState === "complete" && frame.contentDocument.URL !== "about:blank") fitFrame();
+  else frame.addEventListener("load", fitFrame);
 }
-const gainPct =(a) => (a.best.overall - a.baseline.overall) / a.baseline.overall * 100;
-const rows = (list) => {
-  const maxGain = Math.max(...list.map(gainPct));
-  return list.length === 0 ? '<tr><td colspan="7" class="muted">None yet.</td></tr>' : list.map((a) => `
-    <tr>
-      <td>${esc(a.name)}<br><span class="muted">${esc(a.startedAt.slice(0, 10))}</span></td>
-      <td>${a.app.map((p) => esc(p.split("/").pop().replace(/\.cls$/, ""))).join("<br>")}</td>
-      <td class="num">${a.iterations} (${a.kept} kept)</td>
-      <td class="num">${a.baseline.overall.toFixed(1)}</td>
-      <td class="num gain"><div class="gain-bar" style="width: ${gainPct(a) / maxGain * 100}%">+${gainPct(a).toFixed(1)}%</div></td>
-      <td class="num up">${a.best.overall.toFixed(1)}</td>
-      <td><a href="${esc(a.report)}">Report</a> · <a href="${repo}/tree/${esc(a.branch)}">Branch</a>${a.retro ? ` · <a href="${esc(a.retro)}">Retro JSON</a>` : ""}</td>
-    </tr>`).join("");
-};
-const styled = (a) => (a.excludedPmdRules ?? []).length > 0;
-const sum = (list, f) => list.reduce((n, a) => n + f(a), 0);
-const summary = (list) => {
-  const mean = (f) => (sum(list, f) / list.length).toFixed(1);
-  return `${list.length} ascents, ${sum(list, (a) => a.iterations)} iterations, ${sum(list, (a) => a.kept)} kept. Average score ${mean((a) => a.baseline.overall)} → ${mean((a) => a.best.overall)}.`;
-};
-fetch("ascents.json").then((r) => r.json()).then((list) => {
-  for (const [id, set] of [["ascents", list.filter((a) => !styled(a))], ["ascents-style", list.filter(styled)]]) {
-    document.getElementById(id).innerHTML = rows(set);
-    document.getElementById(id + "-summary").textContent = summary(set);
-  }
-}).catch(() => {
-  for (const id of ["ascents", "ascents-style"]) {
-    document.getElementById(id).innerHTML = '<tr><td colspan="7">Could not load ascents.json</td></tr>';
-    document.getElementById(id + "-summary").textContent = "Could not load ascents.json";
-  }
-});
-
-const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-const vennEl = document.getElementById("venn");
-const width = Math.min(vennEl.clientWidth, 560);
-const r = Math.min(110, width / 3.6);
-const cx = width / 2, off = r * 0.6, cy = r + 34;
-const regions = [
-  { x: cx - r, y: cy, n: 31, label: ["only out", "of the box"] },
-  { x: cx, y: cy, n: 22, label: ["both"] },
-  { x: cx + r, y: cy, n: 15, label: ["only adjusted", "for style"] }
-];
-vegaEmbed(vennEl, {
-  $schema: "https://vega.github.io/schema/vega/v5.json",
-  width, height: cy + r + 8, padding: 0, background: "transparent",
-  config: { text: { font: "system-ui, -apple-system, Segoe UI, sans-serif", fill: css("--fg") } },
-  data: [
-    { name: "circles", values: [
-      { x: cx - off, tx: cx - 10, align: "right", colour: css("--accent"), title: "Out of the box: 53 kept" },
-      { x: cx + off, tx: cx + 10, align: "left", colour: css("--good"), title: "Adjusted for style: 37 kept" }
-    ] },
-    { name: "regions", values: regions }
-  ],
-  marks: [
-    { type: "symbol", from: { data: "circles" }, encode: { enter: {
-      x: { field: "x" }, y: { value: cy }, shape: { value: "circle" }, size: { value: Math.PI * r * r },
-      fill: { field: "colour" }, fillOpacity: { value: 0.28 }, stroke: { field: "colour" }, strokeWidth: { value: 2 }
-    } } },
-    { type: "text", from: { data: "circles" }, encode: { enter: {
-      x: { field: "tx" }, y: { value: 14 }, align: { field: "align" }, fontSize: { value: 13 }, fontWeight: { value: 600 }, text: { field: "title" }
-    } } },
-    { type: "text", from: { data: "regions" }, encode: { enter: {
-      x: { field: "x" }, y: { signal: "datum.y - 4" }, align: { value: "center" }, fontSize: { value: 24 }, fontWeight: { value: 700 }, text: { field: "n" }
-    } } },
-    { type: "text", from: { data: "regions" }, encode: { enter: {
-      x: { field: "x" }, y: { signal: "datum.y + 6" }, align: { value: "center" }, fontSize: { value: 12 }, lineHeight: { value: 15 }, baseline: { value: "top" }, fill: { value: css("--muted") }, text: { field: "label" }
-    } } }
-  ]
-}, { actions: false, renderer: "svg" });
 </script>
 </body>
 </html>

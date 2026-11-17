@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kept Ideas Venn</title>
+<link rel="stylesheet" href="embed.css">
+</head>
+<body>
+<div id="venn" class="venn" role="img" aria-label="Ideas kept: 31 only out of the box, 22 by both, 15 only adjusted for style"></div>
+<script src="https://cdn.jsdelivr.net/npm/vega@5.30.0/build/vega.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6.26.0/build/vega-embed.min.js"></script>
+<script>
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const vennEl = document.getElementById("venn");
+let drawnWidth = 0;
+const draw = () => {
+  const width = Math.min(vennEl.clientWidth, 560);
+  if (width === drawnWidth) return;
+  drawnWidth = width;
+  const r = Math.min(110, width / 3.6);
+  const cx = width / 2, off = r * 0.6, cy = r + 34;
+  vegaEmbed(vennEl, {
+    $schema: "https://vega.github.io/schema/vega/v5.json",
+    width, height: cy + r + 8, padding: 0, background: "transparent",
+    config: { text: { font: "system-ui, -apple-system, Segoe UI, sans-serif", fill: css("--fg") } },
+    data: [
+      { name: "circles", values: [
+        { x: cx - off, tx: cx - 10, align: "right", colour: css("--accent"), title: "Out of the box: 53 kept" },
+        { x: cx + off, tx: cx + 10, align: "left", colour: css("--good"), title: "Adjusted for style: 37 kept" }
+      ] },
+      { name: "regions", values: [
+        { x: cx - r, y: cy, n: 31, label: ["only out", "of the box"] },
+        { x: cx, y: cy, n: 22, label: ["both"] },
+        { x: cx + r, y: cy, n: 15, label: ["only adjusted", "for style"] }
+      ] }
+    ],
+    marks: [
+      { type: "symbol", from: { data: "circles" }, encode: { enter: {
+        x: { field: "x" }, y: { value: cy }, shape: { value: "circle" }, size: { value: Math.PI * r * r },
+        fill: { field: "colour" }, fillOpacity: { value: 0.28 }, stroke: { field: "colour" }, strokeWidth: { value: 2 }
+      } } },
+      { type: "text", from: { data: "circles" }, encode: { enter: {
+        x: { field: "tx" }, y: { value: 14 }, align: { field: "align" }, fontSize: { value: 13 }, fontWeight: { value: 600 }, text: { field: "title" }
+      } } },
+      { type: "text", from: { data: "regions" }, encode: { enter: {
+        x: { field: "x" }, y: { signal: "datum.y - 4" }, align: { value: "center" }, fontSize: { value: 24 }, fontWeight: { value: 700 }, text: { field: "n" }
+      } } },
+      { type: "text", from: { data: "regions" }, encode: { enter: {
+        x: { field: "x" }, y: { signal: "datum.y + 6" }, align: { value: "center" }, fontSize: { value: 12 }, lineHeight: { value: 15 }, baseline: { value: "top" }, fill: { value: css("--muted") }, text: { field: "label" }
+      } } }
+    ]
+  }, { actions: false, renderer: "svg" });
+};
+draw();
+window.addEventListener("resize", draw);
+</script>
+<script src="embed.js"></script>
+</body>
+</html>
